@@ -180,7 +180,11 @@ function showPage(page) {
   if(page === 'ventes') { renderVentesHistory(); updateSortIndicatorsVentes(); }
   if(page === 'stats') updateStats();
   if(page === 'categories') renderCategoriesTable();
-  if(page === 'produits') renderProductsTable();
+  if(page === 'produits') { 
+    renderProductsTable(); 
+    // 🔥 RECHARGER DEPUIS FIREBASE QUAND ON OUVRE LA PAGE PRODUITS
+    chargerListeProduitsDepuisFirebase();
+  }
   if(page === 'clients') renderClientsTable();
   if(page === 'fournisseurs') renderFournisseursTable();
   if(page === 'depenses') { renderDepensesTable(); updateSortIndicatorsDepenses(); }
@@ -1193,17 +1197,14 @@ function saveProduct() {
     produits.push(product); 
   }
   
-  // Sauvegarde locale
   forceSaveAllData();
   
-  // 🔥 SYNCHRONISATION AUTOMATIQUE VERS FIREBASE 🔥
+  // 🔥 SYNCHRONISATION VERS FIREBASE
   setTimeout(async () => {
-    if (typeof window.syncAllDataToFirebase === 'function') {
-      await window.syncAllDataToFirebase();
+    if (typeof window.saveProductToFirebase === 'function') {
+      await window.saveProductToFirebase(product);
       console.log(`✅ Produit "${nom}" synchronisé vers Firebase`);
       showToastMessage(`✅ Produit "${nom}" synchronisé !`);
-    } else if (typeof window.saveProductToFirebase === 'function') {
-      await window.saveProductToFirebase(product);
     }
   }, 500);
   
@@ -1231,7 +1232,7 @@ function deleteProduct(id) {
       chargerProduitsEnLigne();
       if(categories.length > 0) filterPOSProducts(categories[0].id);
       
-      // 🔥 Supprimer aussi dans Firebase
+      // 🔥 Supprimer dans Firebase
       if (typeof window.deleteProductFromFirebase === 'function') {
         window.deleteProductFromFirebase(idNumber);
       }
@@ -1302,11 +1303,57 @@ function renderProductsTable() {
   }).join('');
 }
 
-// ========= CLIENTS (Version simplifiée - garder vos fonctions existantes) =========
-// ... (garder vos fonctions client existantes)
+// ========= CHARGEMENT DES PRODUITS DEPUIS FIREBASE POUR LA LISTE =========
+async function chargerListeProduitsDepuisFirebase() {
+    console.log("🔄 Chargement de la liste des produits depuis Firebase...");
+    
+    const tbody = document.getElementById('productsList');
+    if(tbody) {
+        tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:40px;">⏳ Chargement des produits depuis Firebase...</td></tr>';
+    }
+    
+    try {
+        let produitsFirebase = [];
+        
+        if (typeof window.loadProductsFromFirebase === 'function') {
+            produitsFirebase = await window.loadProductsFromFirebase();
+        }
+        
+        if (produitsFirebase.length === 0) {
+            produitsFirebase = JSON.parse(localStorage.getItem('chickenway_produits')) || [];
+        }
+        
+        if (produitsFirebase.length > 0) {
+            produits = produitsFirebase;
+            localStorage.setItem('chickenway_produits', JSON.stringify(produitsFirebase));
+            console.log(`✅ ${produitsFirebase.length} produits chargés depuis Firebase`);
+            renderProductsTable();
+            loadPOSCategories();
+            chargerProduitsEnLigne();
+            updateStats();
+            return true;
+        } else {
+            if(tbody) {
+                tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:40px;color:#94a3b8;">📦 Aucun produit trouvé. Cliquez sur "Ajouter" pour créer votre premier produit.</td></tr>';
+            }
+            return false;
+        }
+    } catch (error) {
+        console.error("❌ Erreur chargement produits Firebase:", error);
+        return false;
+    }
+}
 
-// ========= FOURNISSEURS (Version simplifiée) =========
-// ... (garder vos fonctions fournisseur existantes)
+// Rafraîchir depuis Firebase
+async function refreshProductsFromFirebase() {
+    showToastMessage("🔄 Rafraîchissement des produits...");
+    const success = await chargerListeProduitsDepuisFirebase();
+    if (success) {
+        showToastMessage("✅ Liste des produits mise à jour depuis Firebase !");
+    } else {
+        showToastMessage("⚠️ Aucun produit trouvé dans Firebase");
+    }
+}
 
 // ========= FONCTION UTILITAIRE =========
 function getNowDateTime() {
@@ -1320,7 +1367,7 @@ function renderVentesHistory() {
   if(!tbody) return;
   
   if(ventes.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="18" style="text-align:center;padding:20px;color:#94a3b8;">Aucune vente</td></tr>';
+    tbody.innerHTML = '<td><td colspan="18" style="text-align:center;padding:20px;color:#94a3b8;">Aucune vente</td></tr>';
     return;
   }
   
@@ -1755,7 +1802,6 @@ async function openOnlineOrderModal() {
   const modal = document.getElementById('onlineOrderModal');
   if(modal) modal.classList.remove('hidden');
   
-  // Recharger les produits depuis Firebase à chaque ouverture
   await chargerCategoriesEnLigne();
   await chargerProduitsEnLigne();
   afficherPanierEnLigne();
@@ -2032,10 +2078,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   loadAllData();
   seedDemoData();
   
-  // Attendre que Firebase soit prêt
-  if (typeof window.mergeProductsFromFirebase === 'function') {
-    await window.mergeProductsFromFirebase();
-  }
+  // 🔥 CHARGER LES PRODUITS DEPUIS FIREBASE AU DÉMARRAGE
+  await chargerListeProduitsDepuisFirebase();
   
   renderAllTables();
   
@@ -2077,7 +2121,7 @@ function closeClientModal() {}
 function saveClient() {}
 function editClient(id) {}
 function deleteClient(id) {}
-function renderClientsTable() { const tbody = document.getElementById('clientsList'); if(tbody) tbody.innerHTML = '<td><td colspan="10">Clients</td></tr>'; }
+function renderClientsTable() { const tbody = document.getElementById('clientsList'); if(tbody) tbody.innerHTML = '<tr><td colspan="10">Clients</td></tr>'; }
 
 // ========= FOURNISSEURS (Fonctions minimales) =========
 function openFournisseurModal(edit, fournisseur) { alert("Fonction fournisseur à implémenter"); }
@@ -2085,10 +2129,11 @@ function closeFournisseurModal() {}
 function saveFournisseur() {}
 function editFournisseur(id) {}
 function deleteFournisseur(id) {}
-function renderFournisseursTable() { const tbody = document.getElementById('fournisseursList'); if(tbody) tbody.innerHTML = '<td><td colspan="10">Fournisseurs</td></tr>'; }
+function renderFournisseursTable() { const tbody = document.getElementById('fournisseursList'); if(tbody) tbody.innerHTML = '<tr><td colspan="10">Fournisseurs</td></tr>'; }
 
-// ========= CLIENTS (Version complète - à conserver) =========
-// Si vous avez des fonctions client complètes, remplacez les fonctions minimales ci-dessus par vos fonctions existantes.
+// Exposer les nouvelles fonctions
+window.chargerListeProduitsDepuisFirebase = chargerListeProduitsDepuisFirebase;
+window.refreshProductsFromFirebase = refreshProductsFromFirebase;
 
 // Exposer toutes les fonctions globalement
 window.openOnlineOrderModal = openOnlineOrderModal;
