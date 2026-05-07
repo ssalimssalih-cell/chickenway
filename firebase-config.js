@@ -443,3 +443,450 @@ if (document.readyState === 'loading') {
 }
 
 console.log("📁 firebase-config.js chargé");
+// ========= FONCTIONS POUR LA SYNCHRONISATION DES PRODUITS (AJOUTER CECI À LA FIN) =========
+
+// Charger tous les produits depuis Firebase
+async function loadProductsFromFirebase() {
+    try {
+        if (!window.db) {
+            console.error("Firestore non disponible");
+            return [];
+        }
+        
+        const snapshot = await window.db.collection(PRODUCTS_COLLECTION).get();
+        const products = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.id && !data._init) {
+                products.push(data);
+            }
+        });
+        
+        products.sort((a, b) => a.id - b.id);
+        console.log(`✅ ${products.length} produits chargés depuis Firebase`);
+        return products;
+    } catch (error) {
+        console.error("Erreur chargement produits:", error);
+        return [];
+    }
+}
+
+// Sauvegarder un seul produit dans Firebase
+async function saveProductToFirebase(product) {
+    try {
+        if (!window.db) {
+            console.error("Firestore non disponible");
+            return false;
+        }
+        
+        if (!product.id) {
+            console.error("Produit sans ID");
+            return false;
+        }
+        
+        await window.db.collection(PRODUCTS_COLLECTION).doc(product.id.toString()).set({
+            id: product.id,
+            nom: product.nom,
+            categorieId: product.categorieId,
+            image: product.image || '',
+            description: product.description || '',
+            prixAchat: product.prixAchat || 0,
+            prixVente: product.prixVente || 0,
+            prixPromo: product.prixPromo || 0,
+            stock: product.stock || 0,
+            quantiteVendue: product.quantiteVendue || 0,
+            tempsPreparation: product.tempsPreparation || 5,
+            disponibilite: product.disponibilite || 'disponible',
+            chiffreAffaire: product.chiffreAffaire || 0,
+            dateCreation: product.dateCreation || new Date().toISOString(),
+            lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log(`✅ Produit "${product.nom}" (ID: ${product.id}) synchronisé vers Firebase`);
+        return true;
+    } catch (error) {
+        console.error("Erreur sauvegarde produit:", error);
+        return false;
+    }
+}
+
+// Supprimer un produit de Firebase
+async function deleteProductFromFirebase(productId) {
+    try {
+        if (!window.db) return false;
+        
+        await window.db.collection(PRODUCTS_COLLECTION).doc(productId.toString()).delete();
+        console.log(`✅ Produit ${productId} supprimé de Firebase`);
+        return true;
+    } catch (error) {
+        console.error("Erreur suppression produit:", error);
+        return false;
+    }
+}
+
+// Synchroniser TOUS les produits vers Firebase
+async function syncAllDataToFirebase() {
+    try {
+        if (!window.db) {
+            console.error("Firestore non disponible");
+            return false;
+        }
+        
+        const produits = JSON.parse(localStorage.getItem('chickenway_produits')) || [];
+        
+        if (produits.length === 0) {
+            console.log("Aucun produit à synchroniser");
+            return false;
+        }
+        
+        await ensureCollectionsExist();
+        
+        let compteur = 0;
+        for (const produit of produits) {
+            if (produit.id) {
+                await window.db.collection(PRODUCTS_COLLECTION).doc(produit.id.toString()).set({
+                    id: produit.id,
+                    nom: produit.nom,
+                    categorieId: produit.categorieId,
+                    image: produit.image || '',
+                    description: produit.description || '',
+                    prixAchat: produit.prixAchat || 0,
+                    prixVente: produit.prixVente || 0,
+                    prixPromo: produit.prixPromo || 0,
+                    stock: produit.stock || 0,
+                    quantiteVendue: produit.quantiteVendue || 0,
+                    tempsPreparation: produit.tempsPreparation || 5,
+                    disponibilite: produit.disponibilite || 'disponible',
+                    chiffreAffaire: produit.chiffreAffaire || 0,
+                    dateCreation: produit.dateCreation || new Date().toISOString(),
+                    lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                compteur++;
+            }
+        }
+        
+        console.log(`✅ ${compteur} produits synchronisés vers Firebase`);
+        
+        // Afficher un toast si disponible
+        if (typeof window.showToastMessage === 'function') {
+            window.showToastMessage(`✅ ${compteur} produits synchronisés !`);
+        }
+        
+        return true;
+    } catch (error) {
+        console.error("Erreur sync Firebase:", error);
+        return false;
+    }
+}
+
+// Fusionner les produits depuis Firebase (priorité à Firebase)
+async function mergeProductsFromFirebase() {
+    console.log("🔄 Fusion des produits depuis Firebase...");
+    
+    try {
+        const firebaseProducts = await loadProductsFromFirebase();
+        
+        if (firebaseProducts.length > 0) {
+            // Sauvegarder dans localStorage
+            localStorage.setItem('chickenway_produits', JSON.stringify(firebaseProducts));
+            
+            // Mettre à jour la variable globale si elle existe
+            if (typeof window.produits !== 'undefined') {
+                window.produits = firebaseProducts;
+            }
+            
+            console.log(`📦 ${firebaseProducts.length} produits fusionnés depuis Firebase`);
+            return true;
+        } else {
+            // Si Firebase est vide, synchroniser les produits locaux
+            console.log("📤 Firebase vide, synchronisation des produits locaux...");
+            await syncAllDataToFirebase();
+            return true;
+        }
+    } catch (error) {
+        console.error("Erreur fusion produits:", error);
+        return false;
+    }
+}
+
+// ========= FONCTIONS POUR LES CATÉGORIES =========
+
+// Collection des catégories
+const CATEGORIES_COLLECTION = 'categories';
+
+async function loadCategoriesFromFirebase() {
+    try {
+        if (!window.db) return [];
+        
+        const snapshot = await window.db.collection(CATEGORIES_COLLECTION).get();
+        const categories = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.id && !data._init) {
+                categories.push(data);
+            }
+        });
+        
+        categories.sort((a, b) => a.id - b.id);
+        console.log(`✅ ${categories.length} catégories chargées depuis Firebase`);
+        return categories;
+    } catch (error) {
+        console.error("Erreur chargement catégories:", error);
+        return [];
+    }
+}
+
+async function saveCategoryToFirebase(category) {
+    try {
+        if (!window.db) return false;
+        
+        await window.db.collection(CATEGORIES_COLLECTION).doc(category.id.toString()).set({
+            id: category.id,
+            nom: category.nom,
+            icon: category.icon,
+            description: category.description || '',
+            dateCreation: category.dateCreation || new Date().toISOString(),
+            lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        console.log(`✅ Catégorie "${category.nom}" synchronisée vers Firebase`);
+        return true;
+    } catch (error) {
+        console.error("Erreur sauvegarde catégorie:", error);
+        return false;
+    }
+}
+
+async function deleteCategoryFromFirebase(categoryId) {
+    try {
+        if (!window.db) return false;
+        
+        await window.db.collection(CATEGORIES_COLLECTION).doc(categoryId.toString()).delete();
+        console.log(`✅ Catégorie ${categoryId} supprimée de Firebase`);
+        return true;
+    } catch (error) {
+        console.error("Erreur suppression catégorie:", error);
+        return false;
+    }
+}
+
+async function syncAllCategoriesToFirebase() {
+    try {
+        if (!window.db) return false;
+        
+        const categories = JSON.parse(localStorage.getItem('chickenway_categories')) || [];
+        
+        for (const category of categories) {
+            if (category.id) {
+                await saveCategoryToFirebase(category);
+            }
+        }
+        
+        console.log(`✅ ${categories.length} catégories synchronisées vers Firebase`);
+        return true;
+    } catch (error) {
+        console.error("Erreur sync catégories:", error);
+        return false;
+    }
+}
+
+async function mergeCategoriesFromFirebase() {
+    console.log("🔄 Fusion des catégories depuis Firebase...");
+    
+    try {
+        const firebaseCategories = await loadCategoriesFromFirebase();
+        
+        if (firebaseCategories.length > 0) {
+            localStorage.setItem('chickenway_categories', JSON.stringify(firebaseCategories));
+            
+            if (typeof window.categories !== 'undefined') {
+                window.categories = firebaseCategories;
+            }
+            
+            console.log(`📦 ${firebaseCategories.length} catégories fusionnées depuis Firebase`);
+            return true;
+        } else {
+            await syncAllCategoriesToFirebase();
+            return true;
+        }
+    } catch (error) {
+        console.error("Erreur fusion catégories:", error);
+        return false;
+    }
+}
+
+// ========= FONCTIONS POUR LE MENU EN LIGNE (AVEC CACHING) =========
+let cachedProducts = null;
+let lastProductsFetch = 0;
+const CACHE_DURATION = 60000; // 1 minute
+
+async function getProductsForOnlineMenu(forceRefresh = false) {
+    const now = Date.now();
+    
+    if (!forceRefresh && cachedProducts && (now - lastProductsFetch) < CACHE_DURATION) {
+        console.log("📦 Utilisation du cache produits (menu en ligne)");
+        return cachedProducts;
+    }
+    
+    try {
+        const products = await loadProductsFromFirebase();
+        
+        if (products.length > 0) {
+            cachedProducts = products;
+            lastProductsFetch = now;
+            console.log(`✅ ${products.length} produits pour le menu en ligne`);
+        }
+        
+        return products;
+    } catch (error) {
+        console.error("Erreur chargement produits menu:", error);
+        return [];
+    }
+}
+
+async function getCategoriesForOnlineMenu() {
+    try {
+        const categories = await loadCategoriesFromFirebase();
+        console.log(`✅ ${categories.length} catégories pour le menu en ligne`);
+        return categories;
+    } catch (error) {
+        console.error("Erreur chargement catégories menu:", error);
+        return [];
+    }
+}
+
+// ========= ÉCOUTE EN TEMPS RÉEL DES PRODUITS =========
+let unsubscribeProductsListener = null;
+
+function listenToProducts(callback) {
+    if (!window.db) {
+        console.error("Firestore non disponible pour l'écoute des produits");
+        return null;
+    }
+    
+    if (unsubscribeProductsListener) {
+        unsubscribeProductsListener();
+        unsubscribeProductsListener = null;
+    }
+    
+    unsubscribeProductsListener = window.db.collection(PRODUCTS_COLLECTION)
+        .onSnapshot((snapshot) => {
+            const products = [];
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.id && !data._init) {
+                    products.push(data);
+                }
+            });
+            
+            products.sort((a, b) => a.id - b.id);
+            
+            if (callback) callback(products);
+            console.log(`📢 ${products.length} produits chargés (temps réel)`);
+        }, (error) => {
+            console.error("Erreur écoute produits Firebase:", error);
+        });
+    
+    return unsubscribeProductsListener;
+}
+
+function startProductsListener() {
+    if (!window.db) {
+        console.error("Firestore non disponible - écoute produits impossible");
+        return;
+    }
+    
+    listenToProducts((products) => {
+        if (products.length > 0) {
+            localStorage.setItem('chickenway_produits', JSON.stringify(products));
+            
+            if (typeof window.produits !== 'undefined') {
+                window.produits = products;
+            }
+            
+            if (typeof window.renderProductsTable === 'function') {
+                window.renderProductsTable();
+            }
+            if (typeof window.loadPOSCategories === 'function') {
+                window.loadPOSCategories();
+            }
+            if (typeof window.chargerProduitsEnLigne === 'function') {
+                window.chargerProduitsEnLigne();
+            }
+            if (typeof window.updateStats === 'function') {
+                window.updateStats();
+            }
+        }
+    });
+}
+
+// ========= INITIALISATION AMÉLIORÉE =========
+async function initFirebaseComplete() {
+    console.log("🔄 Initialisation Firebase complète...");
+    
+    if (typeof firebase === 'undefined') {
+        console.warn("⚠️ Firebase SDK non chargé, nouvelle tentative dans 1s...");
+        setTimeout(initFirebaseComplete, 1000);
+        return;
+    }
+    
+    try {
+        if (firebase.apps.length === 0) {
+            firebase.initializeApp(window.firebaseConfig);
+            console.log("🔥 Firebase initialisé tardivement");
+        }
+        
+        if (!window.db) {
+            window.db = firebase.firestore();
+            console.log("📁 Firestore initialisé");
+        }
+        
+        await ensureCollectionsExist();
+        
+        const isConnected = await testFirebaseConnection();
+        if (isConnected) {
+            console.log("✅ Firebase connecté et opérationnel !");
+        }
+        
+        // Fusionner les données
+        await mergeProductsFromFirebase();
+        await mergeCategoriesFromFirebase();
+        
+        // Démarrer l'écoute en temps réel
+        startProductsListener();
+        demarrerEcoutesCommandesEnLigne();
+        
+        console.log("✅ Firebase initialisé avec succès - Écoute temps réel activée !");
+        
+    } catch (error) {
+        console.error("❌ Erreur initialisation Firebase:", error);
+    }
+}
+
+// Exposer toutes les nouvelles fonctions
+window.loadProductsFromFirebase = loadProductsFromFirebase;
+window.saveProductToFirebase = saveProductToFirebase;
+window.deleteProductFromFirebase = deleteProductFromFirebase;
+window.syncAllDataToFirebase = syncAllDataToFirebase;
+window.mergeProductsFromFirebase = mergeProductsFromFirebase;
+window.loadCategoriesFromFirebase = loadCategoriesFromFirebase;
+window.saveCategoryToFirebase = saveCategoryToFirebase;
+window.deleteCategoryFromFirebase = deleteCategoryFromFirebase;
+window.syncAllCategoriesToFirebase = syncAllCategoriesToFirebase;
+window.mergeCategoriesFromFirebase = mergeCategoriesFromFirebase;
+window.getProductsForOnlineMenu = getProductsForOnlineMenu;
+window.getCategoriesForOnlineMenu = getCategoriesForOnlineMenu;
+window.listenToProducts = listenToProducts;
+window.startProductsListener = startProductsListener;
+
+// Remplacer l'initialisation
+window.initFirebase = initFirebaseComplete;
+
+// Démarrer l'initialisation
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFirebaseComplete);
+} else {
+    initFirebaseComplete();
+}
+
+console.log("✅ firebase-config.js mis à jour - Synchronisation complète activée !");
