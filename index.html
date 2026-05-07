@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Chicken Way - Fast Food Authentique</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  
+  <style>
+    /* Styles pour la navbar et le modal de commande en ligne */
+    .navbar {
+      background: linear-gradient(135deg, #e67e22, #d35400);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .navbar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .navbar-logo span {
+      font-size: 28px;
+    }
+    .navbar-logo h1 {
+      color: white;
+      font-size: 1.2rem;
+      margin: 0;
+    }
+    .btn-order-online {
+      background: white;
+      color: #e67e22;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 40px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-order-online:hover {
+      transform: scale(1.02);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .navbar-spacer {
+      height: 60px;
+    }
+    
+    /* Styles pour le modal de commande */
+    .online-products-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 15px;
+      max-height: 500px;
+      overflow-y: auto;
+      padding: 5px;
+    }
+    .online-cart-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .online-cart-item:last-child {
+      border-bottom: none;
+    }
+    .quantity-btn {
+      background: #e2e8f0;
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    .quantity-btn:hover {
+      background: #cbd5e1;
+    }
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #ef4444;
+      cursor: pointer;
+      padding: 5px;
+      border-radius: 6px;
+    }
+    .remove-btn:hover {
+      background: #fee2e2;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); background: #ef4444; }
+    }
+    .notification-badge {
+      animation: pulse 1s infinite;
+    }
+    .notif-btn {
+      background: #e67e22;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 8px;
+      width: 100%;
+      text-align: left;
+      cursor: pointer;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.2s;
+    }
+    .notif-btn:hover {
+      background: #d35400;
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR COMMANDE EN LIGNE (visible sur la page de login) -->
+<div class="navbar" id="mainNavbar">
+  <div class="navbar-logo">
+    <span>🍗</span>
+    <h1>Chicken Way</h1>
+  </div>
+  <button onclick="openOnlineOrderModal()" class="btn-order-online">
+    <i class="fas fa-shopping-bag"></i> Commander en ligne
+  </button>
+</div>
+<div class="navbar-spacer"></div>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="login-wrapper">
+  <div class="login-container">
+    <div class="login-brand">
+      <div class="brand-icon">
+        <img src="logo.png" alt="Chicken Way" class="brand-logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2295%22 fill=%22%23f39c12%22/%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2285%22 fill=%22%23ffffff%22/%3E%3Ctext x=%22100%22 y=%22130%22 text-anchor=%22middle%22 font-size=%2270%22 fill=%22%23e67e22%22%3E🍗%3C/text%3E%3C/svg%3E'">
+      </div>
+      <h1>Chicken <span>Way</span></h1>
+      <p>Fast Food Authentique</p>
+    </div>
+    
+    <div class="login-form">
+      <div class="input-group">
+        <i class="fas fa-user"></i>
+        <input type="text" id="username" placeholder="Nom d'utilisateur">
+      </div>
+      <div class="input-group">
+        <i class="fas fa-lock"></i>
+        <input type="password" id="password" placeholder="Mot de passe">
+      </div>
+      <button onclick="login()" class="btn-login">
+        <span>Se connecter</span>
+        <i class="fas fa-arrow-right"></i>
+      </button>
+      <p class="register-link" onclick="showRegister()">
+        Pas encore de compte ? <strong>Créer un compte</strong>
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTER PAGE -->
+<div id="registerPage" class="login-wrapper hidden">
+  <div class="register-container">
+    <div class="register-brand">
+      <div class="brand-icon">
+        <img src="logo.png" alt="Chicken Way" class="brand-logo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 200%22%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2295%22 fill=%22%23f39c12%22/%3E%3Ccircle cx=%22100%22 cy=%22100%22 r=%2285%22 fill=%22%23ffffff%22/%3E%3Ctext x=%22100%22 y=%22130%22 text-anchor=%22middle%22 font-size=%2270%22 fill=%22%23e67e22%22%3E🍗%3C/text%3E%3C/svg%3E'">
+      </div>
+      <h1>Chicken <span>Way</span></h1>
+      <p>Créer un compte</p>
+    </div>
+    
+    <div class="register-form">
+      <div class="input-group">
+        <i class="fas fa-user"></i>
+        <input type="text" id="newUser" placeholder="Nom d'utilisateur">
+      </div>
+      <div class="input-group">
+        <i class="fas fa-user-tag"></i>
+        <select id="newRole" class="role-select">
+          <option value="caissier">👨‍💼 Caissier</option>
+          <option value="admin">👑 Administrateur</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <i class="fas fa-lock"></i>
+        <input type="password" id="newPass" placeholder="Mot de passe">
+      </div>
+      <div class="input-group">
+        <i class="fas fa-lock"></i>
+        <input type="password" id="confirmPass" placeholder="Confirmer le mot de passe">
+      </div>
+      <button onclick="register()" class="btn-login">
+        <span>S'inscrire</span>
+        <i class="fas fa-check"></i>
+      </button>
+      <p class="register-link" onclick="showLogin()">
+        <i class="fas fa-arrow-left"></i> Retour à la connexion
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN DASHBOARD -->
+<div id="dashboard" class="dashboard hidden">
+  
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <img src="logo.png" alt="Chicken Way" class="sidebar-logo-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%23f39c12%22/%3E%3Ctext x=%2250%22 y=%2265%22 text-anchor=%22middle%22 font-size=%2245%22 fill=%22white%22%3E🍗%3C/text%3E%3C/svg%3E'">
+      </div>
+      <h2>Chicken <span>Way</span></h2>
+      <p class="sidebar-subtitle" id="userRoleDisplay">Gestion Restaurant</p>
+    </div>
+    <nav class="sidebar-nav">
+      <ul>
+        <!-- Bouton des commandes en ligne -->
+        <li>
+          <button id="notifCommandesBtn" onclick="openCommandesEnLigneList()" class="notif-btn">
+            <i class="fas fa-bell"></i> 📱 Commandes en ligne
+            <span id="notifBadge" style="background:#ef4444; padding: 2px 8px; border-radius: 20px; margin-left: auto; font-size: 0.7rem;">0</span>
+          </button>
+        </li>
+        <li onclick="showPage('pos')" class="nav-item" data-page="pos">
+          <i class="fas fa-shopping-cart"></i>
+          <span>POS</span>
+        </li>
+        <li onclick="showPage('categories')" class="nav-item" data-page="categories">
+          <i class="fas fa-tags"></i>
+          <span>Nos catégories</span>
+        </li>
+        <li onclick="showPage('produits')" class="nav-item" data-page="produits">
+          <i class="fas fa-hamburger"></i>
+          <span>Nos produits</span>
+        </li>
+        <li onclick="showPage('clients')" class="nav-item" data-page="clients">
+          <i class="fas fa-users"></i>
+          <span>Clients</span>
+        </li>
+        <li onclick="showPage('fournisseurs')" class="nav-item" data-page="fournisseurs">
+          <i class="fas fa-truck"></i>
+          <span>Fournisseurs</span>
+        </li>
+        <li onclick="showPage('ventes')" class="nav-item" data-page="ventes">
+          <i class="fas fa-chart-simple"></i>
+          <span>Ventes</span>
+        </li>
+        <li onclick="showPage('credits')" class="nav-item" data-page="credits">
+          <i class="fas fa-credit-card"></i>
+          <span>Crédits</span>
+        </li>
+        <li onclick="showPage('depenses')" class="nav-item" data-page="depenses">
+          <i class="fas fa-chart-line"></i>
+          <span>Les dépenses</span>
+        </li>
+        <li onclick="showPage('stats')" class="nav-item" data-page="stats">
+          <i class="fas fa-chart-pie"></i>
+          <span>Statistiques</span>
+        </li>
+        <li onclick="logout()" class="nav-item logout-item">
+          <i class="fas fa-sign-out-alt"></i>
+          <span>Logout</span>
+        </li>
+      </ul>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <i class="fas fa-user-circle"></i>
+        <span id="currentUserDisplay">Client</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+    
+    <!-- PAGE POS -->
+    <div id="posPage" class="page active-page">
+      <div class="pos-layout">
+        <div class="pos-products-area">
+          <div class="page-header">
+            <div class="header-title">
+              <i class="fas fa-fire"></i>
+              <h2>Nouvelle commande</h2>
+            </div>
+            <div class="header-stats">
+              <div class="stat-badge">
+                <i class="fas fa-utensils"></i>
+                <span>Menu authentique</span>
+              </div>
+            </div>
+          </div>
+          <div class="categories-tabs" id="posCategoriesTabs"></div>
+          <div class="products-grid" id="posProductsGrid"></div>
+        </div>
+        <div class="pos-cart-area">
+          <div class="cart-panel">
+            <div class="cart-header">
+              <i class="fas fa-shopping-basket"></i>
+              <h3>Votre commande</h3>
+              <span class="cart-count" id="cartCount">0</span>
+            </div>
+            <div class="cart-items" id="cartList">
+              <div class="empty-cart">
+                <i class="fas fa-shopping-cart"></i>
+                <p>Votre panier est vide</p>
+              </div>
+            </div>
+            <div class="cart-total">
+              <span>Total</span>
+              <strong id="total">0,00</strong>
+              <span>MAD</span>
+            </div>
+            <div class="cart-actions">
+              <button onclick="openPaymentModal()" class="btn-checkout">
+                <i class="fas fa-check-circle"></i> Valider la commande
+              </button>
+              <button onclick="clearCart()" class="btn-clear">
+                <i class="fas fa-trash-alt"></i> Vider
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Options Produit -->
+    <div id="productOptionsModal" class="modal hidden">
+      <div class="modal-content" style="width: 700px; max-width: 95%; max-height: 550px; display: flex; flex-direction: column;">
+        <div class="modal-header">
+          <h3 id="productOptionsTitle">Personnaliser votre produit</h3>
+          <span class="modal-close" onclick="closeProductOptionsModal()">&times;</span>
+        </div>
+        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 15px 20px;">
+          <input type="hidden" id="selectedProductName">
+          <input type="hidden" id="selectedProductPrice">
+          
+          <div style="background:#f8fafc;padding:10px;border-radius:10px;margin-bottom:15px;text-align:center;">
+            <span style="font-size:1.5rem;">🍗</span>
+            <h4 style="margin:3px 0;color:#1e293b;font-size:0.9rem;" id="optionsProductName">Produit</h4>
+            <span style="font-size:1rem;font-weight:700;color:#e67e22;" id="optionsProductPrice">0.00 MAD</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="modal-input-group">
+              <label style="font-size:0.9rem;font-weight:700;color:#1e293b;">🥫 Sauces à ÉVITER</label>
+              <small style="color:#ef4444;display:block;margin-bottom:8px;">⚠️ Cochez = sans cette sauce</small>
+              <div class="options-grid" id="saucesAvoidOptions">
+                <label class="option-checkbox"><input type="checkbox" value="Mayonnaise" onchange="updateOptionsSummary()"> Mayonnaise</label>
+                <label class="option-checkbox"><input type="checkbox" value="Ketchup" onchange="updateOptionsSummary()"> Ketchup</label>
+                <label class="option-checkbox"><input type="checkbox" value="Hot Sauce" onchange="updateOptionsSummary()"> Hot Sauce 🌶️</label>
+                <label class="option-checkbox"><input type="checkbox" value="Sauce Blanche" onchange="updateOptionsSummary()"> Sauce Blanche</label>
+                <label class="option-checkbox"><input type="checkbox" value="Sauce Andalouse" onchange="updateOptionsSummary()"> Andalouse</label>
+                <label class="option-checkbox"><input type="checkbox" value="Sauce Algérienne" onchange="updateOptionsSummary()"> Algérienne</label>
+                <label class="option-checkbox"><input type="checkbox" value="Sauce BBQ" onchange="updateOptionsSummary()"> BBQ</label>
+                <label class="option-checkbox"><input type="checkbox" value="Sauce Harissa" onchange="updateOptionsSummary()"> Harissa 🔥</label>
+              </div>
+            </div>
+            
+            <div class="modal-input-group">
+              <label style="font-size:0.9rem;font-weight:700;color:#1e293b;">🥬 Garnitures à ÉVITER</label>
+              <small style="color:#ef4444;display:block;margin-bottom:8px;">⚠️ Cochez = sans cette garniture</small>
+              <div class="options-grid" id="garnituresAvoidOptions">
+                <label class="option-checkbox"><input type="checkbox" value="Salade" onchange="updateOptionsSummary()"> Salade</label>
+                <label class="option-checkbox"><input type="checkbox" value="Tomate" onchange="updateOptionsSummary()"> Tomate</label>
+                <label class="option-checkbox"><input type="checkbox" value="Oignon" onchange="updateOptionsSummary()"> Oignon</label>
+                <label class="option-checkbox"><input type="checkbox" value="Cornichon" onchange="updateOptionsSummary()"> Cornichon</label>
+                <label class="option-checkbox"><input type="checkbox" value="Fromage" onchange="updateOptionsSummary()"> Fromage 🧀</label>
+                <label class="option-checkbox"><input type="checkbox" value="Olives" onchange="updateOptionsSummary()"> Olives</label>
+              </div>
+            </div>
+            
+            <div class="modal-input-group">
+              <label style="font-size:0.9rem;font-weight:700;color:#1e293b;">🧂 Degré de sel</label>
+              <div class="degree-options">
+                <label class="degree-btn"><input type="radio" name="degreSel" value="Sans sel" onchange="updateOptionsSummary()"> Sans sel</label>
+                <label class="degree-btn"><input type="radio" name="degreSel" value="Peu salé" onchange="updateOptionsSummary()"> Peu salé</label>
+                <label class="degree-btn"><input type="radio" name="degreSel" value="Normal" onchange="updateOptionsSummary()" checked> Normal</label>
+                <label class="degree-btn"><input type="radio" name="degreSel" value="Très salé" onchange="updateOptionsSummary()"> Très salé</label>
+              </div>
+            </div>
+            
+            <div class="modal-input-group">
+              <label style="font-size:0.9rem;font-weight:700;color:#1e293b;">🌶️ Degré des épices</label>
+              <div class="degree-options">
+                <label class="degree-btn"><input type="radio" name="degreEpices" value="Sans épices" onchange="updateOptionsSummary()"> Sans épices</label>
+                <label class="degree-btn"><input type="radio" name="degreEpices" value="Peu épicé" onchange="updateOptionsSummary()"> Peu épicé</label>
+                <label class="degree-btn"><input type="radio" name="degreEpices" value="Normal" onchange="updateOptionsSummary()" checked> Normal</label>
+                <label class="degree-btn"><input type="radio" name="degreEpices" value="Très épicé" onchange="updateOptionsSummary()"> Très épicé 🔥</label>
+              </div>
+            </div>
+          </div>
+          
+          <div id="optionsSummary" style="background:#fff7ed;padding:10px 12px;border-radius:8px;margin-top:15px;display:none;">
+            <strong style="color:#e67e22;font-size:0.85rem;">📋 Résumé :</strong>
+            <div id="optionsSummaryText" style="margin-top:4px;font-size:0.8rem;color:#1e293b;"></div>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 10px 20px;">
+          <button class="btn-cancel" onclick="closeProductOptionsModal()">Annuler</button>
+          <button class="btn-save" onclick="confirmAddToCart()">
+            <i class="fas fa-cart-plus"></i> Ajouter au panier
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Paiement -->
+    <div id="paymentModal" class="modal hidden">
+      <div class="modal-content" style="width: 520px; max-width: 95%; max-height: 580px; display: flex; flex-direction: column;">
+        <div class="modal-header">
+          <h3>💳 Paiement</h3>
+          <span class="modal-close" onclick="closePaymentModal()">&times;</span>
+        </div>
+        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+          <input type="hidden" id="paymentCartTotal">
+          
+          <div class="modal-input-group" style="position: relative;">
+            <label>👤 Client (optionnel - tapez pour rechercher)</label>
+            <input type="text" id="clientSearch" placeholder="Tapez le nom du client..." autocomplete="off" 
+              oninput="searchClients(this.value)" onfocus="searchClients(this.value)"
+              style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+            <input type="hidden" id="selectedClientId" value="">
+            <input type="hidden" id="selectedClientName" value="">
+            <div id="clientResultsList" style="display:none;position:absolute;top:100%;left:0;right:0;background:white;border:1.5px solid #e2e8f0;border-radius:8px;max-height:150px;overflow-y:auto;z-index:10;box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+            <small id="clientSelectedInfo" style="color:#16a34a;display:none;margin-top:4px;">✅ Client sélectionné : <span id="clientSelectedText"></span></small>
+          </div>
+          
+          <div class="modal-input-group">
+            <label>🏷️ Remise (MAD)</label>
+            <input type="number" id="remiseMontant" value="0" step="0.01" min="0" 
+              oninput="calculatePayment()" 
+              style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+          </div>
+          
+          <div style="background:#f8fafc;padding:15px;border-radius:10px;margin-bottom:15px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <span>Total commande :</span>
+              <strong id="paymentTotalDisplay">0,00 MAD</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <span>Remise :</span>
+              <strong id="paymentRemiseDisplay" style="color:#ef4444;">-0,00 MAD</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:1.1rem;border-top:2px solid #e2e8f0;padding-top:8px;">
+              <span>Net à payer :</span>
+              <strong id="paymentNetDisplay" style="color:#e67e22;">0,00 MAD</strong>
+            </div>
+          </div>
+          
+          <div class="modal-input-group">
+            <label>💵 Monnaie donnée (MAD)</label>
+            <input type="number" id="monnaieDonnee" value="0" step="0.01" min="0" 
+              oninput="calculatePayment()" 
+              style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+          </div>
+          
+          <div class="modal-input-group" id="monnaieRendueGroup">
+            <label>💸 Monnaie rendue (MAD)</label>
+            <input type="text" id="monnaieRendue" value="0,00" readonly 
+              style="width:100%;padding:10px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:8px;font-size:1rem;font-weight:700;color:#16a34a;">
+          </div>
+          
+          <div class="modal-input-group" id="resteAPayerGroup" style="display:none;">
+            <label>⚠️ Reste à payer (ajouté au crédit client)</label>
+            <input type="text" id="resteAPayer" value="0,00" readonly 
+              style="width:100%;padding:10px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;font-size:1rem;font-weight:700;color:#d97706;">
+            <small style="color:#d97706;">Ce montant sera enregistré comme crédit pour le client sélectionné</small>
+          </div>
+          
+          <div class="modal-input-group">
+            <label>📋 Type de vente détecté</label>
+            <input type="text" id="typeVenteDetecte" value="💵 Espèce" readonly 
+              style="width:100%;padding:10px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;font-weight:600;">
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 12px 20px;">
+          <button class="btn-cancel" onclick="closePaymentModal()">Annuler</button>
+          <button class="btn-save" onclick="confirmPayment()">
+            <i class="fas fa-check-circle"></i> Confirmer le paiement
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE CATEGORIES -->
+    <div id="categoriesPage" class="page hidden">
+      <div class="page-header">
+        <div class="header-title">
+          <i class="fas fa-tags"></i>
+          <h2>Gestion des catégories</h2>
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="card-header">
+          <h3>Liste des catégories</h3>
+          <button class="btn-add" onclick="openCategoryModal()"><i class="fas fa-plus"></i> Ajouter</button>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr><th>ID</th><th>Icône</th><th>Nom</th><th>Description</th><th>Date création</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="categoriesList"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Catégorie -->
+    <div id="categoryModal" class="modal hidden">
+      <div class="modal-content" style="width: 600px; max-width: 95%;">
+        <div class="modal-header">
+          <h3 id="modalTitle">Ajouter une catégorie</h3>
+          <span class="modal-close" onclick="closeCategoryModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="categoryId">
+          <div class="modal-input-group">
+            <label>Icône de la catégorie</label>
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+              <button type="button" class="btn-tab-img active" onclick="switchCategoryIconMode('emoji')" id="btnEmojiMode">😀 Emoji</button>
+              <button type="button" class="btn-tab-img" onclick="switchCategoryIconMode('url')" id="btnCatUrlMode">🌐 URL</button>
+              <button type="button" class="btn-tab-img" onclick="switchCategoryIconMode('file')" id="btnCatFileMode">📁 Fichier</button>
+            </div>
+            
+            <div id="catIconEmojiMode">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" id="categoryIcon" placeholder="Ex: 🍔 ou fa-burger" style="flex: 1;">
+                <div id="iconPreview" style="font-size: 2.5rem; min-width: 60px; text-align: center;">🍔</div>
+              </div>
+              <div style="margin-top: 8px; display: flex; gap: 5px; flex-wrap: wrap;">
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🍔')">🍔</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🍗')">🍗</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🍟')">🍟</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🥤')">🥤</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🌮')">🌮</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🍕')">🍕</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🥗')">🥗</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🍰')">🍰</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('☕')">☕</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🍺')">🍺</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🧃')">🧃</span>
+                <span class="emoji-suggestion" onclick="setCategoryEmoji('🍩')">🍩</span>
+              </div>
+            </div>
+            
+            <div id="catIconUrlMode" class="hidden">
+              <input type="text" id="categoryIconUrl" placeholder="https://exemple.com/icone.png">
+              <div id="catIconUrlPreview" style="margin-top: 8px; text-align: center;"></div>
+            </div>
+            
+            <div id="catIconFileMode" class="hidden">
+              <div class="file-upload-area" onclick="document.getElementById('categoryIconFile').click()">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Cliquez pour choisir une icône</p>
+                <small>PNG, JPG, SVG (max 500KB)</small>
+              </div>
+              <input type="file" id="categoryIconFile" accept="image/*" onchange="handleCategoryIconFileSelect(event)" style="display: none;">
+              <div id="catIconFilePreview" style="margin-top: 8px;"></div>
+            </div>
+          </div>
+          <div class="modal-input-group">
+            <label>Nom de la catégorie</label>
+            <input type="text" id="categoryName" placeholder="Ex: Burgers, Tacos, Boissons...">
+          </div>
+          <div class="modal-input-group">
+            <label>Description</label>
+            <textarea id="categoryDesc" rows="3" placeholder="Description de la catégorie"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeCategoryModal()">Annuler</button>
+          <button class="btn-save" onclick="saveCategory()">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE PRODUITS -->
+    <div id="produitsPage" class="page hidden">
+      <div class="page-header">
+        <div class="header-title">
+          <i class="fas fa-hamburger"></i>
+          <h2>Gestion des produits</h2>
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="card-header">
+          <h3>Liste des produits</h3>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="searchProduits" placeholder="🔍 Rechercher un produit..." oninput="renderProductsTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:200px;">
+            <button class="btn-add" onclick="openProductModal()"><i class="fas fa-plus"></i> Ajouter</button>
+            <button class="btn-add" onclick="syncProductsToFirebase()" style="background:#3b82f6;"><i class="fas fa-cloud-upload-alt"></i> Sync Firebase</button>
+          </div>
+        </div>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Image</th><th>Nom</th><th>Catégorie</th><th>Prix Achat</th><th>Prix Vente</th><th>Profit</th><th>Prix Promo</th><th>Stock</th><th>Vendues</th><th>CA</th><th>Temps prép</th><th>Dispo</th><th>Date création</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="productsList"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Produit -->
+    <div id="productModal" class="modal hidden">
+      <div class="modal-content" style="width: 750px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header">
+          <h3 id="productModalTitle">Ajouter un produit</h3>
+          <span class="modal-close" onclick="closeProductModal()">&times;</span>
+        </div>
+        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+          <input type="hidden" id="productId">
+          <input type="hidden" id="productDateCreation">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="modal-input-group">
+              <label>Nom du produit *</label>
+              <input type="text" id="productName" placeholder="Ex: Poussin Burger">
+            </div>
+            <div class="modal-input-group">
+              <label>Catégorie *</label>
+              <select id="productCategory" class="product-category-select"></select>
+            </div>
+            <div class="modal-input-group" style="grid-column: 1 / -1;">
+              <label>Image du produit</label>
+              <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <button type="button" class="btn-tab-img active" onclick="switchProductImageMode('url')" id="btnUrlMode">🌐 URL</button>
+                <button type="button" class="btn-tab-img" onclick="switchProductImageMode('file')" id="btnFileMode">📁 Fichier local</button>
+              </div>
+              
+              <div id="productImageUrlMode">
+                <input type="text" id="productImage" placeholder="https://exemple.com/image.jpg">
+              </div>
+              
+              <div id="productImageFileMode" class="hidden">
+                <div class="file-upload-area" onclick="document.getElementById('productImageFile').click()">
+                  <i class="fas fa-cloud-upload-alt"></i>
+                  <p>Cliquez pour choisir une image</p>
+                  <small>JPG, PNG, GIF (max 2MB)</small>
+                </div>
+                <input type="file" id="productImageFile" accept="image/*" onchange="handleProductImageFileSelect(event)" style="display: none;">
+                <div id="productFileImagePreview" style="margin-top: 8px;"></div>
+              </div>
+              
+              <div id="productImagePreview" style="margin-top: 10px; text-align: center;"></div>
+            </div>
+            <div class="modal-input-group" style="grid-column: 1 / -1;">
+              <label>Description</label>
+              <textarea id="productDesc" rows="2" placeholder="Description du produit"></textarea>
+            </div>
+            <div class="modal-input-group">
+              <label>Prix d'achat (MAD)</label>
+              <input type="number" id="productAchat" step="0.01" value="0" oninput="calculateProfit()">
+            </div>
+            <div class="modal-input-group">
+              <label>Prix de vente (MAD)</label>
+              <input type="number" id="productVente" step="0.01" value="0" oninput="calculateProfit()">
+            </div>
+            <div class="modal-input-group">
+              <label>Profit (MAD)</label>
+              <input type="text" id="productProfit" readonly style="background:#f1f5f9; font-weight:bold;">
+            </div>
+            <div class="modal-input-group">
+              <label>Prix promotion (MAD)</label>
+              <input type="number" id="productPromo" step="0.01" value="0">
+            </div>
+            <div class="modal-input-group">
+              <label>Quantité en stock</label>
+              <input type="number" id="productStock" value="0">
+            </div>
+            <div class="modal-input-group">
+              <label>Quantité vendue</label>
+              <input type="number" id="productVendue" value="0" readonly style="background:#f1f5f9;">
+            </div>
+            <div class="modal-input-group">
+              <label>Chiffre d'affaire (MAD)</label>
+              <input type="text" id="productCA" readonly style="background:#f1f5f9;">
+            </div>
+            <div class="modal-input-group">
+              <label>Temps préparation (min)</label>
+              <input type="number" id="productTemps" value="5">
+            </div>
+            <div class="modal-input-group">
+              <label>Disponibilité</label>
+              <select id="productDispo">
+                <option value="disponible">✅ Disponible</option>
+                <option value="indisponible">❌ Indisponible</option>
+                <option value="rupture">⚠️ Rupture de stock</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 12px 20px;">
+          <button class="btn-cancel" onclick="closeProductModal()">Annuler</button>
+          <button class="btn-save" onclick="saveProduct()">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE CLIENTS -->
+    <div id="clientsPage" class="page hidden">
+      <div class="page-header">
+        <div class="header-title">
+          <i class="fas fa-users"></i>
+          <h2>Gestion des clients</h2>
+        </div>
+        <div class="header-stats">
+          <div class="stat-badge">
+            <i class="fas fa-user-check"></i>
+            <span id="totalClients">0</span>
+          </div>
+        </div>
+      </div>
+      <div class="content-card">
+        <div class="card-header">
+          <h3>Liste des clients</h3>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="searchClientsTable" placeholder="🔍 Rechercher un client..." oninput="renderClientsTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:200px;">
+            <button class="btn-add" onclick="openClientModal()"><i class="fas fa-plus"></i> Ajouter</button>
+          </div>
+        </div>
+        <div class="table-container" style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Nom</th><th>Prénom</th><th>Genre</th><th>Adresse</th><th>Profession</th><th>Description</th>
+                <th>Téléphone</th><th>WhatsApp</th><th>Instagram</th><th>Facebook</th><th>CA (MAD)</th><th>Profit (MAD)</th>
+                <th>Points Fidélité</th><th>Niveau</th><th>Plats Préférés</th><th>Allergies</th><th>Date création</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="clientsList"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Client -->
+    <div id="clientModal" class="modal hidden">
+      <div class="modal-content" style="width: 800px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header">
+          <h3 id="clientModalTitle">Ajouter un client</h3>
+          <span class="modal-close" onclick="closeClientModal()">&times;</span>
+        </div>
+        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+          <input type="hidden" id="clientId">
+          <input type="hidden" id="clientDateCreation">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="modal-input-group"><label>Nom *</label><input type="text" id="clientNom" placeholder="Ex: Dupont"></div>
+            <div class="modal-input-group"><label>Prénom *</label><input type="text" id="clientPrenom" placeholder="Ex: Jean"></div>
+            <div class="modal-input-group"><label>Genre</label><select id="clientGenre"><option value="">Sélectionner</option><option value="Homme">👨 Homme</option><option value="Femme">👩 Femme</option><option value="Autre">Autre</option></select></div>
+            <div class="modal-input-group"><label>Profession</label><input type="text" id="clientProfession" placeholder="Ex: Ingénieur"></div>
+            <div class="modal-input-group" style="grid-column: 1 / -1;"><label>Adresse</label><input type="text" id="clientAdresse" placeholder="Ex: 123 rue de Paris"></div>
+            <div class="modal-input-group" style="grid-column: 1 / -1;"><label>Description</label><textarea id="clientDescription" rows="2" placeholder="Notes sur le client..."></textarea></div>
+            <div class="modal-input-group"><label>Téléphone</label><input type="tel" id="clientTelephone" placeholder="Ex: 0612345678"></div>
+            <div class="modal-input-group"><label>WhatsApp</label><input type="tel" id="clientWhatsapp" placeholder="Ex: 0612345678"></div>
+            <div class="modal-input-group"><label>Instagram</label><input type="text" id="clientInstagram" placeholder="Ex: @jean_dupont"></div>
+            <div class="modal-input-group"><label>Facebook</label><input type="text" id="clientFacebook" placeholder="Ex: facebook.com/jean.dupont"></div>
+            <div class="modal-input-group"><label>Chiffre d'affaire (MAD)</label><input type="number" id="clientCA" step="0.01" value="0" readonly style="background:#f1f5f9;"></div>
+            <div class="modal-input-group"><label>Profit (MAD)</label><input type="number" id="clientProfit" step="0.01" value="0" readonly style="background:#f1f5f9;"></div>
+            <div class="modal-input-group"><label>Points de fidélité</label><input type="number" id="clientPoints" value="0"></div>
+            <div class="modal-input-group"><label>Niveau client</label><select id="clientNiveau"><option value="Normal">Normal</option><option value="Silver">🥈 Silver</option><option value="Gold">🥇 Gold</option><option value="Platinum">💎 Platinum</option></select></div>
+            <div class="modal-input-group"><label>Plats préférés</label><input type="text" id="clientPlats" placeholder="Ex: Burger, Tacos"></div>
+            <div class="modal-input-group"><label>Allergies</label><input type="text" id="clientAllergies" placeholder="Ex: Arachide, Gluten"></div>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 12px 20px;">
+          <button class="btn-cancel" onclick="closeClientModal()">Annuler</button>
+          <button class="btn-save" onclick="saveClient()">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE FOURNISSEURS -->
+    <div id="fournisseursPage" class="page hidden">
+      <div class="page-header">
+        <div class="header-title"><i class="fas fa-truck"></i><h2>Gestion des fournisseurs</h2></div>
+        <div class="header-stats"><div class="stat-badge"><i class="fas fa-boxes"></i><span id="totalFournisseurs">0</span></div></div>
+      </div>
+      <div class="content-card">
+        <div class="card-header">
+          <h3>Liste des fournisseurs</h3>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="searchFournisseurs" placeholder="🔍 Rechercher un fournisseur..." oninput="renderFournisseursTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:200px;">
+            <button class="btn-add" onclick="openFournisseurModal()"><i class="fas fa-plus"></i> Ajouter</button>
+          </div>
+        </div>
+        <div class="table-container" style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr><th>ID</th><th>Catégorie</th><th>Nom</th><th>Prénom</th><th>Entreprise</th><th>Adresse</th><th>Téléphone</th><th>WhatsApp</th><th>CA (MAD)</th><th>Description</th><th>Date création</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="fournisseursList"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Fournisseur -->
+    <div id="fournisseurModal" class="modal hidden">
+      <div class="modal-content" style="width: 700px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header"><h3 id="fournisseurModalTitle">Ajouter un fournisseur</h3><span class="modal-close" onclick="closeFournisseurModal()">&times;</span></div>
+        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+          <input type="hidden" id="fournisseurId">
+          <input type="hidden" id="fournisseurDateCreation">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="modal-input-group"><label>Catégorie *</label><select id="fournisseurCategorie"><option value="">Sélectionner</option><option value="Viande">🥩 Viande</option><option value="Légumes">🥬 Légumes</option><option value="Boissons">🥤 Boissons</option><option value="Épicerie">🧂 Épicerie</option><option value="Emballages">📦 Emballages</option><option value="Produits laitiers">🧀 Produits laitiers</option><option value="Boulangerie">🍞 Boulangerie</option><option value="Surgelés">❄️ Surgelés</option><option value="Autre">📋 Autre</option></select></div>
+            <div class="modal-input-group"><label>Nom du fournisseur *</label><input type="text" id="fournisseurNom" placeholder="Ex: Dupont"></div>
+            <div class="modal-input-group"><label>Prénom</label><input type="text" id="fournisseurPrenom" placeholder="Ex: Jean"></div>
+            <div class="modal-input-group"><label>Nom de l'entreprise *</label><input type="text" id="fournisseurEntreprise" placeholder="Ex: Viandes SARL"></div>
+            <div class="modal-input-group" style="grid-column: 1 / -1;"><label>Adresse</label><input type="text" id="fournisseurAdresse" placeholder="Ex: 456 rue du Commerce"></div>
+            <div class="modal-input-group"><label>Téléphone</label><input type="tel" id="fournisseurTelephone" placeholder="Ex: 0612345678"></div>
+            <div class="modal-input-group"><label>WhatsApp</label><input type="tel" id="fournisseurWhatsapp" placeholder="Ex: 0612345678"></div>
+            <div class="modal-input-group"><label>Chiffre d'affaire (MAD)</label><input type="number" id="fournisseurCA" step="0.01" value="0" readonly style="background:#f1f5f9;"></div>
+            <div class="modal-input-group" style="grid-column: 1 / -1;"><label>Description</label><textarea id="fournisseurDescription" rows="3" placeholder="Description du fournisseur et produits fournis..."></textarea></div>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 12px 20px;"><button class="btn-cancel" onclick="closeFournisseurModal()">Annuler</button><button class="btn-save" onclick="saveFournisseur()">Enregistrer</button></div>
+      </div>
+    </div>
+
+    <!-- PAGE VENTES -->
+    <div id="ventesPage" class="page hidden">
+      <div class="page-header">
+        <div class="header-title"><i class="fas fa-chart-simple"></i><h2>Historique des ventes</h2></div>
+        <div class="header-stats"><div class="stat-badge"><i class="fas fa-receipt"></i><span id="totalVentes">0 ventes</span></div></div>
+      </div>
+      <div class="content-card">
+        <div class="card-header" style="flex-wrap:wrap;gap:10px;">
+          <h3>Liste des ventes</h3>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="searchVentes" placeholder="🔍 Rechercher..." oninput="renderVentesHistory()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:180px;">
+            <select id="filterDateVentes" onchange="renderVentesHistory()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;">
+              <option value="all">📅 Toutes les dates</option>
+              <option value="today">📅 Aujourd'hui</option>
+              <option value="yesterday">📅 Hier</option>
+              <option value="7">📅 7 derniers jours</option>
+              <option value="30">📅 30 derniers jours</option>
+              <option value="90">📅 3 mois</option>
+              <option value="365">📅 1 an</option>
+              <option value="custom">📅 Date précise</option>
+            </select>
+            <div id="customDateVentesContainer" style="display:none;gap:8px;align-items:center;">
+              <input type="date" id="customDateVentes" onchange="renderVentesHistory()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:130px;">
+              <button onclick="document.getElementById('filterDateVentes').value='all';document.getElementById('customDateVentesContainer').style.display='none';document.getElementById('customDateVentes').value='';renderVentesHistory();" style="background:#fee2e2;border:none;color:#ef4444;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem;">✕</button>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:0.75rem;color:#64748b;">Du</span>
+              <input type="date" id="dateDebutVentes" onchange="renderVentesHistory()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:135px;">
+              <span style="font-size:0.75rem;color:#64748b;">au</span>
+              <input type="date" id="dateFinVentes" onchange="renderVentesHistory()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:135px;">
+            </div>
+            <select id="sortOrderVentes" onchange="renderVentesHistory()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;">
+              <option value="desc">🔽 Plus récent</option>
+              <option value="asc">🔼 Plus ancien</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-container" style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="id" onclick="sortVentesByColumn('id')">N° Facture <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="id" onclick="sortVentesByColumn('id')">N° Vente <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="date" onclick="sortVentesByColumn('date')">Date & Heure <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="client" onclick="sortVentesByColumn('client')">ID Client <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="client" onclick="sortVentesByColumn('client')">Nom Client <span class="sort-icon"></span></th>
+                <th>Produit</th><th>Qté</th><th>Prix Revient</th>
+                <th class="sortable" data-sort="montant" onclick="sortVentesByColumn('montant')">Prix Vente <span class="sort-icon"></span></th>
+                <th>Profit</th>
+                <th class="sortable" data-sort="montant" onclick="sortVentesByColumn('montant')">Total Produit <span class="sort-icon"></span></th>
+                <th>Profit Vente</th>
+                <th class="sortable" data-sort="remise" onclick="sortVentesByColumn('remise')">Remise <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="paye" onclick="sortVentesByColumn('paye')">Payé <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="reste" onclick="sortVentesByColumn('reste')">Reste <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="type" onclick="sortVentesByColumn('type')">Type <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="statut" onclick="sortVentesByColumn('statut')">Statut Paiement <span class="sort-icon"></span></th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ventesList"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Édition Vente -->
+    <div id="editVenteModal" class="modal hidden">
+      <div class="modal-content" style="width: 500px; max-width: 95%;">
+        <div class="modal-header"><h3>Modifier la vente</h3><span class="modal-close" onclick="closeEditVenteModal()">&times;</span></div>
+        <div class="modal-body" style="padding: 20px;">
+          <input type="hidden" id="editVenteId">
+          <div class="modal-input-group"><label>Nom du produit</label><input type="text" id="editVenteProduit" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;"></div>
+          <div class="modal-input-group"><label>Quantité</label><input type="number" id="editVenteQuantite" min="1" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;"></div>
+          <div class="modal-input-group"><label>Prix de vente (MAD)</label><input type="number" id="editVentePrixVente" step="0.01" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;"></div>
+          <div class="modal-input-group"><label>Remise (MAD)</label><input type="number" id="editVenteRemise" step="0.01" min="0" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;"></div>
+          <div class="modal-input-group"><label>Payé (MAD)</label><input type="number" id="editVentePaye" step="0.01" min="0" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;"></div>
+          <div class="modal-input-group"><label>Type de paiement</label><select id="editVenteType" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;"><option value="espece">💵 Espèce</option><option value="credit">💳 Crédit</option></select></div>
+        </div>
+        <div class="modal-footer" style="padding: 12px 20px;"><button class="btn-cancel" onclick="closeEditVenteModal()">Annuler</button><button class="btn-save" onclick="saveEditVente()">Enregistrer</button></div>
+      </div>
+    </div>
+
+    <!-- PAGE CREDITS -->
+    <div id="creditsPage" class="page hidden">
+      <div class="page-header">
+        <div class="header-title"><i class="fas fa-credit-card"></i><h2>Crédits clients</h2></div>
+        <div class="header-stats"><div class="stat-badge"><i class="fas fa-clock"></i><span id="totalCredits">0 crédits</span></div></div>
+      </div>
+      <div class="content-card">
+        <div class="card-header" style="flex-wrap:wrap;gap:10px;">
+          <h3>Détail des crédits</h3>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="searchCredits" placeholder="🔍 Rechercher..." oninput="renderCreditsTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:180px;">
+            <select id="filterDateCredits" onchange="renderCreditsTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;">
+              <option value="all">📅 Toutes les dates</option>
+              <option value="today">📅 Aujourd'hui</option>
+              <option value="yesterday">📅 Hier</option>
+              <option value="7">📅 7 derniers jours</option>
+              <option value="30">📅 30 derniers jours</option>
+              <option value="90">📅 3 mois</option>
+              <option value="365">📅 1 an</option>
+              <option value="custom">📅 Date précise</option>
+            </select>
+            <div id="customDateCreditsContainer" style="display:none;gap:8px;align-items:center;">
+              <input type="date" id="customDateCredits" onchange="renderCreditsTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:130px;">
+              <button onclick="document.getElementById('filterDateCredits').value='all';document.getElementById('customDateCreditsContainer').style.display='none';document.getElementById('customDateCredits').value='';renderCreditsTable();" style="background:#fee2e2;border:none;color:#ef4444;padding:6px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem;">✕</button>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:0.75rem;color:#64748b;">Du</span>
+              <input type="date" id="dateDebutCredits" onchange="renderCreditsTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:135px;">
+              <span style="font-size:0.75rem;color:#64748b;">au</span>
+              <input type="date" id="dateFinCredits" onchange="renderCreditsTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:135px;">
+            </div>
+            <select id="sortOrderCredits" onchange="renderCreditsTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;">
+              <option value="desc">🔽 Plus récent</option>
+              <option value="asc">🔼 Plus ancien</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-container" style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="id" onclick="sortCreditsByColumn('id')">N° Crédit <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="id" onclick="sortCreditsByColumn('id')">N° Vente <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="date" onclick="sortCreditsByColumn('date')">Date & Heure <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="client" onclick="sortCreditsByColumn('client')">ID Client <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="client" onclick="sortCreditsByColumn('client')">Nom Client <span class="sort-icon"></span></th>
+                <th>Produit</th><th>Qté</th>
+                <th class="sortable" data-sort="montant" onclick="sortCreditsByColumn('montant')">Total Crédit <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="paye" onclick="sortCreditsByColumn('paye')">Payé <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="reste" onclick="sortCreditsByColumn('reste')">Reste <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="statut" onclick="sortCreditsByColumn('statut')">Statut <span class="sort-icon"></span></th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="creditsList"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Paiement Crédit -->
+    <div id="payCreditModal" class="modal hidden">
+      <div class="modal-content" style="width: 450px; max-width: 95%;">
+        <div class="modal-header"><h3>💵 Payer un crédit</h3><span class="modal-close" onclick="closePayCreditModal()">&times;</span></div>
+        <div class="modal-body" style="padding: 20px;">
+          <input type="hidden" id="payCreditId">
+          <div style="background:#f8fafc;padding:15px;border-radius:10px;margin-bottom:15px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span>Client :</span><strong id="payCreditClient">-</strong></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span>Total crédit :</span><strong id="payCreditTotal" style="color:#d97706;">0,00 MAD</strong></div>
+            <div style="display:flex;justify-content:space-between;"><span>Reste à payer :</span><strong id="payCreditReste" style="color:#ef4444;">0,00 MAD</strong></div>
+          </div>
+          <div class="modal-input-group"><label>💵 Montant donné (MAD)</label><input type="number" id="payCreditMontant" value="0" step="0.01" min="0" oninput="calculatePayCredit()" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;"></div>
+          <div class="modal-input-group"><label>💰 Monnaie rendue (MAD)</label><input type="text" id="payCreditRendu" value="0,00" readonly style="width:100%;padding:10px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:8px;font-weight:700;color:#16a34a;"></div>
+          <div class="modal-input-group" id="payCreditNouveauResteGroup" style="display:none;"><label>⚠️ Nouveau reste</label><input type="text" id="payCreditNouveauReste" value="0,00" readonly style="width:100%;padding:10px;background:#fef3c7;border:1.5px solid #f59e0b;border-radius:8px;font-weight:700;color:#d97706;"></div>
+        </div>
+        <div class="modal-footer" style="padding: 12px 20px;"><button class="btn-cancel" onclick="closePayCreditModal()">Annuler</button><button class="btn-save" onclick="confirmPayCredit()"><i class="fas fa-check-circle"></i> Valider le paiement</button></div>
+      </div>
+    </div>
+
+    <!-- PAGE DEPENSES -->
+    <div id="depensesPage" class="page hidden">
+      <div class="page-header">
+        <div class="header-title">
+          <i class="fas fa-chart-line"></i>
+          <h2>Gestion des dépenses</h2>
+        </div>
+        <div class="header-stats">
+          <div class="stat-badge" style="background:#fef3c7;color:#d97706;">
+            <i class="fas fa-coins"></i>
+            <span id="totalDepenses">0,00 MAD</span>
+          </div>
+          <div class="stat-badge" style="background:#fce4ec;color:#e91e63;">
+            <i class="fas fa-calendar-week"></i>
+            <span id="depensesCeMois">0,00 MAD</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="content-card">
+        <div class="card-header" style="flex-wrap:wrap;gap:10px;">
+          <h3>📋 Liste des dépenses</h3>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="filterCategorieDepenses" onchange="renderDepensesTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;">
+              <option value="all">📂 Toutes les catégories</option>
+              <option value="Alimentation">🍗 Alimentation</option>
+              <option value="Boissons">🥤 Boissons</option>
+              <option value="Fournitures">📦 Fournitures</option>
+              <option value="Loyer">🏠 Loyer</option>
+              <option value="Électricité">⚡ Électricité</option>
+              <option value="Eau">💧 Eau</option>
+              <option value="Gaz">🔥 Gaz</option>
+              <option value="Internet">🌐 Internet</option>
+              <option value="Téléphone">📞 Téléphone</option>
+              <option value="Salaires">👨‍🍳 Salaires</option>
+              <option value="Maintenance">🔧 Maintenance</option>
+              <option value="Nettoyage">🧹 Nettoyage</option>
+              <option value="Marketing">📢 Marketing</option>
+              <option value="Transport">🚚 Transport</option>
+              <option value="Impôts">📋 Impôts</option>
+              <option value="Assurance">🛡️ Assurance</option>
+              <option value="Autre">📋 Autre</option>
+            </select>
+            
+            <select id="filterDateDepenses" onchange="renderDepensesTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;">
+              <option value="all">📅 Toutes les dates</option>
+              <option value="today">📅 Aujourd'hui</option>
+              <option value="yesterday">📅 Hier</option>
+              <option value="7">📅 7 jours</option>
+              <option value="30">📅 Ce mois</option>
+              <option value="90">📅 3 mois</option>
+              <option value="365">📅 Cette année</option>
+            </select>
+            
+            <select id="sortOrderDepenses" onchange="renderDepensesTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;">
+              <option value="desc">🔽 Plus récent</option>
+              <option value="asc">🔼 Plus ancien</option>
+              <option value="montant-desc">💰 Plus cher</option>
+              <option value="montant-asc">💰 Moins cher</option>
+            </select>
+            
+            <input type="text" id="searchDepenses" placeholder="🔍 Rechercher..." oninput="renderDepensesTable()" style="padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.8rem;width:160px;">
+            
+            <button class="btn-add" onclick="openDepenseModal()">
+              <i class="fas fa-plus"></i> Ajouter une dépense
+            </button>
+          </div>
+        </div>
+
+        <!-- Résumé des dépenses -->
+        <div class="depenses-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;padding:15px;margin-bottom:15px;background:#f8fafc;border-radius:10px;">
+          <div style="text-align:center;padding:10px;background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size:1.5rem;">📊</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;">Total général</div>
+            <div style="font-weight:700;color:#ef4444;font-size:1rem;" id="summaryTotal">0,00</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size:1.5rem;">📅</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;">Ce mois</div>
+            <div style="font-weight:700;color:#f59e0b;font-size:1rem;" id="summaryMois">0,00</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size:1.5rem;">📆</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;">Aujourd'hui</div>
+            <div style="font-weight:700;color:#16a34a;font-size:1rem;" id="summaryToday">0,00</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size:1.5rem;">📈</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;">Moyenne/jour</div>
+            <div style="font-weight:700;color:#6366f1;font-size:1rem;" id="summaryMoyenne">0,00</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:white;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size:1.5rem;">🏆</div>
+            <div style="font-size:0.7rem;color:#94a3b8;margin-top:4px;">Plus grosse</div>
+            <div style="font-weight:700;color:#e91e63;font-size:1rem;" id="summaryMax">0,00</div>
+          </div>
+        </div>
+
+        <div class="table-container" style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="id" onclick="sortDepensesByColumn('id')">N° <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="date" onclick="sortDepensesByColumn('date')">Date <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="categorie" onclick="sortDepensesByColumn('categorie')">Catégorie <span class="sort-icon"></span></th>
+                <th class="sortable" data-sort="fournisseur" onclick="sortDepensesByColumn('fournisseur')">Fournisseur <span class="sort-icon"></span></th>
+                <th>Description</th>
+                <th class="sortable" data-sort="montant" onclick="sortDepensesByColumn('montant')">Montant (MAD) <span class="sort-icon"></span></th>
+                <th>Mode de paiement</th>
+                <th>Justificatif</th>
+                <th class="sortable" data-sort="statut" onclick="sortDepensesByColumn('statut')">Statut <span class="sort-icon"></span></th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="depensesList"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Ajout/Modification Dépense -->
+    <div id="depenseModal" class="modal hidden">
+      <div class="modal-content" style="width: 650px; max-width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-header">
+          <h3 id="depenseModalTitle">➕ Ajouter une dépense</h3>
+          <span class="modal-close" onclick="closeDepenseModal()">&times;</span>
+        </div>
+        <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+          <input type="hidden" id="depenseId">
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="modal-input-group">
+              <label>📅 Date *</label>
+              <input type="date" id="depenseDate" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+            </div>
+            
+            <div class="modal-input-group">
+              <label>🕐 Heure</label>
+              <input type="time" id="depenseHeure" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+            </div>
+            
+            <div class="modal-input-group">
+              <label>📂 Catégorie *</label>
+              <select id="depenseCategorie" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+                <option value="">Sélectionner une catégorie</option>
+                <option value="Alimentation">🍗 Alimentation</option>
+                <option value="Boissons">🥤 Boissons</option>
+                <option value="Fournitures">📦 Fournitures</option>
+                <option value="Loyer">🏠 Loyer</option>
+                <option value="Électricité">⚡ Électricité</option>
+                <option value="Eau">💧 Eau</option>
+                <option value="Gaz">🔥 Gaz</option>
+                <option value="Internet">🌐 Internet</option>
+                <option value="Téléphone">📞 Téléphone</option>
+                <option value="Salaires">👨‍🍳 Salaires</option>
+                <option value="Maintenance">🔧 Maintenance</option>
+                <option value="Nettoyage">🧹 Nettoyage</option>
+                <option value="Marketing">📢 Marketing</option>
+                <option value="Transport">🚚 Transport</option>
+                <option value="Impôts">📋 Impôts</option>
+                <option value="Assurance">🛡️ Assurance</option>
+                <option value="Autre">📋 Autre</option>
+              </select>
+            </div>
+            
+            <div class="modal-input-group">
+              <label>💰 Montant (MAD) *</label>
+              <input type="number" id="depenseMontant" step="0.01" min="0.01" placeholder="0,00" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+            </div>
+            
+            <div class="modal-input-group">
+              <label>🏢 Fournisseur</label>
+              <select id="depenseFournisseur" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+                <option value="">Aucun / Autre</option>
+              </select>
+            </div>
+            
+            <div class="modal-input-group">
+              <label>💳 Mode de paiement</label>
+              <select id="depensePaiement" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+                <option value="Espèces">💵 Espèces</option>
+                <option value="Carte bancaire">💳 Carte bancaire</option>
+                <option value="Virement">🏦 Virement</option>
+                <option value="Chèque">📝 Chèque</option>
+                <option value="Crédit fournisseur">📋 Crédit fournisseur</option>
+              </select>
+            </div>
+            
+            <div class="modal-input-group">
+              <label>📌 Statut</label>
+              <select id="depenseStatut" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+                <option value="Payée">✅ Payée</option>
+                <option value="En attente">⏳ En attente</option>
+                <option value="Programmée">📅 Programmée</option>
+                <option value="Annulée">❌ Annulée</option>
+              </select>
+            </div>
+            
+            <div class="modal-input-group" style="grid-column: 1 / -1;">
+              <label>🧾 N° Facture / Référence</label>
+              <input type="text" id="depenseFacture" placeholder="Ex: FACT-2024-001" style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;">
+            </div>
+            
+            <div class="modal-input-group" style="grid-column: 1 / -1;">
+              <label>📝 Description</label>
+              <textarea id="depenseDescription" rows="3" placeholder="Détails de la dépense..." style="width:100%;padding:10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:0.9rem;resize:vertical;"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 12px 20px;">
+          <button class="btn-cancel" onclick="closeDepenseModal()">Annuler</button>
+          <button class="btn-save" onclick="saveDepense()">
+            <i class="fas fa-save"></i> Enregistrer
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE STATISTIQUES -->
+    <div id="statsPage" class="page hidden">
+      <div class="page-header"><div class="header-title"><i class="fas fa-chart-pie"></i><h2>Statistiques</h2></div></div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon"><i class="fas fa-chart-line"></i></div><div class="stat-info"><span class="stat-label">CA Total</span><span class="stat-value" id="totalSales">0</span><span class="stat-unit">MAD</span></div></div>
+        <div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-bag"></i></div><div class="stat-info"><span class="stat-label">Commandes</span><span class="stat-value" id="totalOrders">0</span></div></div>
+        <div class="stat-card"><div class="stat-icon"><i class="fas fa-star"></i></div><div class="stat-info"><span class="stat-label">Top produit</span><span class="stat-value" id="topProduct">-</span></div></div>
+        <div class="stat-card"><div class="stat-icon"><i class="fas fa-coins"></i></div><div class="stat-info"><span class="stat-label">Profit total</span><span class="stat-value" id="totalProfit">0</span><span class="stat-unit">MAD</span></div></div>
+      </div>
+      <div class="restaurant-info"><i class="fas fa-store"></i><div><h4>Chicken Way</h4><p>Fast Food Authentique • Ouvert 7j/7</p></div></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL DE COMMANDE EN LIGNE -->
+<div id="onlineOrderModal" class="modal hidden">
+  <div class="modal-content" style="width: 90%; max-width: 1200px; max-height: 90vh; display: flex; flex-direction: column;">
+    <div class="modal-header" style="background: linear-gradient(135deg, #e67e22, #d35400);">
+      <h2 style="color: white; margin: 0;">🍗 Commander en ligne</h2>
+      <button class="modal-close" onclick="closeOnlineOrderModal()" style="color: white; font-size: 28px;">&times;</button>
+    </div>
+    <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <!-- Left: Products -->
+        <div>
+          <h3 style="color: #e67e22;">📋 Notre menu</h3>
+          <div class="categories-tabs" id="onlineCategoriesTabs" style="margin-bottom: 15px;"></div>
+          <div class="online-products-grid" id="onlineProductsGrid"></div>
+        </div>
+        <!-- Right: Cart -->
+        <div>
+          <h3 style="color: #e67e22;">🛒 Votre panier</h3>
+          <div id="onlineCartList" style="background: #f8fafc; border-radius: 12px; padding: 15px; min-height: 300px; max-height: 400px; overflow-y: auto;">
+            <div class="empty-cart" style="text-align: center; padding: 40px;">
+              <i class="fas fa-shopping-cart" style="font-size: 48px; color: #cbd5e1;"></i>
+              <p>Votre panier est vide</p>
+            </div>
+          </div>
+          <div style="margin-top: 20px; padding: 15px; background: #f1f5f9; border-radius: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 15px;">
+              <strong>Total :</strong>
+              <strong id="onlineCartTotal" style="color: #e67e22;">0.00 MAD</strong>
+            </div>
+            <div class="modal-input-group" style="margin-bottom: 15px;">
+              <label>👤 Nom du client *</label>
+              <input type="text" id="onlineClientName" placeholder="Entrez votre nom" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            </div>
+            <div class="modal-input-group" style="margin-bottom: 15px;">
+              <label>📞 Téléphone</label>
+              <input type="tel" id="onlineClientPhone" placeholder="Votre numéro de téléphone" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            </div>
+            <button onclick="validerCommandeEnLigne()" class="btn-checkout" style="width: 100%;">
+              <i class="fas fa-check-circle"></i> Valider ma commande
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DES COMMANDES EN LIGNE POUR LE POS -->
+<div id="commandesEnLigneListModal" class="modal hidden">
+  <div class="modal-content" style="width: 90%; max-width: 1000px; max-height: 90vh; display: flex; flex-direction: column;">
+    <div class="modal-header" style="background: linear-gradient(135deg, #e67e22, #d35400);">
+      <h2 style="color: white; margin: 0;">📱 Commandes en ligne</h2>
+      <button class="modal-close" onclick="closeCommandesEnLigneList()" style="color: white; font-size: 28px;">&times;</button>
+    </div>
+    <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;" id="commandesEnLigneListContainer">
+      <div style="text-align: center; padding: 40px;">Chargement des commandes...</div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase Configuration -->
+<script>
+
+  // Fonction de synchronisation Firebase pour les produits
+  window.syncProductsToFirebase = async function() {
+    const produitsData = JSON.parse(localStorage.getItem('chickenway_produits') || '[]');
+    if(produitsData.length === 0) {
+      alert("Aucun produit à synchroniser");
+      return;
+    }
+    
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Synchronisation...';
+    btn.disabled = true;
+    
+    try {
+      for(const produit of produitsData) {
+        await db.collection('products').doc(produit.id.toString()).set({
+          id: produit.id,
+          nom: produit.nom,
+          categorieId: produit.categorieId,
+          image: produit.image || '',
+          description: produit.description || '',
+          prixAchat: produit.prixAchat || 0,
+          prixVente: produit.prixVente || 0,
+          prixPromo: produit.prixPromo || 0,
+          stock: produit.stock || 0,
+          quantiteVendue: produit.quantiteVendue || 0,
+          tempsPreparation: produit.tempsPreparation || 5,
+          disponibilite: produit.disponibilite || 'disponible',
+          dateCreation: produit.dateCreation || new Date().toISOString()
+        });
+      }
+      alert(`✅ ${produitsData.length} produits synchronisés vers Firebase !`);
+    } catch(error) {
+      console.error("Erreur sync:", error);
+      alert("❌ Erreur de synchronisation. Vérifiez votre connexion Firebase.");
+    } finally {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+  };
+</script>
+
+<!-- Scripts -->
+ <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+ <script src="firebase-config.js"></script>
+<script src="db.js"></script>
+<script src="script.js"></script>
+
+<script>
+// Variables globales pour le chargement des données
+let isDBReady = false;
+
+// Fonctions pour le modal de commande en ligne
+function openOnlineOrderModal() {
+    document.getElementById('onlineOrderModal').classList.remove('hidden');
+    if (typeof chargerCategoriesEnLigne === 'function') chargerCategoriesEnLigne();
+    if (typeof chargerProduitsEnLigne === 'function') chargerProduitsEnLigne();
+    if (typeof afficherPanierEnLigne === 'function') afficherPanierEnLigne();
+}
+
+function closeOnlineOrderModal() {
+    document.getElementById('onlineOrderModal').classList.add('hidden');
+}
+
+function openCommandesEnLigneList() {
+    document.getElementById('commandesEnLigneListModal').classList.remove('hidden');
+    if (typeof afficherCommandesEnLigneList === 'function') afficherCommandesEnLigneList();
+}
+
+function closeCommandesEnLigneList() {
+    document.getElementById('commandesEnLigneListModal').classList.add('hidden');
+}
+
+// Initialiser la base de données au chargement
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log("🔄 Initialisation de l'application...");
+    
+    if (typeof initDB === 'function') {
+        try {
+            await initDB();
+            console.log("✅ Base de données IndexedDB prête");
+            isDBReady = true;
+            
+            if (typeof syncAllDataToIndexedDB === 'function') {
+                await syncAllDataToIndexedDB();
+                console.log("✅ Synchronisation localStorage -> IndexedDB effectuée");
+            }
+            
+            await chargerToutesLesDonnees();
+            
+        } catch(e) {
+            console.error("❌ Erreur DB:", e);
+            chargerDonneesLocalStorage();
+        }
+    } else {
+        console.log("⚠️ db.js non chargé, utilisation de localStorage");
+        chargerDonneesLocalStorage();
+    }
+    
+    if (typeof seedDemoData === 'function' && categories && categories.length === 0 && produits && produits.length === 0) {
+        console.log("📦 Chargement des données de démonstration...");
+        seedDemoData();
+        renderAllTables();
+        loadPOSCategories();
+    }
+    
+    // Démarrer l'écoute des commandes en ligne
+    if (typeof demarrerEcoutesCommandesEnLigne === 'function') {
+        demarrerEcoutesCommandesEnLigne();
+    }
+    
+    console.log("✅ Application prête !");
+});
+
+async function chargerToutesLesDonnees() {
+    try {
+        if (typeof getAllUsers === 'function') users = await getAllUsers();
+        if (typeof getAllCategories === 'function') categories = await getAllCategories();
+        if (typeof getAllProducts === 'function') produits = await getAllProducts();
+        if (typeof getAllClients === 'function') clients = await getAllClients();
+        if (typeof getAllFournisseurs === 'function') fournisseurs = await getAllFournisseurs();
+        if (typeof getAllVentes === 'function') ventes = await getAllVentes();
+        if (typeof getAllDepenses === 'function') depenses = await getAllDepenses();
+        if (typeof getAllCredits === 'function') credits = await getAllCredits();
+        if (typeof getAllOrders === 'function') orders = await getAllOrders();
+        
+        sauvegarderDansLocalStorage();
+        
+        if (typeof renderAllTables === 'function') renderAllTables();
+        if (typeof loadPOSCategories === 'function') loadPOSCategories();
+        
+        console.log("✅ Données chargées depuis IndexedDB");
+        console.log(`📊 Statistiques: ${categories ? categories.length : 0} catégories, ${produits ? produits.length : 0} produits, ${clients ? clients.length : 0} clients`);
+        
+        // Mettre à jour l'affichage des commandes en ligne
+        if (typeof mettreAJourBadgeCommandes === 'function') mettreAJourBadgeCommandes();
+        
+    } catch(e) {
+        console.error("❌ Erreur chargement DB:", e);
+        chargerDonneesLocalStorage();
+    }
+}
+
+function chargerDonneesLocalStorage() {
+    users = JSON.parse(localStorage.getItem('chickenway_users')) || [];
+    categories = JSON.parse(localStorage.getItem('chickenway_categories')) || [];
+    produits = JSON.parse(localStorage.getItem('chickenway_produits')) || [];
+    clients = JSON.parse(localStorage.getItem('chickenway_clients')) || [];
+    fournisseurs = JSON.parse(localStorage.getItem('chickenway_fournisseurs')) || [];
+    ventes = JSON.parse(localStorage.getItem('chickenway_ventes')) || [];
+    depenses = JSON.parse(localStorage.getItem('chickenway_depenses')) || [];
+    credits = JSON.parse(localStorage.getItem('chickenway_credits')) || [];
+    orders = JSON.parse(localStorage.getItem('chickenway_orders')) || [];
+    
+    if (typeof renderAllTables === 'function') renderAllTables();
+    if (typeof loadPOSCategories === 'function') loadPOSCategories();
+    
+    console.log("✅ Données chargées depuis localStorage (fallback)");
+}
+
+function sauvegarderDansLocalStorage() {
+    localStorage.setItem('chickenway_users', JSON.stringify(users));
+    localStorage.setItem('chickenway_categories', JSON.stringify(categories));
+    localStorage.setItem('chickenway_produits', JSON.stringify(produits));
+    localStorage.setItem('chickenway_clients', JSON.stringify(clients));
+    localStorage.setItem('chickenway_fournisseurs', JSON.stringify(fournisseurs));
+    localStorage.setItem('chickenway_ventes', JSON.stringify(ventes));
+    localStorage.setItem('chickenway_depenses', JSON.stringify(depenses));
+    localStorage.setItem('chickenway_credits', JSON.stringify(credits));
+    localStorage.setItem('chickenway_orders', JSON.stringify(orders));
+    console.log("💾 Sauvegarde dans localStorage effectuée");
+}
+
+setInterval(function() {
+    if (isDBReady && typeof syncAllDataToIndexedDB === 'function') {
+        syncAllDataToIndexedDB();
+    }
+    sauvegarderDansLocalStorage();
+    console.log("⏰ Sauvegarde automatique périodique");
+}, 30000);
+
+window.addEventListener('beforeunload', function() {
+    if (isDBReady && typeof syncAllDataToIndexedDB === 'function') {
+        syncAllDataToIndexedDB();
+    }
+    sauvegarderDansLocalStorage();
+    console.log("💾 Sauvegarde avant fermeture");
+});
+</script>
+
+</body>
+</html>
