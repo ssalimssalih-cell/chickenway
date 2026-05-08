@@ -35,6 +35,8 @@ const COLLECTIONS = {
     ONLINE_ORDERS: 'online_orders'
 };
 
+console.log("📦 Collections configurées:", Object.keys(COLLECTIONS));
+
 // ========= VÉRIFIER ET CRÉER LES COLLECTIONS =========
 async function ensureCollectionsExist() {
     try {
@@ -48,6 +50,7 @@ async function ensureCollectionsExist() {
                     _init: true,
                     createdAt: new Date().toISOString()
                 });
+                console.log(`✅ Collection '${collectionName}' créée`);
             }
         }
         
@@ -61,6 +64,7 @@ async function ensureCollectionsExist() {
             } catch(e) {}
         }
         
+        console.log("✅ Toutes les collections sont prêtes");
         return true;
     } catch (error) {
         console.error("❌ Erreur vérification collections:", error);
@@ -68,7 +72,7 @@ async function ensureCollectionsExist() {
     }
 }
 
-// ========= FONCTION GÉNÉRIQUE POUR SAUVEGARDER =========
+// ========= FONCTIONS GÉNÉRIQUES =========
 async function saveToFirebase(collectionName, id, data) {
     try {
         if (!window.db) return false;
@@ -76,7 +80,7 @@ async function saveToFirebase(collectionName, id, data) {
             ...data,
             lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
         });
-        console.log(`✅ ${collectionName} ${id} synchronisé`);
+        console.log(`✅ ${collectionName} ${id} sauvegardé`);
         return true;
     } catch (error) {
         console.error(`Erreur sauvegarde ${collectionName}:`, error);
@@ -84,7 +88,6 @@ async function saveToFirebase(collectionName, id, data) {
     }
 }
 
-// ========= FONCTION GÉNÉRIQUE POUR CHARGER =========
 async function loadFromFirebase(collectionName) {
     try {
         if (!window.db) return [];
@@ -97,7 +100,7 @@ async function loadFromFirebase(collectionName) {
             }
         });
         items.sort((a, b) => (a.id || 0) - (b.id || 0));
-        console.log(`✅ ${items.length} ${collectionName} chargés depuis Firebase`);
+        console.log(`✅ ${items.length} ${collectionName} chargés`);
         return items;
     } catch (error) {
         console.error(`Erreur chargement ${collectionName}:`, error);
@@ -105,12 +108,11 @@ async function loadFromFirebase(collectionName) {
     }
 }
 
-// ========= FONCTION GÉNÉRIQUE POUR SUPPRIMER =========
 async function deleteFromFirebase(collectionName, id) {
     try {
         if (!window.db) return false;
         await window.db.collection(collectionName).doc(id.toString()).delete();
-        console.log(`✅ ${collectionName} ${id} supprimé de Firebase`);
+        console.log(`✅ ${collectionName} ${id} supprimé`);
         return true;
     } catch (error) {
         console.error(`Erreur suppression ${collectionName}:`, error);
@@ -118,20 +120,23 @@ async function deleteFromFirebase(collectionName, id) {
     }
 }
 
-// ========= FONCTION GÉNÉRIQUE POUR SYNC ALL =========
 async function syncAllToFirebase(collectionName, localStorageKey, dataArray) {
     try {
         if (!window.db) return false;
         
         const items = dataArray || JSON.parse(localStorage.getItem(localStorageKey) || '[]');
-        if (items.length === 0) return false;
+        if (items.length === 0) {
+            console.log(`⚠️ Aucune donnée à synchroniser pour ${collectionName}`);
+            return false;
+        }
         
         await ensureCollectionsExist();
         
         let compteur = 0;
         for (const item of items) {
-            if (item.id) {
-                await window.db.collection(collectionName).doc(item.id.toString()).set({
+            if (item.id || item.username) {
+                const docId = item.id || item.username;
+                await window.db.collection(collectionName).doc(docId.toString()).set({
                     ...item,
                     lastUpdate: firebase.firestore.FieldValue.serverTimestamp()
                 });
@@ -150,7 +155,6 @@ async function syncAllToFirebase(collectionName, localStorageKey, dataArray) {
     }
 }
 
-// ========= FONCTION GÉNÉRIQUE POUR MERGER =========
 async function mergeFromFirebase(collectionName, localStorageKey, globalVariableName) {
     console.log(`🔄 Fusion des ${collectionName} depuis Firebase...`);
     
@@ -177,63 +181,63 @@ async function mergeFromFirebase(collectionName, localStorageKey, globalVariable
     }
 }
 
-// ========= PRODUITS =========
+// ========= 1. PRODUITS =========
 async function loadProductsFromFirebase() { return loadFromFirebase(COLLECTIONS.PRODUCTS); }
 async function saveProductToFirebase(product) { return saveToFirebase(COLLECTIONS.PRODUCTS, product.id, product); }
 async function deleteProductFromFirebase(productId) { return deleteFromFirebase(COLLECTIONS.PRODUCTS, productId); }
 async function syncAllProductsToFirebase() { return syncAllToFirebase(COLLECTIONS.PRODUCTS, 'chickenway_produits', window.produits); }
 async function mergeProductsFromFirebase() { return mergeFromFirebase(COLLECTIONS.PRODUCTS, 'chickenway_produits', 'produits'); }
 
-// ========= CATÉGORIES =========
+// ========= 2. CATÉGORIES =========
 async function loadCategoriesFromFirebase() { return loadFromFirebase(COLLECTIONS.CATEGORIES); }
 async function saveCategoryToFirebase(category) { return saveToFirebase(COLLECTIONS.CATEGORIES, category.id, category); }
 async function deleteCategoryFromFirebase(categoryId) { return deleteFromFirebase(COLLECTIONS.CATEGORIES, categoryId); }
 async function syncAllCategoriesToFirebase() { return syncAllToFirebase(COLLECTIONS.CATEGORIES, 'chickenway_categories', window.categories); }
 async function mergeCategoriesFromFirebase() { return mergeFromFirebase(COLLECTIONS.CATEGORIES, 'chickenway_categories', 'categories'); }
 
-// ========= VENTES =========
+// ========= 3. VENTES =========
 async function loadVentesFromFirebase() { return loadFromFirebase(COLLECTIONS.VENTES); }
 async function saveVenteToFirebase(vente) { return saveToFirebase(COLLECTIONS.VENTES, vente.id, vente); }
 async function deleteVenteFromFirebase(venteId) { return deleteFromFirebase(COLLECTIONS.VENTES, venteId); }
 async function syncAllVentesToFirebase() { return syncAllToFirebase(COLLECTIONS.VENTES, 'chickenway_ventes', window.ventes); }
 async function mergeVentesFromFirebase() { return mergeFromFirebase(COLLECTIONS.VENTES, 'chickenway_ventes', 'ventes'); }
 
-// ========= CRÉDITS =========
+// ========= 4. CRÉDITS =========
 async function loadCreditsFromFirebase() { return loadFromFirebase(COLLECTIONS.CREDITS); }
 async function saveCreditToFirebase(credit) { return saveToFirebase(COLLECTIONS.CREDITS, credit.id, credit); }
 async function deleteCreditFromFirebase(creditId) { return deleteFromFirebase(COLLECTIONS.CREDITS, creditId); }
 async function syncAllCreditsToFirebase() { return syncAllToFirebase(COLLECTIONS.CREDITS, 'chickenway_credits', window.credits); }
 async function mergeCreditsFromFirebase() { return mergeFromFirebase(COLLECTIONS.CREDITS, 'chickenway_credits', 'credits'); }
 
-// ========= DÉPENSES =========
+// ========= 5. DÉPENSES =========
 async function loadDepensesFromFirebase() { return loadFromFirebase(COLLECTIONS.DEPENSES); }
 async function saveDepenseToFirebase(depense) { return saveToFirebase(COLLECTIONS.DEPENSES, depense.id, depense); }
 async function deleteDepenseFromFirebase(depenseId) { return deleteFromFirebase(COLLECTIONS.DEPENSES, depenseId); }
 async function syncAllDepensesToFirebase() { return syncAllToFirebase(COLLECTIONS.DEPENSES, 'chickenway_depenses', window.depenses); }
 async function mergeDepensesFromFirebase() { return mergeFromFirebase(COLLECTIONS.DEPENSES, 'chickenway_depenses', 'depenses'); }
 
-// ========= CLIENTS =========
+// ========= 6. CLIENTS =========
 async function loadClientsFromFirebase() { return loadFromFirebase(COLLECTIONS.CLIENTS); }
 async function saveClientToFirebase(client) { return saveToFirebase(COLLECTIONS.CLIENTS, client.id, client); }
 async function deleteClientFromFirebase(clientId) { return deleteFromFirebase(COLLECTIONS.CLIENTS, clientId); }
 async function syncAllClientsToFirebase() { return syncAllToFirebase(COLLECTIONS.CLIENTS, 'chickenway_clients', window.clients); }
 async function mergeClientsFromFirebase() { return mergeFromFirebase(COLLECTIONS.CLIENTS, 'chickenway_clients', 'clients'); }
 
-// ========= FOURNISSEURS =========
+// ========= 7. FOURNISSEURS =========
 async function loadFournisseursFromFirebase() { return loadFromFirebase(COLLECTIONS.FOURNISSEURS); }
 async function saveFournisseurToFirebase(fournisseur) { return saveToFirebase(COLLECTIONS.FOURNISSEURS, fournisseur.id, fournisseur); }
 async function deleteFournisseurFromFirebase(fournisseurId) { return deleteFromFirebase(COLLECTIONS.FOURNISSEURS, fournisseurId); }
 async function syncAllFournisseursToFirebase() { return syncAllToFirebase(COLLECTIONS.FOURNISSEURS, 'chickenway_fournisseurs', window.fournisseurs); }
 async function mergeFournisseursFromFirebase() { return mergeFromFirebase(COLLECTIONS.FOURNISSEURS, 'chickenway_fournisseurs', 'fournisseurs'); }
 
-// ========= USERS =========
+// ========= 8. USERS =========
 async function loadUsersFromFirebase() { return loadFromFirebase(COLLECTIONS.USERS); }
 async function saveUserToFirebase(user) { return saveToFirebase(COLLECTIONS.USERS, user.username, user); }
 async function deleteUserFromFirebase(username) { return deleteFromFirebase(COLLECTIONS.USERS, username); }
 async function syncAllUsersToFirebase() { return syncAllToFirebase(COLLECTIONS.USERS, 'chickenway_users', window.users); }
 async function mergeUsersFromFirebase() { return mergeFromFirebase(COLLECTIONS.USERS, 'chickenway_users', 'users'); }
 
-// ========= COMMANDES EN LIGNE =========
+// ========= 9. COMMANDES EN LIGNE =========
 async function saveOnlineOrderToFirebase(order) {
     try {
         if (!window.db) return null;
@@ -242,7 +246,7 @@ async function saveOnlineOrderToFirebase(order) {
             ...order,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
-        console.log(`✅ Commande ${order.numero} enregistrée dans Firebase avec ID: ${docRef.id}`);
+        console.log(`✅ Commande ${order.numero} enregistrée (ID: ${docRef.id})`);
         return docRef.id;
     } catch (error) {
         console.error("Erreur enregistrement commande:", error);
@@ -262,6 +266,7 @@ async function loadOnlineOrdersFromFirebase() {
             const data = doc.data();
             if (!data._init) orders.push({ id: doc.id, firestoreId: doc.id, ...data });
         });
+        console.log(`✅ ${orders.length} commandes en attente`);
         return orders;
     } catch (error) {
         console.error("Erreur chargement commandes:", error);
@@ -273,12 +278,14 @@ async function getAllOnlineOrders() {
     try {
         if (!window.db) return [];
         const snapshot = await window.db.collection(COLLECTIONS.ONLINE_ORDERS)
-            .orderBy('timestamp', 'desc').get();
+            .orderBy('timestamp', 'desc')
+            .get();
         const orders = [];
         snapshot.forEach(doc => {
             const data = doc.data();
             if (!data._init) orders.push({ id: doc.id, firestoreId: doc.id, ...data });
         });
+        console.log(`✅ ${orders.length} commandes totales`);
         return orders;
     } catch (error) {
         console.error("Erreur chargement toutes commandes:", error);
@@ -294,6 +301,7 @@ async function updateOrderStatusInFirebase(orderId, newStatus) {
             dateTraitement: new Date().toLocaleString(),
             traitePar: window.currentUser || 'POS'
         });
+        console.log(`✅ Commande ${orderId} mis à jour: ${newStatus}`);
         return true;
     } catch (error) {
         console.error("Erreur mise à jour:", error);
@@ -318,7 +326,11 @@ function startRealtimeListener(collectionName, callback, localStorageKey, global
                 const data = doc.data();
                 if (!data._init) items.push(data);
             });
-            items.sort((a, b) => (a.id || 0) - (b.id || 0));
+            if (collectionName !== COLLECTIONS.ONLINE_ORDERS) {
+                items.sort((a, b) => (a.id || 0) - (b.id || 0));
+            } else {
+                items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            }
             
             if (localStorageKey && items.length > 0) {
                 localStorage.setItem(localStorageKey, JSON.stringify(items));
@@ -334,6 +346,8 @@ function startRealtimeListener(collectionName, callback, localStorageKey, global
 }
 
 function startAllRealtimeListeners() {
+    console.log("🔄 Démarrage des écoutes temps réel...");
+    
     startRealtimeListener(COLLECTIONS.PRODUCTS, (items) => {
         if (typeof window.renderProductsTable === 'function') window.renderProductsTable();
         if (typeof window.loadPOSCategories === 'function') window.loadPOSCategories();
@@ -344,6 +358,7 @@ function startAllRealtimeListeners() {
     startRealtimeListener(COLLECTIONS.CATEGORIES, (items) => {
         if (typeof window.renderCategoriesTable === 'function') window.renderCategoriesTable();
         if (typeof window.loadPOSCategories === 'function') window.loadPOSCategories();
+        if (typeof window.chargerCategoriesEnLigne === 'function') window.chargerCategoriesEnLigne();
     }, 'chickenway_categories', 'categories');
     
     startRealtimeListener(COLLECTIONS.CLIENTS, (items) => {
@@ -374,7 +389,7 @@ function startAllRealtimeListeners() {
     
     startRealtimeListener(COLLECTIONS.USERS, null, 'chickenway_users', 'users');
     
-    // Écoute des commandes en ligne
+    // Écoute spéciale pour les commandes en ligne
     if (!unsubscribeListeners[COLLECTIONS.ONLINE_ORDERS]) {
         unsubscribeListeners[COLLECTIONS.ONLINE_ORDERS] = window.db.collection(COLLECTIONS.ONLINE_ORDERS)
             .where('statut', '==', 'en_attente')
@@ -388,14 +403,24 @@ function startAllRealtimeListeners() {
                 const badge = document.getElementById('notifBadge');
                 if (badge) badge.textContent = orders.length;
                 if (typeof window.mettreAJourBadgeCommandes === 'function') window.mettreAJourBadgeCommandes();
+                if (typeof window.afficherCommandesEnLigneList === 'function') {
+                    const modal = document.getElementById('commandesEnLigneListModal');
+                    if (modal && !modal.classList.contains('hidden')) {
+                        window.afficherCommandesEnLigneList();
+                    }
+                }
                 console.log(`📢 ${orders.length} commandes en attente (temps réel)`);
             });
     }
+    
+    console.log("✅ Toutes les écoutes temps réel sont actives");
 }
 
 // ========= SYNCHRONISATION TOTALE =========
 async function syncAllDataToFirebase() {
-    console.log("🔄 Synchronisation totale vers Firebase...");
+    console.log("🔄 SYNCHRONISATION TOTALE VERS FIREBASE...");
+    console.log("=====================================");
+    
     await syncAllProductsToFirebase();
     await syncAllCategoriesToFirebase();
     await syncAllClientsToFirebase();
@@ -404,14 +429,18 @@ async function syncAllDataToFirebase() {
     await syncAllCreditsToFirebase();
     await syncAllDepensesToFirebase();
     await syncAllUsersToFirebase();
-    console.log("✅ Synchronisation totale terminée !");
+    
+    console.log("=====================================");
+    console.log("✅ SYNCHRONISATION TOTALE TERMINÉE !");
     if (typeof window.showToastMessage === 'function') {
         window.showToastMessage("✅ Toutes les données synchronisées avec Firebase !");
     }
 }
 
 async function mergeAllDataFromFirebase() {
-    console.log("🔄 Fusion totale depuis Firebase...");
+    console.log("🔄 FUSION TOTALE DEPUIS FIREBASE...");
+    console.log("=====================================");
+    
     await mergeProductsFromFirebase();
     await mergeCategoriesFromFirebase();
     await mergeClientsFromFirebase();
@@ -420,9 +449,13 @@ async function mergeAllDataFromFirebase() {
     await mergeCreditsFromFirebase();
     await mergeDepensesFromFirebase();
     await mergeUsersFromFirebase();
-    console.log("✅ Fusion totale terminée !");
+    
+    console.log("=====================================");
+    console.log("✅ FUSION TOTALE TERMINÉE !");
+    
     if (typeof window.renderAllTables === 'function') window.renderAllTables();
     if (typeof window.updateStats === 'function') window.updateStats();
+    if (typeof window.loadPOSCategories === 'function') window.loadPOSCategories();
 }
 
 // ========= TEST CONNEXION =========
@@ -439,35 +472,7 @@ async function testFirebaseConnection() {
     }
 }
 
-// ========= INITIALISATION COMPLÈTE =========
-async function initFirebaseComplete() {
-    console.log("🔄 Initialisation Firebase complète...");
-    
-    if (typeof firebase === 'undefined') {
-        setTimeout(initFirebaseComplete, 1000);
-        return;
-    }
-    
-    try {
-        if (firebase.apps.length === 0) firebase.initializeApp(window.firebaseConfig);
-        if (!window.db) window.db = firebase.firestore();
-        
-        await ensureCollectionsExist();
-        await testFirebaseConnection();
-        
-        // Fusionner toutes les données
-        await mergeAllDataFromFirebase();
-        
-        // Démarrer les écoutes en temps réel
-        startAllRealtimeListeners();
-        
-        console.log("✅ Firebase initialisé avec succès - Synchronisation complète activée !");
-    } catch (error) {
-        console.error("❌ Erreur initialisation Firebase:", error);
-    }
-}
-
-// ========= CRÉDITS/CATÉGORIES POUR MENU EN LIGNE =========
+// ========= MENU EN LIGNE (CACHE) =========
 let cachedProducts = null;
 let lastProductsFetch = 0;
 const CACHE_DURATION = 60000;
@@ -489,8 +494,68 @@ async function getCategoriesForOnlineMenu() {
     return loadCategoriesFromFirebase();
 }
 
+// ========= INITIALISATION COMPLÈTE =========
+async function initFirebaseComplete() {
+    console.log("🔄 INITIALISATION FIREBASE COMPLÈTE...");
+    console.log("=====================================");
+    
+    if (typeof firebase === 'undefined') {
+        console.warn("⚠️ Firebase SDK non chargé, nouvelle tentative dans 1s...");
+        setTimeout(initFirebaseComplete, 1000);
+        return;
+    }
+    
+    try {
+        if (firebase.apps.length === 0) {
+            firebase.initializeApp(window.firebaseConfig);
+            console.log("🔥 Firebase initialisé");
+        }
+        if (!window.db) {
+            window.db = firebase.firestore();
+            console.log("📁 Firestore initialisé");
+        }
+        
+        await ensureCollectionsExist();
+        await testFirebaseConnection();
+        
+        // Fusionner toutes les données
+        await mergeAllDataFromFirebase();
+        
+        // Démarrer les écoutes en temps réel
+        startAllRealtimeListeners();
+        
+        console.log("=====================================");
+        console.log("✅ FIREBASE PRÊT - Synchronisation complète activée !");
+        console.log("📦 Collections disponibles:", Object.keys(COLLECTIONS).join(", "));
+        
+        // Afficher un toast de bienvenue
+        if (typeof window.showToastMessage === 'function') {
+            window.showToastMessage("🔥 Firebase connecté - Synchronisation en temps réel activée !");
+        }
+        
+    } catch (error) {
+        console.error("❌ Erreur initialisation Firebase:", error);
+    }
+}
+
+// ========= FONCTIONS POUR CLIENTS (COMPATIBILITÉ) =========
+function demarrerEcoutesCommandesEnLigne() {
+    // Déjà géré dans startAllRealtimeListeners
+    console.log("📱 Écoute commandes en ligne active");
+}
+
+function arreterEcoutesCommandesEnLigne() {
+    if (unsubscribeListeners[COLLECTIONS.ONLINE_ORDERS]) {
+        unsubscribeListeners[COLLECTIONS.ONLINE_ORDERS]();
+        unsubscribeListeners[COLLECTIONS.ONLINE_ORDERS] = null;
+    }
+}
+
 // ========= EXPOSER TOUTES LES FONCTIONS =========
+// Collections
 window.COLLECTIONS = COLLECTIONS;
+
+// Génériques
 window.saveToFirebase = saveToFirebase;
 window.loadFromFirebase = loadFromFirebase;
 window.deleteFromFirebase = deleteFromFirebase;
@@ -566,6 +631,10 @@ window.testFirebaseConnection = testFirebaseConnection;
 window.startRealtimeListener = startRealtimeListener;
 window.startAllRealtimeListeners = startAllRealtimeListeners;
 window.initFirebase = initFirebaseComplete;
+window.demarrerEcoutesCommandesEnLigne = demarrerEcoutesCommandesEnLigne;
+window.arreterEcoutesCommandesEnLigne = arreterEcoutesCommandesEnLigne;
+
+// Menu en ligne
 window.getProductsForOnlineMenu = getProductsForOnlineMenu;
 window.getCategoriesForOnlineMenu = getCategoriesForOnlineMenu;
 
@@ -577,4 +646,4 @@ if (document.readyState === 'loading') {
 }
 
 console.log("✅ firebase-config.js chargé - Synchronisation COMPLÈTE activée !");
-console.log("📦 Collections disponibles:", Object.keys(COLLECTIONS));
+console.log("📦 9 collections configurées:", Object.keys(COLLECTIONS).join(", "));
