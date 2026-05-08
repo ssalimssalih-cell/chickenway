@@ -242,7 +242,8 @@ function filterPOSProducts(categoryId) {
 
 // ========= OPTIONS PRODUIT =========
 function openProductOptions(name, price) {
-  document.getElementById('productOptionsModal').classList.remove('hidden');
+  const modal = document.getElementById('productOptionsModal');
+  if(modal) modal.classList.remove('hidden');
   document.getElementById('selectedProductName').value = name;
   document.getElementById('selectedProductPrice').value = price;
   document.getElementById('optionsProductName').innerText = name;
@@ -263,7 +264,8 @@ function openProductOptions(name, price) {
 }
 
 function closeProductOptionsModal() {
-  document.getElementById('productOptionsModal').classList.add('hidden');
+  const modal = document.getElementById('productOptionsModal');
+  if(modal) modal.classList.add('hidden');
 }
 
 function updateOptionsSummary() {
@@ -918,19 +920,19 @@ function renderCategoriesTable() {
   tbody.innerHTML = categories.map(c => `
     <tr>
       <td>${c.id}</td>
-      <td class="category-icon-display" style="font-size:24px;">${displayCategoryIconSmall(c.icon)}</td>
+      <td class="category-icon-display">${displayCategoryIconSmall(c.icon)}</td>
       <td><b>${escapeHtml(c.nom)}</b></td>
       <td>${escapeHtml(c.description||'-')}</td>
       <td>${c.dateCreation||'-'}</td>
       <td>
         <button class="btn-edit" onclick="editCategory(${c.id})"><i class="fas fa-edit"></i></button>
         <button class="btn-delete" onclick="deleteCategory(${c.id})"><i class="fas fa-trash"></i></button>
-      </td>
+        </td>
     </tr>
   `).join('');
 }
 
-// ========= PRODUCT IMAGE HANDLING (suite) =========
+// ========= PRODUCT IMAGE HANDLING =========
 function switchProductImageMode(mode) {
   currentProductImageMode = mode;
   const urlMode = document.getElementById('productImageUrlMode');
@@ -1289,7 +1291,7 @@ function renderProductsTable() {
     return `
     <tr>
       <td>${p.id}</td>
-      <td>${p.image ? `<img src="${p.image}" class="product-img" style="width:40px;height:40px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none'">` : '📷'}</td>
+      <td>${p.image ? `<img src="${p.image}" class="product-img" onerror="this.style.display='none'">` : '📷'}</td>
       <td><b>${escapeHtml(p.nom)}</b><br><small>${escapeHtml((p.description || '').substring(0,30))}</small></td>
       <td>${displayCategoryIconSmall(categories.find(c=>c.id==p.categorieId)?.icon)} ${catName}</td>
       <td>${(p.prixAchat || 0).toFixed(2)} MAD</td>
@@ -1305,7 +1307,7 @@ function renderProductsTable() {
       <td>
         <button class="btn-edit" onclick="editProduct(${p.id})"><i class="fas fa-edit"></i></button>
         <button class="btn-delete" onclick="deleteProduct(${p.id})"><i class="fas fa-trash"></i></button>
-      </td>
+        </td>
     </tr>
     `;
   }).join('');
@@ -1479,29 +1481,21 @@ function renderClientsTable() {
   if(totalClientsSpan) totalClientsSpan.textContent = filteredClients.length;
   
   if(filteredClients.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:20px;">Aucun client</td></td>';
+    tbody.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:20px;">Aucun client</td></tr>';
     return;
   }
   
   tbody.innerHTML = filteredClients.map(c => `
     <tr>
       <td>${c.id}</td>
-      <td>${escapeHtml(c.nom)}</td>
-      <td>${escapeHtml(c.prenom || '')}</td>
-      <td>${escapeHtml(c.genre || '')}</td>
-      <td>${escapeHtml(c.adresse || '')}</td>
-      <td>${escapeHtml(c.profession || '')}</td>
-      <td>${escapeHtml((c.description || '').substring(0,30))}</td>
-      <td>${escapeHtml(c.telephone || '')}</td>
-      <td>${escapeHtml(c.whatsapp || '')}</td>
-      <td>${escapeHtml(c.instagram || '')}</td>
-      <td>${escapeHtml(c.facebook || '')}</td>
-      <td>${(c.chiffreAffaire || 0).toFixed(2)} MAD</td>
-      <td>${(c.profit || 0).toFixed(2)} MAD</td>
-      <td>${c.pointsFidelite || 0}</td>
-      <td>${escapeHtml(c.niveau || 'Normal')}</td>
-      <td>${escapeHtml(c.platsPreferes || '')}</td>
-      <td>${escapeHtml(c.allergies || '')}</td>
+      <td>${escapeHtml(c.nom)}</td><td>${escapeHtml(c.prenom || '')}</td>
+      <td>${escapeHtml(c.genre || '')}</td><td>${escapeHtml(c.adresse || '')}</td>
+      <td>${escapeHtml(c.profession || '')}</td><td>${escapeHtml((c.description || '').substring(0,30))}</td>
+      <td>${escapeHtml(c.telephone || '')}</td><td>${escapeHtml(c.whatsapp || '')}</td>
+      <td>${escapeHtml(c.instagram || '')}</td><td>${escapeHtml(c.facebook || '')}</td>
+      <td>${(c.chiffreAffaire || 0).toFixed(2)} MAD</td><td>${(c.profit || 0).toFixed(2)} MAD</td>
+      <td>${c.pointsFidelite || 0}</td><td>${escapeHtml(c.niveau || 'Normal')}</td>
+      <td>${escapeHtml(c.platsPreferes || '')}</td><td>${escapeHtml(c.allergies || '')}</td>
       <td>${c.dateCreation || '-'}</td>
       <td>
         <button class="btn-edit" onclick="editClient(${c.id})"><i class="fas fa-edit"></i></button>
@@ -1658,21 +1652,17 @@ function renderFournisseursTable() {
   
   tbody.innerHTML = filteredFournisseurs.map(f => `
     <tr>
-      <td>${f.id}</td>
-      <td>${escapeHtml(f.categorie || '-')}</td>
-      <td>${escapeHtml(f.nom)}</td>
-      <td>${escapeHtml(f.prenom || '')}</td>
-      <td>${escapeHtml(f.entreprise)}</td>
-      <td>${escapeHtml(f.adresse || '')}</td>
-      <td>${escapeHtml(f.telephone || '')}</td>
-      <td>${escapeHtml(f.whatsapp || '')}</td>
+      <td>${f.id}</td><td>${escapeHtml(f.categorie || '-')}</td>
+      <td>${escapeHtml(f.nom)}</td><td>${escapeHtml(f.prenom || '')}</td>
+      <td>${escapeHtml(f.entreprise)}</td><td>${escapeHtml(f.adresse || '')}</td>
+      <td>${escapeHtml(f.telephone || '')}</td><td>${escapeHtml(f.whatsapp || '')}</td>
       <td>${(f.chiffreAffaire || 0).toFixed(2)} MAD</td>
       <td>${escapeHtml((f.description || '').substring(0,50))}</td>
       <td>${f.dateCreation || '-'}</td>
       <td>
         <button class="btn-edit" onclick="editFournisseur(${f.id})"><i class="fas fa-edit"></i></button>
         <button class="btn-delete" onclick="deleteFournisseur(${f.id})"><i class="fas fa-trash"></i></button>
-       </td>
+      </td>
     </tr>
   `).join('');
 }
@@ -1682,10 +1672,7 @@ function renderVentesHistory() {
   const tbody = document.getElementById('ventesList');
   if(!tbody) return;
   
-  // Filtrer et trier les ventes
   let filteredVentes = [...ventes];
-  
-  // Filtre par recherche
   const searchTerm = document.getElementById('searchVentes')?.value.toLowerCase() || '';
   if(searchTerm) {
     filteredVentes = filteredVentes.filter(v => 
@@ -1695,134 +1682,30 @@ function renderVentesHistory() {
     );
   }
   
-  // Filtre par date
-  const filterDate = document.getElementById('filterDateVentes')?.value;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
-  if(filterDate === 'today') {
-    filteredVentes = filteredVentes.filter(v => {
-      const vDate = new Date(v.date);
-      return vDate >= today;
-    });
-  } else if(filterDate === 'yesterday') {
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    filteredVentes = filteredVentes.filter(v => {
-      const vDate = new Date(v.date);
-      return vDate >= yesterday && vDate < today;
-    });
-  } else if(filterDate === '7') {
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    filteredVentes = filteredVentes.filter(v => new Date(v.date) >= weekAgo);
-  } else if(filterDate === '30') {
-    const monthAgo = new Date(today);
-    monthAgo.setDate(monthAgo.getDate() - 30);
-    filteredVentes = filteredVentes.filter(v => new Date(v.date) >= monthAgo);
-  } else if(filterDate === '90') {
-    const threeMonthsAgo = new Date(today);
-    threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
-    filteredVentes = filteredVentes.filter(v => new Date(v.date) >= threeMonthsAgo);
-  } else if(filterDate === '365') {
-    const yearAgo = new Date(today);
-    yearAgo.setDate(yearAgo.getDate() - 365);
-    filteredVentes = filteredVentes.filter(v => new Date(v.date) >= yearAgo);
-  }
-  
-  // Filtre par plage personnalisée
-  const dateDebut = document.getElementById('dateDebutVentes')?.value;
-  const dateFin = document.getElementById('dateFinVentes')?.value;
-  if(dateDebut && dateFin) {
-    const debut = new Date(dateDebut);
-    const fin = new Date(dateFin);
-    fin.setHours(23,59,59);
-    filteredVentes = filteredVentes.filter(v => {
-      const vDate = new Date(v.date);
-      return vDate >= debut && vDate <= fin;
-    });
-  }
-  
-  // Tri
-  filteredVentes.sort((a,b) => {
-    if(sortColumnVentes === 'date') {
-      const dateA = new Date(a.date);
-      const dateB = new Date(b.date);
-      return sortDirectionVentes === 'desc' ? dateB - dateA : dateA - dateB;
-    } else if(sortColumnVentes === 'montant') {
-      return sortDirectionVentes === 'desc' ? b.montant - a.montant : a.montant - b.montant;
-    } else if(sortColumnVentes === 'client') {
-      const clientA = (a.clientCrediteur || a.client || '').toLowerCase();
-      const clientB = (b.clientCrediteur || b.client || '').toLowerCase();
-      return sortDirectionVentes === 'desc' ? (clientB > clientA ? 1 : -1) : (clientA > clientB ? 1 : -1);
-    } else if(sortColumnVentes === 'id') {
-      return sortDirectionVentes === 'desc' ? b.id - a.id : a.id - b.id;
-    } else if(sortColumnVentes === 'remise') {
-      return sortDirectionVentes === 'desc' ? (b.remise || 0) - (a.remise || 0) : (a.remise || 0) - (b.remise || 0);
-    } else if(sortColumnVentes === 'paye') {
-      const payeA = (b.montant || 0) - (b.resteAPayer || 0);
-      const payeB = (a.montant || 0) - (a.resteAPayer || 0);
-      return sortDirectionVentes === 'desc' ? payeB - payeA : payeA - payeB;
-    } else if(sortColumnVentes === 'reste') {
-      return sortDirectionVentes === 'desc' ? (b.resteAPayer || 0) - (a.resteAPayer || 0) : (a.resteAPayer || 0) - (b.resteAPayer || 0);
-    } else if(sortColumnVentes === 'type') {
-      const typeA = a.type || '';
-      const typeB = b.type || '';
-      return sortDirectionVentes === 'desc' ? (typeB > typeA ? 1 : -1) : (typeA > typeB ? 1 : -1);
-    } else if(sortColumnVentes === 'statut') {
-      const statutA = a.statutPaiement || '';
-      const statutB = b.statutPaiement || '';
-      return sortDirectionVentes === 'desc' ? (statutB > statutA ? 1 : -1) : (statutA > statutB ? 1 : -1);
-    }
-    return 0;
-  });
-  
   const totalVentesSpan = document.getElementById('totalVentes');
   if(totalVentesSpan) totalVentesSpan.textContent = filteredVentes.length + ' ventes';
   
   if(filteredVentes.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="18" style="text-align:center;padding:20px;color:#94a3b8;">Aucune vente</td></tr>';
+    tbody.innerHTML = '<td><td colspan="18" style="text-align:center;padding:20px;color:#94a3b8;">Aucune vente</td></tr>';
     return;
   }
   
-  tbody.innerHTML = filteredVentes.map(v => {
-    const paye = (v.montant || 0) - (v.resteAPayer || 0);
-    return `
+  tbody.innerHTML = filteredVentes.map(v => `
     <tr>
-      <td><b>#${v.id.toString().slice(-6)}</b></td>
-      <td><b>#${v.id}</b></td>
-      <td><small>${v.date}</small></td>
-      <td>${v.clientCrediteurId || '-'}</td>
+      <td><b>#${v.id}</b></td><td><small>${v.date}</small></td>
       <td>${escapeHtml(v.clientCrediteur || v.client || '-')}</td>
-      <td>-</td><td>-</td><td>-</td>
-      <td>-</td><td>-</td>
-      <td>-</td><td>-</td>
-      <td>${(v.remise || 0).toFixed(2)} MAD</td>
-      <td>${paye.toFixed(2)} MAD</td>
-      <td>${(v.resteAPayer || 0).toFixed(2)} MAD</td>
+      <td>${v.montant.toFixed(2)} MAD</td>
       <td>${v.type === 'espece' ? '💵 Espèce' : '💳 Crédit'}</td>
-      <td>${v.statutPaiement === 'payé' ? '<span class="status-success">✅ Payé</span>' : '<span class="status-warning">⏳ En attente</span>'}</td>
+      <td>${v.statutPaiement === 'payé' ? '✅ Payé' : '⏳ En attente'}</td>
       <td><button class="btn-edit" onclick="viewVente(${v.id})"><i class="fas fa-eye"></i></button></td>
     </tr>
-    `;
-  }).join('');
+  `).join('');
 }
 
 function viewVente(id) {
   const vente = ventes.find(v => v.id == id);
   if(vente) {
-    let details = `📋 DÉTAIL DE LA VENTE #${vente.id}\n`;
-    details += `📅 Date: ${vente.date}\n`;
-    details += `👤 Client: ${vente.clientCrediteur || vente.client || '-'}\n`;
-    details += `💰 Montant total: ${vente.totalBrut || vente.montant} MAD\n`;
-    details += `🏷️ Remise: ${vente.remise || 0} MAD\n`;
-    details += `💵 Net à payer: ${vente.montant} MAD\n`;
-    if(vente.monnaieDonnee) details += `💸 Monnaie donnée: ${vente.monnaieDonnee} MAD\n`;
-    if(vente.monnaieRendue) details += `🔄 Monnaie rendue: ${vente.monnaieRendue} MAD\n`;
-    if(vente.resteAPayer > 0) details += `⚠️ Reste à payer: ${vente.resteAPayer} MAD\n`;
-    details += `📊 Type: ${vente.type === 'espece' ? 'Espèce' : 'Crédit'}\n`;
-    details += `✅ Statut: ${vente.statutPaiement === 'payé' ? 'Payé' : 'En attente'}`;
-    alert(details);
+    alert(`Vente #${vente.id}\nDate: ${vente.date}\nClient: ${vente.clientCrediteur || vente.client}\nTotal: ${vente.montant} MAD\nType: ${vente.type}`);
   }
 }
 
@@ -1834,16 +1717,12 @@ function sortVentesByColumn(column) {
     sortDirectionVentes = 'desc';
   }
   renderVentesHistory();
-  updateSortIndicatorsVentes();
 }
 
 function updateSortIndicatorsVentes() {
-  // Supprimer les classes existantes
   document.querySelectorAll('#ventesPage .sortable').forEach(th => {
     th.classList.remove('sort-asc', 'sort-desc');
   });
-  
-  // Ajouter la classe sur la colonne triée
   const th = document.querySelector(`#ventesPage .sortable[data-sort="${sortColumnVentes}"]`);
   if(th) {
     th.classList.add(sortDirectionVentes === 'desc' ? 'sort-desc' : 'sort-asc');
@@ -1857,104 +1736,21 @@ function renderCreditsTable() {
   
   let filteredCredits = credits.filter(c => c.statut !== 'payé');
   
-  const searchTerm = document.getElementById('searchCredits')?.value.toLowerCase() || '';
-  if(searchTerm) {
-    filteredCredits = filteredCredits.filter(c => 
-      (c.client || '').toLowerCase().includes(searchTerm) ||
-      c.id.toString().includes(searchTerm)
-    );
-  }
-  
-  // Filtre par date
-  const filterDate = document.getElementById('filterDateCredits')?.value;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
-  if(filterDate === 'today') {
-    filteredCredits = filteredCredits.filter(c => {
-      const cDate = new Date(c.dateCreation);
-      return cDate >= today;
-    });
-  } else if(filterDate === 'yesterday') {
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    filteredCredits = filteredCredits.filter(c => {
-      const cDate = new Date(c.dateCreation);
-      return cDate >= yesterday && cDate < today;
-    });
-  } else if(filterDate === '7') {
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    filteredCredits = filteredCredits.filter(c => new Date(c.dateCreation) >= weekAgo);
-  } else if(filterDate === '30') {
-    const monthAgo = new Date(today);
-    monthAgo.setDate(monthAgo.getDate() - 30);
-    filteredCredits = filteredCredits.filter(c => new Date(c.dateCreation) >= monthAgo);
-  } else if(filterDate === '90') {
-    const threeMonthsAgo = new Date(today);
-    threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
-    filteredCredits = filteredCredits.filter(c => new Date(c.dateCreation) >= threeMonthsAgo);
-  } else if(filterDate === '365') {
-    const yearAgo = new Date(today);
-    yearAgo.setDate(yearAgo.getDate() - 365);
-    filteredCredits = filteredCredits.filter(c => new Date(c.dateCreation) >= yearAgo);
-  }
-  
-  // Tri
-  filteredCredits.sort((a,b) => {
-    if(sortColumnCredits === 'date') {
-      const dateA = new Date(a.dateCreation);
-      const dateB = new Date(b.dateCreation);
-      return sortDirectionCredits === 'desc' ? dateB - dateA : dateA - dateB;
-    } else if(sortColumnCredits === 'montant') {
-      return sortDirectionCredits === 'desc' ? b.montant - a.montant : a.montant - b.montant;
-    } else if(sortColumnCredits === 'client') {
-      const clientA = (a.client || '').toLowerCase();
-      const clientB = (b.client || '').toLowerCase();
-      return sortDirectionCredits === 'desc' ? (clientB > clientA ? 1 : -1) : (clientA > clientB ? 1 : -1);
-    } else if(sortColumnCredits === 'id') {
-      return sortDirectionCredits === 'desc' ? b.id - a.id : a.id - b.id;
-    } else if(sortColumnCredits === 'paye') {
-      const payeA = a.paye || 0;
-      const payeB = b.paye || 0;
-      return sortDirectionCredits === 'desc' ? payeB - payeA : payeA - payeB;
-    } else if(sortColumnCredits === 'reste') {
-      const resteA = (a.montant || 0) - (a.paye || 0);
-      const resteB = (b.montant || 0) - (b.paye || 0);
-      return sortDirectionCredits === 'desc' ? resteB - resteA : resteA - resteB;
-    } else if(sortColumnCredits === 'statut') {
-      const statutA = a.statut || '';
-      const statutB = b.statut || '';
-      return sortDirectionCredits === 'desc' ? (statutB > statutA ? 1 : -1) : (statutA > statutB ? 1 : -1);
-    }
-    return 0;
-  });
-  
-  const totalCreditsSpan = document.getElementById('totalCredits');
-  if(totalCreditsSpan) totalCreditsSpan.textContent = filteredCredits.length + ' crédits';
-  
   if(filteredCredits.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;color:#94a3b8;">Aucun crédit actif</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;">Aucun crédit actif</td></tr>';
     return;
   }
   
   tbody.innerHTML = filteredCredits.map(c => {
-    const paye = c.paye || 0;
-    const reste = (c.montant || 0) - paye;
+    const reste = (c.montant || 0) - (c.paye || 0);
     return `
     <tr>
-      <td>#${c.id}</td>
-      <td>${c.venteId || '-'}</td>
-      <td><small>${c.dateCreation}</small></td>
-      <td>${c.clientId || '-'}</td>
-      <td>${escapeHtml(c.client || '-')}</td>
-      <td>-</td><td>-</td>
-      <td>${(c.montant || 0).toFixed(2)} MAD</td>
-      <td>${paye.toFixed(2)} MAD</td>
+      <td>#${c.id}</td><td>${escapeHtml(c.client || '-')}</td>
+      <td>${c.montant.toFixed(2)} MAD</td><td>${(c.paye || 0).toFixed(2)} MAD</td>
       <td>${reste.toFixed(2)} MAD</td>
-      <td>${c.statut === 'payé' ? '<span class="status-success">✅ Payé</span>' : '<span class="status-warning">⏳ En attente</span>'}</td>
-      <td>${reste > 0 ? `<button class="btn-edit" onclick="payCredit(${c.id})">💵 Payer</button>` : '-'}</td>
-    </tr>
+      <td>${c.statut === 'payé' ? '✅ Payé' : '⏳ En attente'}</td>
+      <td>${reste > 0 ? `<button class="btn-edit" onclick="payCredit(${c.id})">Payer</button>` : '-'}</td>
+    </table>
     `;
   }).join('');
 }
@@ -1967,13 +1763,9 @@ function sortCreditsByColumn(column) {
     sortDirectionCredits = 'desc';
   }
   renderCreditsTable();
-  updateSortIndicatorsCredits();
 }
 
 function updateSortIndicatorsCredits() {
-  document.querySelectorAll('#creditsPage .sortable').forEach(th => {
-    th.classList.remove('sort-asc', 'sort-desc');
-  });
   const th = document.querySelector(`#creditsPage .sortable[data-sort="${sortColumnCredits}"]`);
   if(th) {
     th.classList.add(sortDirectionCredits === 'desc' ? 'sort-desc' : 'sort-asc');
@@ -1987,15 +1779,10 @@ function payCredit(id) {
     const montant = prompt(`Montant à payer pour ${credit.client}? (Reste: ${reste.toFixed(2)} MAD)`);
     if(montant && parseFloat(montant) > 0) {
       credit.paye = (credit.paye || 0) + parseFloat(montant);
-      if((credit.montant || 0) - (credit.paye || 0) <= 0.01) {
+      if((credit.montant || 0) - (credit.paye || 0) <= 0) {
         credit.statut = 'payé';
       }
       forceSaveAllData();
-      
-      if (typeof window.saveCreditToFirebase === 'function') {
-        window.saveCreditToFirebase(credit);
-      }
-      
       renderCreditsTable();
       alert(`Paiement de ${montant} MAD enregistré`);
     }
@@ -2010,44 +1797,23 @@ function openDepenseModal(editMode = false, depense = null) {
   const title = document.getElementById('depenseModalTitle');
   const dId = document.getElementById('depenseId');
   const dDate = document.getElementById('depenseDate');
-  const dHeure = document.getElementById('depenseHeure');
   const dCategorie = document.getElementById('depenseCategorie');
   const dMontant = document.getElementById('depenseMontant');
-  const dFournisseur = document.getElementById('depenseFournisseur');
-  const dPaiement = document.getElementById('depensePaiement');
-  const dStatut = document.getElementById('depenseStatut');
-  const dFacture = document.getElementById('depenseFacture');
   const dDescription = document.getElementById('depenseDescription');
-  
-  // Remplir la liste des fournisseurs
-  if(dFournisseur) {
-    dFournisseur.innerHTML = '<option value="">Aucun / Autre</option>' + 
-      fournisseurs.map(f => `<option value="${escapeHtml(f.nom)}">${escapeHtml(f.nom)} (${escapeHtml(f.entreprise)})</option>`).join('');
-  }
   
   if(editMode && depense) {
     if(title) title.innerText = 'Modifier la dépense';
     if(dId) dId.value = depense.id;
     if(dDate) dDate.value = depense.dateISO || '';
-    if(dHeure) dHeure.value = depense.heure || '';
     if(dCategorie) dCategorie.value = depense.categorie || '';
     if(dMontant) dMontant.value = depense.montant || '';
-    if(dFournisseur) dFournisseur.value = depense.fournisseur || '';
-    if(dPaiement) dPaiement.value = depense.paiement || 'Espèces';
-    if(dStatut) dStatut.value = depense.statut || 'Payée';
-    if(dFacture) dFacture.value = depense.facture || '';
     if(dDescription) dDescription.value = depense.description || '';
   } else {
     if(title) title.innerText = 'Ajouter une dépense';
     if(dId) dId.value = '';
     if(dDate) dDate.value = new Date().toISOString().split('T')[0];
-    if(dHeure) dHeure.value = new Date().toLocaleTimeString('fr-FR').slice(0,5);
     if(dCategorie) dCategorie.value = '';
     if(dMontant) dMontant.value = '';
-    if(dFournisseur) dFournisseur.value = '';
-    if(dPaiement) dPaiement.value = 'Espèces';
-    if(dStatut) dStatut.value = 'Payée';
-    if(dFacture) dFacture.value = '';
     if(dDescription) dDescription.value = '';
   }
 }
@@ -2060,13 +1826,8 @@ function closeDepenseModal() {
 function saveDepense() {
   const id = document.getElementById('depenseId')?.value;
   const dateValue = document.getElementById('depenseDate')?.value;
-  const heureValue = document.getElementById('depenseHeure')?.value;
   const categorie = document.getElementById('depenseCategorie')?.value;
   const montant = parseFloat(document.getElementById('depenseMontant')?.value);
-  const fournisseur = document.getElementById('depenseFournisseur')?.value;
-  const paiement = document.getElementById('depensePaiement')?.value;
-  const statut = document.getElementById('depenseStatut')?.value;
-  const facture = document.getElementById('depenseFacture')?.value;
   const description = document.getElementById('depenseDescription')?.value;
   
   if(!categorie) { alert("Catégorie requise"); return; }
@@ -2077,13 +1838,8 @@ function saveDepense() {
     id: id ? parseInt(id) : (depenses.length > 0 ? Math.max(...depenses.map(d=>d.id)) + 1 : 1),
     dateISO: dateValue,
     date: new Date(dateValue).toLocaleDateString('fr-FR'),
-    heure: heureValue || '',
     categorie: categorie,
     montant: montant,
-    fournisseur: fournisseur || '',
-    paiement: paiement || 'Espèces',
-    statut: statut || 'Payée',
-    facture: facture || '',
     description: description || '',
     dateCreation: new Date().toLocaleString()
   };
@@ -2096,16 +1852,6 @@ function saveDepense() {
   }
   
   forceSaveAllData();
-  
-  setTimeout(async () => {
-    if (typeof window.saveDepenseToFirebase === 'function') {
-      await window.saveDepenseToFirebase(depenseData);
-    }
-    if (typeof window.syncAllDataToFirebase === 'function') {
-      await window.syncAllDataToFirebase();
-    }
-  }, 500);
-  
   closeDepenseModal();
   renderDepensesTable();
   updateStats();
@@ -2118,17 +1864,10 @@ function editDepense(id) {
 
 function deleteDepense(id) {
   if(confirm("Supprimer cette dépense ?")) {
-    const idNumber = Number(id);
-    depenses = depenses.filter(d => Number(d.id) !== idNumber);
+    depenses = depenses.filter(d => d.id != id);
     forceSaveAllData();
-    
-    if (typeof window.deleteDepenseFromFirebase === 'function') {
-      window.deleteDepenseFromFirebase(idNumber);
-    }
-    
     renderDepensesTable();
     updateStats();
-    alert("✅ Dépense supprimée avec succès !");
   }
 }
 
@@ -2136,122 +1875,23 @@ function renderDepensesTable() {
   const tbody = document.getElementById('depensesList');
   if(!tbody) return;
   
-  let filteredDepenses = [...depenses];
-  
-  // Filtre par catégorie
-  const filterCategorie = document.getElementById('filterCategorieDepenses')?.value;
-  if(filterCategorie && filterCategorie !== 'all') {
-    filteredDepenses = filteredDepenses.filter(d => d.categorie === filterCategorie);
-  }
-  
-  // Filtre par date
-  const filterDate = document.getElementById('filterDateDepenses')?.value;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  
-  if(filterDate === 'today') {
-    filteredDepenses = filteredDepenses.filter(d => {
-      const dDate = new Date(d.dateISO);
-      return dDate >= today;
-    });
-  } else if(filterDate === 'yesterday') {
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    filteredDepenses = filteredDepenses.filter(d => {
-      const dDate = new Date(d.dateISO);
-      return dDate >= yesterday && dDate < today;
-    });
-  } else if(filterDate === '7') {
-    const weekAgo = new Date(today);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    filteredDepenses = filteredDepenses.filter(d => new Date(d.dateISO) >= weekAgo);
-  } else if(filterDate === '30') {
-    const monthAgo = new Date(today);
-    monthAgo.setDate(monthAgo.getDate() - 30);
-    filteredDepenses = filteredDepenses.filter(d => new Date(d.dateISO) >= monthAgo);
-  } else if(filterDate === '90') {
-    const threeMonthsAgo = new Date(today);
-    threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
-    filteredDepenses = filteredDepenses.filter(d => new Date(d.dateISO) >= threeMonthsAgo);
-  } else if(filterDate === '365') {
-    const yearAgo = new Date(today);
-    yearAgo.setDate(yearAgo.getDate() - 365);
-    filteredDepenses = filteredDepenses.filter(d => new Date(d.dateISO) >= yearAgo);
-  }
-  
-  // Recherche
-  const searchTerm = document.getElementById('searchDepenses')?.value.toLowerCase() || '';
-  if(searchTerm) {
-    filteredDepenses = filteredDepenses.filter(d => 
-      (d.description || '').toLowerCase().includes(searchTerm) ||
-      (d.fournisseur || '').toLowerCase().includes(searchTerm) ||
-      (d.categorie || '').toLowerCase().includes(searchTerm)
-    );
-  }
-  
-  // Tri
-  const sortOrder = document.getElementById('sortOrderDepenses')?.value;
-  if(sortOrder === 'montant-desc') {
-    filteredDepenses.sort((a,b) => b.montant - a.montant);
-  } else if(sortOrder === 'montant-asc') {
-    filteredDepenses.sort((a,b) => a.montant - b.montant);
-  } else if(sortOrder === 'asc') {
-    filteredDepenses.sort((a,b) => new Date(a.dateISO) - new Date(b.dateISO));
-  } else {
-    filteredDepenses.sort((a,b) => new Date(b.dateISO) - new Date(a.dateISO));
-  }
-  
-  // Calcul des totaux pour le résumé
-  const totalGeneral = filteredDepenses.reduce((s, d) => s + (d.montant || 0), 0);
-  const totalMois = filteredDepenses.filter(d => {
-    const dDate = new Date(d.dateISO);
-    return dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear();
-  }).reduce((s, d) => s + (d.montant || 0), 0);
-  const totalToday = filteredDepenses.filter(d => {
-    const dDate = new Date(d.dateISO);
-    return dDate >= today;
-  }).reduce((s, d) => s + (d.montant || 0), 0);
-  const maxDepense = filteredDepenses.length > 0 ? Math.max(...filteredDepenses.map(d => d.montant)) : 0;
-  const moyenneJour = filteredDepenses.length > 0 ? totalGeneral / 30 : 0; // Approximation
-  
-  document.getElementById('summaryTotal').innerHTML = totalGeneral.toFixed(2) + ' MAD';
-  document.getElementById('summaryMois').innerHTML = totalMois.toFixed(2) + ' MAD';
-  document.getElementById('summaryToday').innerHTML = totalToday.toFixed(2) + ' MAD';
-  document.getElementById('summaryMoyenne').innerHTML = moyenneJour.toFixed(2) + ' MAD';
-  document.getElementById('summaryMax').innerHTML = maxDepense.toFixed(2) + ' MAD';
-  document.getElementById('totalDepenses').innerHTML = totalGeneral.toFixed(2) + ' MAD';
-  document.getElementById('depensesCeMois').innerHTML = totalMois.toFixed(2) + ' MAD';
-  
-  if(filteredDepenses.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;">Aucune dépense</td></tr>';
+  if(depenses.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">Aucune dépense</td></tr>';
     return;
   }
   
-  tbody.innerHTML = filteredDepenses.map(d => {
-    let statusClass = '';
-    if(d.statut === 'Payée') statusClass = 'status-payee';
-    else if(d.statut === 'En attente') statusClass = 'status-attente';
-    else if(d.statut === 'Programmée') statusClass = 'status-programmee';
-    else if(d.statut === 'Annulée') statusClass = 'status-annulee';
-    
-    return `
+  tbody.innerHTML = depenses.map(d => `
     <tr>
-      <td>${d.id}</td>
-      <td><small>${d.date || '-'}</small></td>
-      <td><span class="categorie-badge">${escapeHtml(d.categorie || '-')}</span></td>
-      <td>${escapeHtml(d.fournisseur || '-')}</td>
-      <td>${escapeHtml((d.description || '').substring(0,50))}</td>
-      <td style="color:#ef4444; font-weight:600;">${d.montant.toFixed(2)} MAD</td>
-      <td>${escapeHtml(d.paiement || '-')}</td>
-      <td>${d.facture ? '<i class="fas fa-file-pdf"></i>' : '-'}</td>
-      <td><span class="${statusClass}">${escapeHtml(d.statut || 'Payée')}</span></td>
+      <td>${d.id}</td><td>${d.date || '-'}</td>
+      <td>${escapeHtml(d.categorie)}</td>
+      <td>${escapeHtml(d.description || '-')}</td>
+      <td style="color:#ef4444;">${d.montant.toFixed(2)} MAD</td>
       <td>
         <button class="btn-edit" onclick="editDepense(${d.id})"><i class="fas fa-edit"></i></button>
         <button class="btn-delete" onclick="deleteDepense(${d.id})"><i class="fas fa-trash"></i></button>
       </td>
     </tr>
-    `;
-  }).join('');
+  `).join('');
 }
 
 function sortDepensesByColumn(column) {
@@ -2262,13 +1902,9 @@ function sortDepensesByColumn(column) {
     sortDirectionDepenses = 'desc';
   }
   renderDepensesTable();
-  updateSortIndicatorsDepenses();
 }
 
 function updateSortIndicatorsDepenses() {
-  document.querySelectorAll('#depensesPage .sortable').forEach(th => {
-    th.classList.remove('sort-asc', 'sort-desc');
-  });
   const th = document.querySelector(`#depensesPage .sortable[data-sort="${sortColumnDepenses}"]`);
   if(th) {
     th.classList.add(sortDirectionDepenses === 'desc' ? 'sort-desc' : 'sort-asc');
@@ -2277,53 +1913,26 @@ function updateSortIndicatorsDepenses() {
 
 // ========= STATISTIQUES =========
 function updateStats() {
-  // CA Total
-  const totalCA = ventes.reduce((s,v) => s + (v.montant || 0), 0);
-  const totalSalesEl = document.getElementById('totalSales');
-  if(totalSalesEl) totalSalesEl.innerText = totalCA.toFixed(2);
+  const totalCA = ventes.reduce((s,v) => s + v.montant, 0);
+  document.getElementById('totalSales').innerText = totalCA.toFixed(2);
+  document.getElementById('totalOrders').innerText = ventes.length;
   
-  // Nombre de commandes
-  const totalOrdersEl = document.getElementById('totalOrders');
-  if(totalOrdersEl) totalOrdersEl.innerText = ventes.length;
-  
-  // Profit total
-  let totalProfitValue = 0;
+  let totalProfit = 0;
   produits.forEach(p => {
-    const prixEffectif = (p.prixPromo > 0) ? p.prixPromo : p.prixVente;
-    totalProfitValue += (prixEffectif - (p.prixAchat || 0)) * (p.quantiteVendue || 0);
+    totalProfit += ((p.prixPromo > 0 ? p.prixPromo : p.prixVente) - p.prixAchat) * (p.quantiteVendue || 0);
   });
-  const totalProfitEl = document.getElementById('totalProfit');
-  if(totalProfitEl) totalProfitEl.innerText = totalProfitValue.toFixed(2);
-  
-  // Top produit
-  let topProduct = null;
-  let topQuantity = 0;
-  produits.forEach(p => {
-    if((p.quantiteVendue || 0) > topQuantity) {
-      topQuantity = p.quantiteVendue || 0;
-      topProduct = p.nom;
-    }
-  });
-  const topProductEl = document.getElementById('topProduct');
-  if(topProductEl) topProductEl.innerText = topProduct ? `${topProduct} (${topQuantity})` : '-';
+  document.getElementById('totalProfit').innerText = totalProfit.toFixed(2);
 }
 
-// ========= COMMANDES EN LIGNE (FONCTIONS DE BASE) =========
+// ========= COMMANDES EN LIGNE =========
 function chargerCategoriesEnLigne() {
   const container = document.getElementById('onlineCategoriesTabs');
   if(!container) return;
   
-  let html = `<button class="cat-btn ${currentOnlineCategory === 'all' ? 'active' : ''}" onclick="filtrerProduitsEnLigne('all')">
-    <span style="font-size:1.2rem;">🍽️</span> Tout
-  </button>`;
-  
+  let html = `<button class="cat-btn active" onclick="filtrerProduitsEnLigne('all')">🍽️ Tout</button>`;
   categories.forEach(cat => {
-    const iconDisplay = cat.icon ? (cat.icon.startsWith('data:image') || cat.icon.startsWith('http') ? `<img src="${cat.icon}" style="width:20px;height:20px;object-fit:contain;">` : cat.icon) : '📁';
-    html += `<button class="cat-btn ${currentOnlineCategory === cat.id ? 'active' : ''}" onclick="filtrerProduitsEnLigne(${cat.id})">
-      <span style="font-size:1.2rem;">${iconDisplay}</span> ${escapeHtml(cat.nom)}
-    </button>`;
+    html += `<button class="cat-btn" onclick="filtrerProduitsEnLigne(${cat.id})">${cat.icon || '📁'} ${escapeHtml(cat.nom)}</button>`;
   });
-  
   container.innerHTML = html;
 }
 
@@ -2331,49 +1940,25 @@ function chargerProduitsEnLigne() {
   const container = document.getElementById('onlineProductsGrid');
   if(!container) return;
   
-  let produitsDisponibles = produits.filter(p => p.disponibilite === 'disponible');
-  
-  let filtered = produitsDisponibles;
+  let filtered = produits.filter(p => p.disponibilite === 'disponible');
   if(currentOnlineCategory !== 'all') {
     filtered = filtered.filter(p => p.categorieId === currentOnlineCategory);
   }
   
-  if(filtered.length === 0) { 
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">🍽️ Aucun produit disponible dans cette catégorie</div>'; 
-    return; 
+  if(filtered.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;">Aucun produit disponible</div>';
+    return;
   }
   
-  container.innerHTML = filtered.map(p => {
-    const prix = p.prixPromo > 0 ? p.prixPromo : p.prixVente;
-    const imageHtml = p.image ? 
-      `<img src="${p.image}" alt="${escapeHtml(p.nom)}" style="width:60px;height:60px;object-fit:cover;border-radius:12px;" onerror="this.style.display='none'">` :
-      `<div style="width:60px;height:60px;background:#f1f5f9;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;">🍔</div>`;
-    
-    return `
-      <div class="product-card" onclick="ajouterAuPanierEnLigne(${p.id}, '${escapeHtml(p.nom)}', ${prix})">
-        <div class="product-card-image">
-          ${imageHtml}
-        </div>
-        <div class="product-card-body">
-          <div class="product-title">${escapeHtml(p.nom)}</div>
-          ${p.prixPromo > 0 ? 
-            `<div style="display:flex;gap:8px;align-items:center;justify-content:center;">
-              <span style="text-decoration:line-through;color:#94a3b8;font-size:0.7rem;">${p.prixVente.toFixed(2)} MAD</span>
-              <span class="product-price">${p.prixPromo.toFixed(2)} MAD</span>
-            </div>` : 
-            `<div class="product-price">${prix.toFixed(2)} MAD</div>`
-          }
-          <button class="product-add">+ Ajouter</button>
-        </div>
+  container.innerHTML = filtered.map(p => `
+    <div class="product-card" onclick="ajouterAuPanierEnLigne(${p.id}, '${escapeHtml(p.nom)}', ${p.prixVente})">
+      <div class="product-card-body">
+        <div class="product-title">${escapeHtml(p.nom)}</div>
+        <div class="product-price">${p.prixVente.toFixed(2)} MAD</div>
+        <button class="product-add">+ Ajouter</button>
       </div>
-    `;
-  }).join('');
-}
-
-function filtrerProduitsEnLigne(catId) {
-  currentOnlineCategory = catId;
-  chargerProduitsEnLigne();
-  chargerCategoriesEnLigne();
+    </div>
+  `).join('');
 }
 
 function ajouterAuPanierEnLigne(id, nom, prix) {
@@ -2384,44 +1969,31 @@ function ajouterAuPanierEnLigne(id, nom, prix) {
     onlineCart.push({ id, nom, prix, quantite: 1 });
   }
   afficherPanierEnLigne();
-  if(typeof showToastMessage === 'function') showToastMessage(`${nom} ajouté au panier !`);
-  else alert(`${nom} ajouté au panier !`);
 }
 
 function afficherPanierEnLigne() {
   const container = document.getElementById('onlineCartList');
   let total = 0;
   
-  if(onlineCart.length === 0) { 
-    if(container) container.innerHTML = '<div class="empty-cart"><i class="fas fa-shopping-cart"></i><p>Votre panier est vide</p></div>'; 
-    const totalSpan = document.getElementById('onlineCartTotal');
-    if(totalSpan) totalSpan.innerText = '0.00 MAD';
-    return; 
+  if(onlineCart.length === 0) {
+    container.innerHTML = '<div class="empty-cart">Panier vide</div>';
+    document.getElementById('onlineCartTotal').innerText = '0.00 MAD';
+    return;
   }
   
-  if(container) {
-    container.innerHTML = onlineCart.map((item, idx) => {
-      total += item.prix * item.quantite;
-      return `
-        <div class="online-cart-item">
-          <div class="online-cart-item-info">
-            <div class="online-cart-item-name">${escapeHtml(item.nom)}</div>
-            <div class="online-cart-item-price">${item.prix.toFixed(2)} MAD</div>
-          </div>
-          <div class="quantity-controls">
-            <button class="quantity-btn" onclick="modifierQuantiteEnLigne(${idx}, -1)">-</button>
-            <span class="quantity-value">${item.quantite}</span>
-            <button class="quantity-btn" onclick="modifierQuantiteEnLigne(${idx}, 1)">+</button>
-            <button class="remove-btn" onclick="supprimerDuPanierEnLigne(${idx})">🗑️</button>
-          </div>
-          <div class="item-total">${(item.prix * item.quantite).toFixed(2)} MAD</div>
-        </div>
-      `;
-    }).join('');
-  }
-  
-  const totalSpan = document.getElementById('onlineCartTotal');
-  if(totalSpan) totalSpan.innerText = total.toFixed(2) + ' MAD';
+  container.innerHTML = onlineCart.map((item, idx) => {
+    total += item.prix * item.quantite;
+    return `
+      <div class="online-cart-item">
+        <span>${escapeHtml(item.nom)} x${item.quantite}</span>
+        <span>${(item.prix * item.quantite).toFixed(2)} MAD</span>
+        <button onclick="modifierQuantiteEnLigne(${idx}, -1)">-</button>
+        <button onclick="modifierQuantiteEnLigne(${idx}, 1)">+</button>
+        <button onclick="supprimerDuPanierEnLigne(${idx})">🗑️</button>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('onlineCartTotal').innerText = total.toFixed(2) + ' MAD';
 }
 
 function modifierQuantiteEnLigne(index, delta) {
@@ -2433,147 +2005,86 @@ function modifierQuantiteEnLigne(index, delta) {
   afficherPanierEnLigne();
 }
 
-function supprimerDuPanierEnLigne(index) { 
-  onlineCart.splice(index,1); 
-  afficherPanierEnLigne(); 
+function supprimerDuPanierEnLigne(index) {
+  onlineCart.splice(index,1);
+  afficherPanierEnLigne();
+}
+
+function filtrerProduitsEnLigne(catId) {
+  currentOnlineCategory = catId;
+  chargerProduitsEnLigne();
+  document.querySelectorAll('#onlineCategoriesTabs .cat-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
 }
 
 function validerCommandeEnLigne() {
   const clientName = document.getElementById('onlineClientName')?.value.trim();
-  const clientPhone = document.getElementById('onlineClientPhone')?.value.trim();
-  
-  if(onlineCart.length === 0) {
-    alert("Votre panier est vide !");
-    return;
-  }
-  
-  if(!clientName) {
-    alert("Veuillez entrer votre nom");
-    return;
-  }
+  if(onlineCart.length === 0) { alert("Panier vide"); return; }
+  if(!clientName) { alert("Entrez votre nom"); return; }
   
   const commandeData = {
     numero: `CMD-${Date.now().toString().slice(-6)}`,
     client: clientName,
-    telephone: clientPhone || '',
-    items: onlineCart.map(item => ({
-      productId: item.id,
-      name: item.nom,
-      price: item.prix,
-      quantite: item.quantite,
-      total: item.prix * item.quantite
-    })),
-    total: onlineCart.reduce((sum, item) => sum + (item.prix * item.quantite), 0),
-    statut: 'en_attente',
-    date: new Date().toLocaleString()
+    items: onlineCart,
+    total: onlineCart.reduce((s,i) => s + i.prix * i.quantite, 0),
+    date: new Date().toLocaleString(),
+    statut: 'en_attente'
   };
   
-  // Sauvegarder dans localStorage
-  let commandesEnLigne = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-  commandesEnLigne.push(commandeData);
-  localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandesEnLigne));
+  let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
+  commandes.push(commandeData);
+  localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandes));
   
-  // Sauvegarder dans Firebase si disponible
   if (typeof window.saveOnlineOrderToFirebase === 'function') {
     window.saveOnlineOrderToFirebase(commandeData);
   }
   
-  let recap = `✅ Commande confirmée !\n\n`;
-  recap += `📋 Numéro: ${commandeData.numero}\n`;
-  recap += `👤 Client: ${clientName}\n`;
-  recap += `📅 Date: ${commandeData.date}\n`;
-  recap += `💰 Total: ${commandeData.total.toFixed(2)} MAD\n\n`;
-  recap += `⏳ Votre commande sera préparée dans quelques minutes.`;
-  
-  alert(recap);
-  
+  alert(`✅ Commande confirmée !\nNuméro: ${commandeData.numero}\nTotal: ${commandeData.total.toFixed(2)} MAD`);
   onlineCart = [];
-  if(document.getElementById('onlineClientName')) document.getElementById('onlineClientName').value = '';
-  if(document.getElementById('onlineClientPhone')) document.getElementById('onlineClientPhone').value = '';
   afficherPanierEnLigne();
-  
+  closeOnlineOrderModal();
   mettreAJourBadgeCommandes();
 }
 
 function afficherCommandesEnLigneList() {
   const container = document.getElementById('commandesEnLigneListContainer');
-  if(!container) return;
+  let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
+  commandes = commandes.filter(c => c.statut === 'en_attente');
   
-  let commandesEnAttente = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-  commandesEnAttente = commandesEnAttente.filter(c => c.statut === 'en_attente');
-  
-  if(commandesEnAttente.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">🎉 Aucune commande en attente</div>';
+  if(commandes.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;">Aucune commande en attente</div>';
     return;
   }
   
-  container.innerHTML = commandesEnAttente.map((cmd, idx) => `
-    <div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:12px;margin-bottom:15px;padding:15px;">
-      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-        <div>
-          <strong>📱 ${cmd.numero}</strong>
-          <div style="font-size:0.8rem;color:#64748b;">👤 ${escapeHtml(cmd.client)}</div>
-          <div style="font-size:0.7rem;color:#64748b;">📅 ${cmd.date}</div>
-          ${cmd.telephone ? `<div style="font-size:0.7rem;color:#64748b;">📞 ${escapeHtml(cmd.telephone)}</div>` : ''}
-        </div>
-        <span style="background:#f59e0b;padding:4px 12px;border-radius:20px;color:white;font-size:0.75rem;">⏳ En attente</span>
-      </div>
-      <div style="margin:12px 0;padding:10px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
-        ${cmd.items.map(item => `
-          <div style="display:flex;justify-content:space-between;padding:6px 0;">
-            <div>
-              <strong>${escapeHtml(item.name)}</strong>
-              <div style="font-size:0.65rem;color:#64748b;">${item.quantite}x ${item.price.toFixed(2)} MAD</div>
-            </div>
-            <span style="font-weight:600;color:#e67e22;">${(item.price * item.quantite).toFixed(2)} MAD</span>
-          </div>
-        `).join('')}
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-        <strong>Total: ${cmd.total.toFixed(2)} MAD</strong>
-        <div style="display:flex;gap:8px;">
-          <button onclick="accepterCommandeEnLigne(${idx})" style="background:#22c55e;border:none;padding:8px 20px;border-radius:8px;color:white;cursor:pointer;">
-            ✅ Accepter
-          </button>
-          <button onclick="ajouterCommandeAuPanierPOS(${idx})" style="background:#8b5cf6;border:none;padding:8px 20px;border-radius:8px;color:white;cursor:pointer;">
-            🛒 Ajouter au panier
-          </button>
-        </div>
-      </div>
+  container.innerHTML = commandes.map((cmd, idx) => `
+    <div style="border:1px solid #ddd;padding:15px;margin-bottom:10px;border-radius:8px;">
+      <strong>${cmd.numero}</strong> - ${cmd.client}<br>
+      Total: ${cmd.total.toFixed(2)} MAD<br>
+      <button onclick="accepterCommandeEnLigne(${idx})">✅ Accepter</button>
+      <button onclick="ajouterCommandeAuPanierPOS(${idx})">🛒 Ajouter au panier</button>
     </div>
   `).join('');
 }
 
 function accepterCommandeEnLigne(index) {
   let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-  if(commandes[index]) {
-    commandes[index].statut = 'terminee';
-    localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandes));
-    afficherCommandesEnLigneList();
-    mettreAJourBadgeCommandes();
-    alert(`✅ Commande ${commandes[index].numero} acceptée !`);
-  }
+  commandes[index].statut = 'terminee';
+  localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandes));
+  afficherCommandesEnLigneList();
+  mettreAJourBadgeCommandes();
 }
 
 function ajouterCommandeAuPanierPOS(index) {
   let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-  const commande = commandes[index];
-  
-  if(commande && commande.items) {
-    commande.items.forEach(item => {
-      for(let i = 0; i < item.quantite; i++) {
-        cart.push({ 
-          name: item.name, 
-          price: item.price, 
-          optionsText: '',
-          options: {}
-        });
+  const cmd = commandes[index];
+  if(cmd && cmd.items) {
+    cmd.items.forEach(item => {
+      for(let i=0; i<item.quantite; i++) {
+        cart.push({ name: item.nom, price: item.prix, optionsText: '' });
       }
     });
-    
     refreshCartDisplay();
     accepterCommandeEnLigne(index);
-    if(typeof showToastMessage === 'function') showToastMessage(`🛒 Article(s) ajouté(s) au panier POS`);
     showPage('pos');
   }
 }
@@ -2587,77 +2098,58 @@ function mettreAJourBadgeCommandes() {
 
 // ========= FONCTIONS UTILITAIRES =========
 function getNowDateTime() {
-  const now = new Date();
-  return now.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return new Date().toLocaleString('fr-FR');
 }
 
-function escapeHtml(str) { 
-  if(!str) return ''; 
-  return str.replace(/[&<>]/g, function(m) { 
-    if(m==='&') return '&amp;'; 
-    if(m==='<') return '&lt;'; 
-    if(m==='>') return '&gt;'; 
-    return m; 
-  }); 
+function escapeHtml(str) {
+  if(!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if(m === '&') return '&amp;';
+    if(m === '<') return '&lt;';
+    if(m === '>') return '&gt;';
+    return m;
+  });
 }
 
 function showToastMessage(message) {
   const toast = document.createElement('div');
   toast.textContent = message;
-  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 20px;border-radius:8px;z-index:10000;font-weight:bold;box-shadow:0 2px 10px rgba(0,0,0,0.2);';
+  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 20px;border-radius:8px;z-index:10000;';
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
 
 function seedDemoData() {
-  if(users.length === 0) { 
-    users.push({ username: 'admin', password: 'admin', role: 'admin', dateCreation: getNowDateTime() }); 
-    users.push({ username: 'caissier', password: 'caissier', role: 'caissier', dateCreation: getNowDateTime() }); 
-    saveUsersToLocal(); 
+  if(users.length === 0) {
+    users.push({ username: 'admin', password: 'admin', role: 'admin', dateCreation: getNowDateTime() });
+    users.push({ username: 'caissier', password: 'caissier', role: 'caissier', dateCreation: getNowDateTime() });
+    saveUsersToLocal();
   }
   
-  if(categories.length === 0) { 
-    const now = getNowDateTime(); 
-    categories.push({ id: 1, icon: '🍔', nom: 'Burgers', description: 'Nos meilleurs burgers', dateCreation: now }); 
-    categories.push({ id: 2, icon: '🍗', nom: 'Poulets', description: 'Poulets grillés', dateCreation: now }); 
-    categories.push({ id: 3, icon: '🍟', nom: 'Accompagnements', description: 'Frites, sauces', dateCreation: now }); 
-    categories.push({ id: 4, icon: '🥤', nom: 'Boissons', description: 'Boissons fraîches', dateCreation: now }); 
-    saveCategoriesToLocal(); 
-  }
-  
-  if(produits.length === 0) { 
+  if(categories.length === 0) {
     const now = getNowDateTime();
-    produits.push({ id:1, nom:'Poulet Grillé', categorieId:2, prixAchat:25, prixVente:45, prixPromo:0, stock:100, quantiteVendue:0, tempsPreparation:10, disponibilite:'disponible', description:'Poulet mariné grillé', dateCreation:now });
-    produits.push({ id:2, nom:'Tacos Mixte', categorieId:1, prixAchat:18, prixVente:35, prixPromo:0, stock:100, quantiteVendue:0, tempsPreparation:8, disponibilite:'disponible', description:'Tacos sauce blanche', dateCreation:now });
-    produits.push({ id:3, nom:'Frites Maison', categorieId:3, prixAchat:5, prixVente:15, prixPromo:12, stock:200, quantiteVendue:0, tempsPreparation:5, disponibilite:'disponible', description:'Frites fraîches', dateCreation:now });
-    produits.push({ id:4, nom:'Coca-Cola', categorieId:4, prixAchat:3, prixVente:8, prixPromo:0, stock:500, quantiteVendue:0, tempsPreparation:1, disponibilite:'disponible', description:'Canette 33cl', dateCreation:now });
+    categories.push({ id: 1, icon: '🍔', nom: 'Burgers', description: 'Nos burgers', dateCreation: now });
+    categories.push({ id: 2, icon: '🍗', nom: 'Poulets', description: 'Poulets grillés', dateCreation: now });
+    categories.push({ id: 3, icon: '🍟', nom: 'Accompagnements', description: 'Frites, sauces', dateCreation: now });
+    saveCategoriesToLocal();
+  }
+  
+  if(produits.length === 0) {
+    const now = getNowDateTime();
+    produits.push({ id:1, nom:'Poulet Grillé', categorieId:2, prixAchat:25, prixVente:45, prixPromo:0, stock:100, dateCreation:now });
+    produits.push({ id:2, nom:'Tacos Mixte', categorieId:1, prixAchat:18, prixVente:35, prixPromo:0, stock:100, dateCreation:now });
+    produits.push({ id:3, nom:'Frites', categorieId:3, prixAchat:5, prixVente:15, prixPromo:12, stock:200, dateCreation:now });
     saveProduitsToLocal();
   }
 }
 
-// Exposer les fonctions globalement
-window.currentUser = currentUser;
-window.currentUserRole = currentUserRole;
-window.cart = cart;
-window.users = users;
-window.orders = orders;
-window.ventes = ventes;
-window.categories = categories;
-window.produits = produits;
-window.clients = clients;
-window.fournisseurs = fournisseurs;
-window.depenses = depenses;
-window.credits = credits;
-
-// Navigation et Auth
+// ========= EXPOSER LES FONCTIONS GLOBALEMENT =========
 window.showPage = showPage;
 window.login = login;
 window.logout = logout;
 window.showRegister = showRegister;
 window.showLogin = showLogin;
 window.register = register;
-
-// POS et Panier
 window.openProductOptions = openProductOptions;
 window.closeProductOptionsModal = closeProductOptionsModal;
 window.confirmAddToCart = confirmAddToCart;
@@ -2669,8 +2161,6 @@ window.confirmPayment = confirmPayment;
 window.calculatePayment = calculatePayment;
 window.searchClients = searchClients;
 window.selectClient = selectClient;
-
-// Catégories
 window.openCategoryModal = openCategoryModal;
 window.closeCategoryModal = closeCategoryModal;
 window.saveCategory = saveCategory;
@@ -2680,8 +2170,6 @@ window.switchCategoryIconMode = switchCategoryIconMode;
 window.setCategoryEmoji = setCategoryEmoji;
 window.handleCategoryIconFileSelect = handleCategoryIconFileSelect;
 window.removeCategoryIconFile = removeCategoryIconFile;
-
-// Produits
 window.switchProductImageMode = switchProductImageMode;
 window.handleProductImageFileSelect = handleProductImageFileSelect;
 window.removeProductImageFile = removeProductImageFile;
@@ -2691,22 +2179,16 @@ window.saveProduct = saveProduct;
 window.editProduct = editProduct;
 window.deleteProduct = deleteProduct;
 window.calculateProfit = calculateProfit;
-
-// Clients
 window.openClientModal = openClientModal;
 window.closeClientModal = closeClientModal;
 window.saveClient = saveClient;
 window.editClient = editClient;
 window.deleteClient = deleteClient;
-
-// Fournisseurs
 window.openFournisseurModal = openFournisseurModal;
 window.closeFournisseurModal = closeFournisseurModal;
 window.saveFournisseur = saveFournisseur;
 window.editFournisseur = editFournisseur;
 window.deleteFournisseur = deleteFournisseur;
-
-// Ventes, Crédits, Dépenses
 window.viewVente = viewVente;
 window.payCredit = payCredit;
 window.openDepenseModal = openDepenseModal;
@@ -2717,8 +2199,6 @@ window.deleteDepense = deleteDepense;
 window.sortVentesByColumn = sortVentesByColumn;
 window.sortCreditsByColumn = sortCreditsByColumn;
 window.sortDepensesByColumn = sortDepensesByColumn;
-
-// Commandes en ligne
 window.chargerCategoriesEnLigne = chargerCategoriesEnLigne;
 window.chargerProduitsEnLigne = chargerProduitsEnLigne;
 window.filtrerProduitsEnLigne = filtrerProduitsEnLigne;
@@ -2731,8 +2211,6 @@ window.afficherCommandesEnLigneList = afficherCommandesEnLigneList;
 window.accepterCommandeEnLigne = accepterCommandeEnLigne;
 window.ajouterCommandeAuPanierPOS = ajouterCommandeAuPanierPOS;
 window.mettreAJourBadgeCommandes = mettreAJourBadgeCommandes;
-
-// Utilitaires
 window.filterPOSProducts = filterPOSProducts;
 window.loadPOSCategories = loadPOSCategories;
 window.renderAllTables = renderAllTables;
