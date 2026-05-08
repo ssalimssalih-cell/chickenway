@@ -914,7 +914,7 @@ function renderCategoriesTable() {
   const tbody = document.getElementById('categoriesList');
   if(!tbody) return;
   if(categories.length===0) { 
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">Aucune catégorie</td></tr>'; 
+    tbody.innerHTML = '<td><td colspan="6" style="text-align:center;padding:20px;">Aucune catégorie</td></tr>';
     return; 
   }
   tbody.innerHTML = categories.map(c => `
@@ -927,7 +927,7 @@ function renderCategoriesTable() {
       <td>
         <button class="btn-edit" onclick="editCategory(${c.id})"><i class="fas fa-edit"></i></button>
         <button class="btn-delete" onclick="deleteCategory(${c.id})"><i class="fas fa-trash"></i></button>
-        </td>
+      </td>
     </tr>
   `).join('');
 }
@@ -1270,7 +1270,7 @@ function renderProductsTable() {
   }
   
   if(filteredProduits.length===0) { 
-    tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:20px;color:#94a3b8;">Aucun produit trouvé</td></tr>'; 
+    tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:20px;color:#94a3b8;">Aucun produit trouvé</td></tr>';
     return; 
   }
   
@@ -1481,27 +1481,27 @@ function renderClientsTable() {
   if(totalClientsSpan) totalClientsSpan.textContent = filteredClients.length;
   
   if(filteredClients.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:20px;">Aucun client</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:20px;">Aucun client<\/td><\/tr>';
     return;
   }
   
   tbody.innerHTML = filteredClients.map(c => `
     <tr>
-      <td>${c.id}</td>
-      <td>${escapeHtml(c.nom)}</td><td>${escapeHtml(c.prenom || '')}</td>
-      <td>${escapeHtml(c.genre || '')}</td><td>${escapeHtml(c.adresse || '')}</td>
-      <td>${escapeHtml(c.profession || '')}</td><td>${escapeHtml((c.description || '').substring(0,30))}</td>
-      <td>${escapeHtml(c.telephone || '')}</td><td>${escapeHtml(c.whatsapp || '')}</td>
-      <td>${escapeHtml(c.instagram || '')}</td><td>${escapeHtml(c.facebook || '')}</td>
-      <td>${(c.chiffreAffaire || 0).toFixed(2)} MAD</td><td>${(c.profit || 0).toFixed(2)} MAD</td>
-      <td>${c.pointsFidelite || 0}</td><td>${escapeHtml(c.niveau || 'Normal')}</td>
-      <td>${escapeHtml(c.platsPreferes || '')}</td><td>${escapeHtml(c.allergies || '')}</td>
-      <td>${c.dateCreation || '-'}</td>
+      <td>${c.id}<\/td>
+      <td>${escapeHtml(c.nom)}<\/td><td>${escapeHtml(c.prenom || '')}<\/td>
+      <td>${escapeHtml(c.genre || '')}<\/td><td>${escapeHtml(c.adresse || '')}<\/td>
+      <td>${escapeHtml(c.profession || '')}<\/td><td>${escapeHtml((c.description || '').substring(0,30))}<\/td>
+      <td>${escapeHtml(c.telephone || '')}<\/td><td>${escapeHtml(c.whatsapp || '')}<\/td>
+      <td>${escapeHtml(c.instagram || '')}<\/td><td>${escapeHtml(c.facebook || '')}<\/td>
+      <td>${(c.chiffreAffaire || 0).toFixed(2)} MAD<\/td><td>${(c.profit || 0).toFixed(2)} MAD<\/td>
+      <td>${c.pointsFidelite || 0}<\/td><td>${escapeHtml(c.niveau || 'Normal')}<\/td>
+      <td>${escapeHtml(c.platsPreferes || '')}<\/td><td>${escapeHtml(c.allergies || '')}<\/td>
+      <td>${c.dateCreation || '-'}<\/td>
       <td>
-        <button class="btn-edit" onclick="editClient(${c.id})"><i class="fas fa-edit"></i></button>
-        <button class="btn-delete" onclick="deleteClient(${c.id})"><i class="fas fa-trash"></i></button>
-      </td>
-    </tr>
+        <button class="btn-edit" onclick="editClient(${c.id})"><i class="fas fa-edit"><\/i><\/button>
+        <button class="btn-delete" onclick="deleteClient(${c.id})"><i class="fas fa-trash"><\/i><\/button>
+      <\/td>
+    <\/tr>
   `).join('');
 }
 
@@ -1646,24 +1646,24 @@ function renderFournisseursTable() {
   if(totalFournisseursSpan) totalFournisseursSpan.textContent = filteredFournisseurs.length;
   
   if(filteredFournisseurs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;">Aucun fournisseur</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;">Aucun fournisseur<\/td><\/tr>';
     return;
   }
   
   tbody.innerHTML = filteredFournisseurs.map(f => `
     <tr>
-      <td>${f.id}</td><td>${escapeHtml(f.categorie || '-')}</td>
-      <td>${escapeHtml(f.nom)}</td><td>${escapeHtml(f.prenom || '')}</td>
-      <td>${escapeHtml(f.entreprise)}</td><td>${escapeHtml(f.adresse || '')}</td>
-      <td>${escapeHtml(f.telephone || '')}</td><td>${escapeHtml(f.whatsapp || '')}</td>
-      <td>${(f.chiffreAffaire || 0).toFixed(2)} MAD</td>
-      <td>${escapeHtml((f.description || '').substring(0,50))}</td>
-      <td>${f.dateCreation || '-'}</td>
+      <td>${f.id}<\/td><td>${escapeHtml(f.categorie || '-')}<\/td>
+      <td>${escapeHtml(f.nom)}<\/td><td>${escapeHtml(f.prenom || '')}<\/td>
+      <td>${escapeHtml(f.entreprise)}<\/td><td>${escapeHtml(f.adresse || '')}<\/td>
+      <td>${escapeHtml(f.telephone || '')}<\/td><td>${escapeHtml(f.whatsapp || '')}<\/td>
+      <td>${(f.chiffreAffaire || 0).toFixed(2)} MAD<\/td>
+      <td>${escapeHtml((f.description || '').substring(0,50))}<\/td>
+      <td>${f.dateCreation || '-'}<\/td>
       <td>
-        <button class="btn-edit" onclick="editFournisseur(${f.id})"><i class="fas fa-edit"></i></button>
-        <button class="btn-delete" onclick="deleteFournisseur(${f.id})"><i class="fas fa-trash"></i></button>
-      </td>
-    </tr>
+        <button class="btn-edit" onclick="editFournisseur(${f.id})"><i class="fas fa-edit"><\/i><\/button>
+        <button class="btn-delete" onclick="deleteFournisseur(${f.id})"><i class="fas fa-trash"><\/i><\/button>
+      <\/td>
+    <\/tr>
   `).join('');
 }
 
@@ -1686,19 +1686,19 @@ function renderVentesHistory() {
   if(totalVentesSpan) totalVentesSpan.textContent = filteredVentes.length + ' ventes';
   
   if(filteredVentes.length === 0) {
-    tbody.innerHTML = '<td><td colspan="18" style="text-align:center;padding:20px;color:#94a3b8;">Aucune vente</td></tr>';
+    tbody.innerHTML = '<td><td colspan="18" style="text-align:center;padding:20px;color:#94a3b8;">Aucune vente<\/td><\/tr>';
     return;
   }
   
   tbody.innerHTML = filteredVentes.map(v => `
     <tr>
-      <td><b>#${v.id}</b></td><td><small>${v.date}</small></td>
-      <td>${escapeHtml(v.clientCrediteur || v.client || '-')}</td>
-      <td>${v.montant.toFixed(2)} MAD</td>
-      <td>${v.type === 'espece' ? '💵 Espèce' : '💳 Crédit'}</td>
-      <td>${v.statutPaiement === 'payé' ? '✅ Payé' : '⏳ En attente'}</td>
-      <td><button class="btn-edit" onclick="viewVente(${v.id})"><i class="fas fa-eye"></i></button></td>
-    </tr>
+      <td><b>#${v.id}<\/b><\/td><td><small>${v.date}<\/small><\/td>
+      <td>${escapeHtml(v.clientCrediteur || v.client || '-')}<\/td>
+      <td>${v.montant.toFixed(2)} MAD<\/td>
+      <td>${v.type === 'espece' ? '💵 Espèce' : '💳 Crédit'}<\/td>
+      <td>${v.statutPaiement === 'payé' ? '✅ Payé' : '⏳ En attente'}<\/td>
+      <td><button class="btn-edit" onclick="viewVente(${v.id})"><i class="fas fa-eye"><\/i><\/button><\/td>
+    <\/tr>
   `).join('');
 }
 
@@ -1717,6 +1717,7 @@ function sortVentesByColumn(column) {
     sortDirectionVentes = 'desc';
   }
   renderVentesHistory();
+  updateSortIndicatorsVentes();
 }
 
 function updateSortIndicatorsVentes() {
@@ -1737,7 +1738,7 @@ function renderCreditsTable() {
   let filteredCredits = credits.filter(c => c.statut !== 'payé');
   
   if(filteredCredits.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;">Aucun crédit actif</td></tr>';
+    tbody.innerHTML = '<td><td colspan="12" style="text-align:center;padding:20px;">Aucun crédit actif<\/td><\/tr>';
     return;
   }
   
@@ -1745,12 +1746,12 @@ function renderCreditsTable() {
     const reste = (c.montant || 0) - (c.paye || 0);
     return `
     <tr>
-      <td>#${c.id}</td><td>${escapeHtml(c.client || '-')}</td>
-      <td>${c.montant.toFixed(2)} MAD</td><td>${(c.paye || 0).toFixed(2)} MAD</td>
-      <td>${reste.toFixed(2)} MAD</td>
-      <td>${c.statut === 'payé' ? '✅ Payé' : '⏳ En attente'}</td>
-      <td>${reste > 0 ? `<button class="btn-edit" onclick="payCredit(${c.id})">Payer</button>` : '-'}</td>
-    </table>
+      <td>#${c.id}<\/td><td>${escapeHtml(c.client || '-')}<\/td>
+      <td>${c.montant.toFixed(2)} MAD<\/td><td>${(c.paye || 0).toFixed(2)} MAD<\/td>
+      <td>${reste.toFixed(2)} MAD<\/td>
+      <td>${c.statut === 'payé' ? '✅ Payé' : '⏳ En attente'}<\/td>
+      <td>${reste > 0 ? `<button class="btn-edit" onclick="payCredit(${c.id})">Payer<\/button>` : '-'}<\/td>
+    <\/tr>
     `;
   }).join('');
 }
@@ -1876,21 +1877,21 @@ function renderDepensesTable() {
   if(!tbody) return;
   
   if(depenses.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">Aucune dépense</td></tr>';
+    tbody.innerHTML = '<td><td colspan="6" style="text-align:center;padding:20px;">Aucune dépense<\/td><\/tr>';
     return;
   }
   
   tbody.innerHTML = depenses.map(d => `
     <tr>
-      <td>${d.id}</td><td>${d.date || '-'}</td>
-      <td>${escapeHtml(d.categorie)}</td>
-      <td>${escapeHtml(d.description || '-')}</td>
-      <td style="color:#ef4444;">${d.montant.toFixed(2)} MAD</td>
+      <td>${d.id}<\/td><td>${d.date || '-'}<\/td>
+      <td>${escapeHtml(d.categorie)}<\/td>
+      <td>${escapeHtml(d.description || '-')}<\/td>
+      <td style="color:#ef4444;">${d.montant.toFixed(2)} MAD<\/td>
       <td>
-        <button class="btn-edit" onclick="editDepense(${d.id})"><i class="fas fa-edit"></i></button>
-        <button class="btn-delete" onclick="deleteDepense(${d.id})"><i class="fas fa-trash"></i></button>
-      </td>
-    </tr>
+        <button class="btn-edit" onclick="editDepense(${d.id})"><i class="fas fa-edit"><\/i><\/button>
+        <button class="btn-delete" onclick="deleteDepense(${d.id})"><i class="fas fa-trash"><\/i><\/button>
+      <\/td>
+    <\/tr>
   `).join('');
 }
 
@@ -1929,9 +1930,9 @@ function chargerCategoriesEnLigne() {
   const container = document.getElementById('onlineCategoriesTabs');
   if(!container) return;
   
-  let html = `<button class="cat-btn active" onclick="filtrerProduitsEnLigne('all')">🍽️ Tout</button>`;
+  let html = `<button class="cat-btn active" onclick="filtrerProduitsEnLigne('all')">🍽️ Tout<\/button>`;
   categories.forEach(cat => {
-    html += `<button class="cat-btn" onclick="filtrerProduitsEnLigne(${cat.id})">${cat.icon || '📁'} ${escapeHtml(cat.nom)}</button>`;
+    html += `<button class="cat-btn" onclick="filtrerProduitsEnLigne(${cat.id})">${cat.icon || '📁'} ${escapeHtml(cat.nom)}<\/button>`;
   });
   container.innerHTML = html;
 }
