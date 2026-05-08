@@ -914,21 +914,21 @@ function renderCategoriesTable() {
   const tbody = document.getElementById('categoriesList');
   if(!tbody) return;
   if(categories.length===0) { 
-    tbody.innerHTML = '<td><td colspan="6" style="text-align:center;padding:20px;">Aucune catégorie</td></tr>';
+    tbody.innerHTML = '<td><td colspan="6" style="text-align:center;padding:20px;">Aucune catégorie<\/td><\/tr>';
     return; 
   }
   tbody.innerHTML = categories.map(c => `
     <tr>
-      <td>${c.id}</td>
-      <td class="category-icon-display">${displayCategoryIconSmall(c.icon)}</td>
-      <td><b>${escapeHtml(c.nom)}</b></td>
-      <td>${escapeHtml(c.description||'-')}</td>
-      <td>${c.dateCreation||'-'}</td>
+      <td>${c.id}<\/td>
+      <td class="category-icon-display">${displayCategoryIconSmall(c.icon)}<\/td>
+      <td><b>${escapeHtml(c.nom)}<\/b><\/td>
+      <td>${escapeHtml(c.description||'-')}<\/td>
+      <td>${c.dateCreation||'-'}<\/td>
       <td>
-        <button class="btn-edit" onclick="editCategory(${c.id})"><i class="fas fa-edit"></i></button>
-        <button class="btn-delete" onclick="deleteCategory(${c.id})"><i class="fas fa-trash"></i></button>
-      </td>
-    </tr>
+        <button class="btn-edit" onclick="editCategory(${c.id})"><i class="fas fa-edit"><\/i><\/button>
+        <button class="btn-delete" onclick="deleteCategory(${c.id})"><i class="fas fa-trash"><\/i><\/button>
+      <\/td>
+    <\/tr>
   `).join('');
 }
 
@@ -1270,7 +1270,7 @@ function renderProductsTable() {
   }
   
   if(filteredProduits.length===0) { 
-    tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:20px;color:#94a3b8;">Aucun produit trouvé</td></tr>';
+    tbody.innerHTML = '<td><td colspan="15" style="text-align:center;padding:20px;color:#94a3b8;">Aucun produit trouvé<\/td><\/tr>';
     return; 
   }
   
@@ -1290,25 +1290,25 @@ function renderProductsTable() {
     
     return `
     <tr>
-      <td>${p.id}</td>
-      <td>${p.image ? `<img src="${p.image}" class="product-img" onerror="this.style.display='none'">` : '📷'}</td>
-      <td><b>${escapeHtml(p.nom)}</b><br><small>${escapeHtml((p.description || '').substring(0,30))}</small></td>
-      <td>${displayCategoryIconSmall(categories.find(c=>c.id==p.categorieId)?.icon)} ${catName}</td>
-      <td>${(p.prixAchat || 0).toFixed(2)} MAD</td>
-      <td>${prixAffichage}</td>
-      <td style="color:${profitUnitaire>=0?'#16a34a':'#ef4444'};font-weight:600;">${profitUnitaire.toFixed(2)} MAD</td>
-      <td>${p.prixPromo > 0 ? p.prixPromo.toFixed(2)+' MAD' : '-'}</td>
-      <td>${p.stock || 0}</td>
-      <td>${p.quantiteVendue || 0}</td>
-      <td>${((prixEffectif * (p.quantiteVendue || 0))).toFixed(2)} MAD</td>
-      <td>${p.tempsPreparation || 5} min</td>
-      <td><span class="${dispoClass}">${dispoText}</span></td>
-      <td><small>${p.dateCreation||'-'}</small></td>
+      <td>${p.id}<\/td>
+      <td>${p.image ? `<img src="${p.image}" class="product-img" onerror="this.style.display='none'">` : '📷'}<\/td>
+      <td><b>${escapeHtml(p.nom)}<\/b><br><small>${escapeHtml((p.description || '').substring(0,30))}<\/small><\/td>
+      <td>${displayCategoryIconSmall(categories.find(c=>c.id==p.categorieId)?.icon)} ${catName}<\/td>
+      <td>${(p.prixAchat || 0).toFixed(2)} MAD<\/td>
+      <td>${prixAffichage}<\/td>
+      <td style="color:${profitUnitaire>=0?'#16a34a':'#ef4444'};font-weight:600;">${profitUnitaire.toFixed(2)} MAD<\/td>
+      <td>${p.prixPromo > 0 ? p.prixPromo.toFixed(2)+' MAD' : '-'}<\/td>
+      <td>${p.stock || 0}<\/td>
+      <td>${p.quantiteVendue || 0}<\/td>
+      <td>${((prixEffectif * (p.quantiteVendue || 0))).toFixed(2)} MAD<\/td>
+      <td>${p.tempsPreparation || 5} min<\/td>
+      <td><span class="${dispoClass}">${dispoText}<\/span><\/td>
+      <td><small>${p.dateCreation||'-'}<\/small><\/td>
       <td>
-        <button class="btn-edit" onclick="editProduct(${p.id})"><i class="fas fa-edit"></i></button>
-        <button class="btn-delete" onclick="deleteProduct(${p.id})"><i class="fas fa-trash"></i></button>
-        </td>
-    </tr>
+        <button class="btn-edit" onclick="editProduct(${p.id})"><i class="fas fa-edit"><\/i><\/button>
+        <button class="btn-delete" onclick="deleteProduct(${p.id})"><i class="fas fa-trash"><\/i><\/button>
+      <\/td>
+    <\/tr>
     `;
   }).join('');
 }
@@ -1925,41 +1925,107 @@ function updateStats() {
   document.getElementById('totalProfit').innerText = totalProfit.toFixed(2);
 }
 
-// ========= COMMANDES EN LIGNE =========
-function chargerCategoriesEnLigne() {
+// ========= COMMANDES EN LIGNE (VERSION CORRIGÉE AVEC CHARGEMENT FIREBASE) =========
+async function chargerCategoriesEnLigne() {
   const container = document.getElementById('onlineCategoriesTabs');
   if(!container) return;
   
-  let html = `<button class="cat-btn active" onclick="filtrerProduitsEnLigne('all')">🍽️ Tout<\/button>`;
-  categories.forEach(cat => {
-    html += `<button class="cat-btn" onclick="filtrerProduitsEnLigne(${cat.id})">${cat.icon || '📁'} ${escapeHtml(cat.nom)}<\/button>`;
+  // Afficher un indicateur de chargement
+  container.innerHTML = '<div style="text-align:center;padding:20px;">⏳ Chargement des catégories...</div>';
+  
+  // Essayer de charger depuis Firebase si les catégories sont vides
+  let categoriesData = categories;
+  if((!categoriesData || categoriesData.length === 0) && typeof window.loadCategoriesFromFirebase === 'function') {
+    console.log("🔄 Chargement des catégories depuis Firebase...");
+    categoriesData = await window.loadCategoriesFromFirebase();
+    if(categoriesData.length > 0) {
+      window.categories = categoriesData;
+      localStorage.setItem('chickenway_categories', JSON.stringify(categoriesData));
+      console.log(`✅ ${categoriesData.length} catégories chargées depuis Firebase`);
+    }
+  }
+  
+  if(!categoriesData || categoriesData.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:#94a3b8;">Aucune catégorie disponible</div>';
+    return;
+  }
+  
+  let html = `<button class="cat-btn ${currentOnlineCategory === 'all' ? 'active' : ''}" onclick="filtrerProduitsEnLigne('all')">
+    <span style="font-size:1.2rem;">🍽️</span> Tout
+  </button>`;
+  
+  categoriesData.forEach(cat => {
+    const iconDisplay = cat.icon ? (cat.icon.startsWith('data:image') || cat.icon.startsWith('http') ? 
+      `<img src="${cat.icon}" style="width:20px;height:20px;object-fit:contain;" onerror="this.style.display='none'">` : cat.icon) : '📁';
+    html += `<button class="cat-btn ${currentOnlineCategory === cat.id ? 'active' : ''}" onclick="filtrerProduitsEnLigne(${cat.id})">
+      <span style="font-size:1.2rem;">${iconDisplay}</span> ${escapeHtml(cat.nom)}
+    </button>`;
   });
+  
   container.innerHTML = html;
 }
 
-function chargerProduitsEnLigne() {
+async function chargerProduitsEnLigne() {
   const container = document.getElementById('onlineProductsGrid');
   if(!container) return;
   
-  let filtered = produits.filter(p => p.disponibilite === 'disponible');
+  // Afficher un indicateur de chargement
+  container.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin"></i> Chargement des produits...</div>';
+  
+  // Essayer de charger depuis Firebase si les produits sont vides
+  let produitsData = produits;
+  if((!produitsData || produitsData.length === 0) && typeof window.loadProductsFromFirebase === 'function') {
+    console.log("🔄 Chargement des produits depuis Firebase...");
+    produitsData = await window.loadProductsFromFirebase();
+    if(produitsData.length > 0) {
+      window.produits = produitsData;
+      localStorage.setItem('chickenway_produits', JSON.stringify(produitsData));
+      console.log(`✅ ${produitsData.length} produits chargés depuis Firebase`);
+    }
+  }
+  
+  if(!produitsData || produitsData.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">🍽️ Aucun produit disponible</div>';
+    return;
+  }
+  
+  let produitsDisponibles = produitsData.filter(p => p.disponibilite === 'disponible');
+  
+  let filtered = produitsDisponibles;
   if(currentOnlineCategory !== 'all') {
     filtered = filtered.filter(p => p.categorieId === currentOnlineCategory);
   }
   
-  if(filtered.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;">Aucun produit disponible</div>';
-    return;
+  if(filtered.length === 0) { 
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">🍽️ Aucun produit disponible dans cette catégorie</div>'; 
+    return; 
   }
   
-  container.innerHTML = filtered.map(p => `
-    <div class="product-card" onclick="ajouterAuPanierEnLigne(${p.id}, '${escapeHtml(p.nom)}', ${p.prixVente})">
-      <div class="product-card-body">
-        <div class="product-title">${escapeHtml(p.nom)}</div>
-        <div class="product-price">${p.prixVente.toFixed(2)} MAD</div>
-        <button class="product-add">+ Ajouter</button>
+  container.innerHTML = filtered.map(p => {
+    const prix = p.prixPromo > 0 ? p.prixPromo : p.prixVente;
+    const imageHtml = p.image ? 
+      `<img src="${p.image}" alt="${escapeHtml(p.nom)}" style="width:60px;height:60px;object-fit:cover;border-radius:12px;" onerror="this.style.display='none'">` :
+      `<div style="width:60px;height:60px;background:#f1f5f9;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;">🍔</div>`;
+    
+    return `
+      <div class="product-card" onclick="ajouterAuPanierEnLigne(${p.id}, '${escapeHtml(p.nom)}', ${prix})">
+        <div class="product-card-image">
+          ${imageHtml}
+        </div>
+        <div class="product-card-body">
+          <div class="product-title">${escapeHtml(p.nom)}</div>
+          ${p.prixPromo > 0 ? 
+            `<div style="display:flex;gap:8px;align-items:center;justify-content:center;">
+              <span style="text-decoration:line-through;color:#94a3b8;font-size:0.7rem;">${p.prixVente.toFixed(2)} MAD</span>
+              <span class="product-price">${p.prixPromo.toFixed(2)} MAD</span>
+            </div>` : 
+            `<div class="product-price">${prix.toFixed(2)} MAD</div>`
+          }
+          <button class="product-add">+ Ajouter</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function ajouterAuPanierEnLigne(id, nom, prix) {
@@ -1970,6 +2036,7 @@ function ajouterAuPanierEnLigne(id, nom, prix) {
     onlineCart.push({ id, nom, prix, quantite: 1 });
   }
   afficherPanierEnLigne();
+  showToastMessage(`${nom} ajouté au panier !`);
 }
 
 function afficherPanierEnLigne() {
@@ -1977,24 +2044,35 @@ function afficherPanierEnLigne() {
   let total = 0;
   
   if(onlineCart.length === 0) {
-    container.innerHTML = '<div class="empty-cart">Panier vide</div>';
-    document.getElementById('onlineCartTotal').innerText = '0.00 MAD';
+    if(container) container.innerHTML = '<div class="empty-cart" style="text-align:center;padding:40px;"><i class="fas fa-shopping-cart" style="font-size:48px;color:#cbd5e1;"></i><p>Votre panier est vide</p></div>';
+    const totalSpan = document.getElementById('onlineCartTotal');
+    if(totalSpan) totalSpan.innerText = '0.00 MAD';
     return;
   }
   
-  container.innerHTML = onlineCart.map((item, idx) => {
-    total += item.prix * item.quantite;
-    return `
-      <div class="online-cart-item">
-        <span>${escapeHtml(item.nom)} x${item.quantite}</span>
-        <span>${(item.prix * item.quantite).toFixed(2)} MAD</span>
-        <button onclick="modifierQuantiteEnLigne(${idx}, -1)">-</button>
-        <button onclick="modifierQuantiteEnLigne(${idx}, 1)">+</button>
-        <button onclick="supprimerDuPanierEnLigne(${idx})">🗑️</button>
-      </div>
-    `;
-  }).join('');
-  document.getElementById('onlineCartTotal').innerText = total.toFixed(2) + ' MAD';
+  if(container) {
+    container.innerHTML = onlineCart.map((item, idx) => {
+      total += item.prix * item.quantite;
+      return `
+        <div class="online-cart-item" style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid #e2e8f0;">
+          <div style="flex:2;">
+            <div style="font-weight:700;">${escapeHtml(item.nom)}</div>
+            <div style="font-size:0.8rem;color:#e67e22;">${item.prix.toFixed(2)} MAD</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="quantity-btn" onclick="modifierQuantiteEnLigne(${idx}, -1)" style="background:#e2e8f0;border:none;width:28px;height:28px;border-radius:6px;cursor:pointer;">-</button>
+            <span style="min-width:30px;text-align:center;">${item.quantite}</span>
+            <button class="quantity-btn" onclick="modifierQuantiteEnLigne(${idx}, 1)" style="background:#e2e8f0;border:none;width:28px;height:28px;border-radius:6px;cursor:pointer;">+</button>
+            <button onclick="supprimerDuPanierEnLigne(${idx})" style="background:none;border:none;color:#ef4444;cursor:pointer;padding:5px;">🗑️</button>
+          </div>
+          <div style="min-width:85px;text-align:right;font-weight:700;color:#e67e22;">${(item.prix * item.quantite).toFixed(2)} MAD</div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  const totalSpan = document.getElementById('onlineCartTotal');
+  if(totalSpan) totalSpan.innerText = total.toFixed(2) + ' MAD';
 }
 
 function modifierQuantiteEnLigne(index, delta) {
@@ -2006,87 +2084,207 @@ function modifierQuantiteEnLigne(index, delta) {
   afficherPanierEnLigne();
 }
 
-function supprimerDuPanierEnLigne(index) {
-  onlineCart.splice(index,1);
-  afficherPanierEnLigne();
+function supprimerDuPanierEnLigne(index) { 
+  onlineCart.splice(index,1); 
+  afficherPanierEnLigne(); 
 }
 
 function filtrerProduitsEnLigne(catId) {
   currentOnlineCategory = catId;
   chargerProduitsEnLigne();
-  document.querySelectorAll('#onlineCategoriesTabs .cat-btn').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
+  chargerCategoriesEnLigne();
+}
+
+async function openOnlineOrderModal() {
+  const modal = document.getElementById('onlineOrderModal');
+  if(!modal) return;
+  
+  // Afficher un indicateur de chargement dans le modal
+  const modalBody = modal.querySelector('.modal-body');
+  if(modalBody) {
+    modalBody.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin" style="font-size:2rem;"></i><p style="margin-top:10px;">Chargement du menu...</p></div>';
+  }
+  
+  modal.classList.remove('hidden');
+  
+  // Charger les données depuis Firebase
+  await chargerCategoriesEnLigne();
+  await chargerProduitsEnLigne();
+  afficherPanierEnLigne();
+  
+  // Restaurer la structure complète du modal si nécessaire
+  if(modalBody && modalBody.innerHTML.indexOf('onlineProductsGrid') === -1) {
+    modalBody.innerHTML = `
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div>
+          <h3 style="color: #e67e22;">📋 Notre menu</h3>
+          <div class="categories-tabs" id="onlineCategoriesTabs" style="margin-bottom: 15px;"></div>
+          <div class="online-products-grid" id="onlineProductsGrid"></div>
+        </div>
+        <div>
+          <h3 style="color: #e67e22;">🛒 Votre panier</h3>
+          <div id="onlineCartList" style="background: #f8fafc; border-radius: 12px; padding: 15px; min-height: 300px; max-height: 400px; overflow-y: auto;"></div>
+          <div style="margin-top: 20px; padding: 15px; background: #f1f5f9; border-radius: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 15px;">
+              <strong>Total :</strong>
+              <strong id="onlineCartTotal" style="color: #e67e22;">0.00 MAD</strong>
+            </div>
+            <div class="modal-input-group" style="margin-bottom: 15px;">
+              <label>👤 Nom du client *</label>
+              <input type="text" id="onlineClientName" placeholder="Entrez votre nom" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            </div>
+            <div class="modal-input-group" style="margin-bottom: 15px;">
+              <label>📞 Téléphone</label>
+              <input type="tel" id="onlineClientPhone" placeholder="Votre numéro de téléphone" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
+            </div>
+            <button onclick="validerCommandeEnLigne()" class="btn-checkout" style="width: 100%;">
+              <i class="fas fa-check-circle"></i> Valider ma commande
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Recharger les composants
+    await chargerCategoriesEnLigne();
+    await chargerProduitsEnLigne();
+    afficherPanierEnLigne();
+  }
+  
+  console.log("✅ Menu de commande en ligne chargé avec succès !");
+}
+
+function closeOnlineOrderModal() {
+  const modal = document.getElementById('onlineOrderModal');
+  if(modal) modal.classList.add('hidden');
+}
+
+function openCommandesEnLigneList() {
+  const modal = document.getElementById('commandesEnLigneListModal');
+  if(modal) modal.classList.remove('hidden');
+  if (typeof afficherCommandesEnLigneList === 'function') afficherCommandesEnLigneList();
+}
+
+function closeCommandesEnLigneList() {
+  const modal = document.getElementById('commandesEnLigneListModal');
+  if(modal) modal.classList.add('hidden');
 }
 
 function validerCommandeEnLigne() {
   const clientName = document.getElementById('onlineClientName')?.value.trim();
-  if(onlineCart.length === 0) { alert("Panier vide"); return; }
-  if(!clientName) { alert("Entrez votre nom"); return; }
+  const clientPhone = document.getElementById('onlineClientPhone')?.value.trim();
+  
+  if(onlineCart.length === 0) { alert("Votre panier est vide !"); return; }
+  if(!clientName) { alert("Veuillez entrer votre nom"); return; }
   
   const commandeData = {
     numero: `CMD-${Date.now().toString().slice(-6)}`,
     client: clientName,
-    items: onlineCart,
-    total: onlineCart.reduce((s,i) => s + i.prix * i.quantite, 0),
-    date: new Date().toLocaleString(),
-    statut: 'en_attente'
+    telephone: clientPhone || '',
+    items: onlineCart.map(item => ({
+      productId: item.id,
+      name: item.nom,
+      price: item.prix,
+      quantite: item.quantite,
+      total: item.prix * item.quantite
+    })),
+    total: onlineCart.reduce((sum, item) => sum + (item.prix * item.quantite), 0),
+    statut: 'en_attente',
+    date: new Date().toLocaleString()
   };
   
-  let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-  commandes.push(commandeData);
-  localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandes));
+  let commandesEnLigne = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
+  commandesEnLigne.push(commandeData);
+  localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandesEnLigne));
   
   if (typeof window.saveOnlineOrderToFirebase === 'function') {
     window.saveOnlineOrderToFirebase(commandeData);
   }
   
-  alert(`✅ Commande confirmée !\nNuméro: ${commandeData.numero}\nTotal: ${commandeData.total.toFixed(2)} MAD`);
+  let recap = `✅ Commande confirmée !\n\n📋 Numéro: ${commandeData.numero}\n👤 Client: ${clientName}\n📅 Date: ${commandeData.date}\n💰 Total: ${commandeData.total.toFixed(2)} MAD\n\n⏳ Votre commande sera préparée dans quelques minutes.`;
+  alert(recap);
+  
   onlineCart = [];
+  if(document.getElementById('onlineClientName')) document.getElementById('onlineClientName').value = '';
+  if(document.getElementById('onlineClientPhone')) document.getElementById('onlineClientPhone').value = '';
   afficherPanierEnLigne();
   closeOnlineOrderModal();
   mettreAJourBadgeCommandes();
 }
 
-function afficherCommandesEnLigneList() {
+async function afficherCommandesEnLigneList() {
   const container = document.getElementById('commandesEnLigneListContainer');
-  let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-  commandes = commandes.filter(c => c.statut === 'en_attente');
+  if(!container) return;
   
-  if(commandes.length === 0) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;">Aucune commande en attente</div>';
+  container.innerHTML = '<div style="text-align:center;padding:40px;"><i class="fas fa-spinner fa-spin"></i> Chargement des commandes...</div>';
+  
+  let commandesEnAttente = [];
+  
+  if (typeof window.loadOnlineOrdersFromFirebase === 'function') {
+    try {
+      commandesEnAttente = await window.loadOnlineOrdersFromFirebase();
+    } catch(e) { console.error("Erreur chargement Firebase:", e); }
+  }
+  
+  if (commandesEnAttente.length === 0) {
+    const commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
+    commandesEnAttente = commandes.filter(c => c.statut === 'en_attente');
+  }
+  
+  if(commandesEnAttente.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">🎉 Aucune commande en attente</div>';
     return;
   }
   
-  container.innerHTML = commandes.map((cmd, idx) => `
-    <div style="border:1px solid #ddd;padding:15px;margin-bottom:10px;border-radius:8px;">
-      <strong>${cmd.numero}</strong> - ${cmd.client}<br>
-      Total: ${cmd.total.toFixed(2)} MAD<br>
-      <button onclick="accepterCommandeEnLigne(${idx})">✅ Accepter</button>
-      <button onclick="ajouterCommandeAuPanierPOS(${idx})">🛒 Ajouter au panier</button>
+  container.innerHTML = commandesEnAttente.map((cmd, idx) => `
+    <div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:12px;margin-bottom:15px;padding:15px;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <div><strong>📱 ${cmd.numero}</strong><div style="font-size:0.8rem;color:#64748b;">👤 ${escapeHtml(cmd.client)}</div><div style="font-size:0.7rem;color:#64748b;">📅 ${cmd.date}</div>${cmd.telephone ? `<div style="font-size:0.7rem;color:#64748b;">📞 ${escapeHtml(cmd.telephone)}</div>` : ''}</div>
+        <span style="background:#f59e0b;padding:4px 12px;border-radius:20px;color:white;font-size:0.75rem;">⏳ En attente</span>
+      </div>
+      <div style="margin:12px 0;padding:10px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
+        ${cmd.items.map(item => `<div style="display:flex;justify-content:space-between;padding:6px 0;"><div><strong>${escapeHtml(item.name)}</strong><div style="font-size:0.65rem;color:#64748b;">${item.quantite}x ${item.price.toFixed(2)} MAD</div></div><span style="font-weight:600;color:#e67e22;">${(item.price * item.quantite).toFixed(2)} MAD</span></div>`).join('')}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <strong>Total: ${cmd.total.toFixed(2)} MAD</strong>
+        <div style="display:flex;gap:8px;">
+          <button onclick="accepterCommandeEnLigne(${idx})" style="background:#22c55e;border:none;padding:8px 20px;border-radius:8px;color:white;cursor:pointer;">✅ Accepter</button>
+          <button onclick="ajouterCommandeAuPanierPOS(${idx})" style="background:#8b5cf6;border:none;padding:8px 20px;border-radius:8px;color:white;cursor:pointer;">🛒 Ajouter au panier</button>
+        </div>
+      </div>
     </div>
   `).join('');
 }
 
 function accepterCommandeEnLigne(index) {
   let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-  commandes[index].statut = 'terminee';
-  localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandes));
-  afficherCommandesEnLigneList();
-  mettreAJourBadgeCommandes();
+  if(commandes[index]) {
+    commandes[index].statut = 'terminee';
+    localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandes));
+    if (typeof window.updateOrderStatusInFirebase === 'function' && commandes[index].firestoreId) {
+      window.updateOrderStatusInFirebase(commandes[index].firestoreId, 'terminee');
+    }
+    afficherCommandesEnLigneList();
+    mettreAJourBadgeCommandes();
+    alert(`✅ Commande ${commandes[index].numero} acceptée !`);
+  }
 }
 
 function ajouterCommandeAuPanierPOS(index) {
   let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-  const cmd = commandes[index];
-  if(cmd && cmd.items) {
-    cmd.items.forEach(item => {
-      for(let i=0; i<item.quantite; i++) {
-        cart.push({ name: item.nom, price: item.prix, optionsText: '' });
+  const commande = commandes[index];
+  
+  if(commande && commande.items) {
+    commande.items.forEach(item => {
+      for(let i = 0; i < item.quantite; i++) {
+        cart.push({ name: item.name, price: item.price, optionsText: '', options: {} });
       }
     });
     refreshCartDisplay();
     accepterCommandeEnLigne(index);
+    showToastMessage(`🛒 Article(s) ajouté(s) au panier POS`);
     showPage('pos');
+    closeCommandesEnLigneList();
   }
 }
 
@@ -2115,7 +2313,7 @@ function escapeHtml(str) {
 function showToastMessage(message) {
   const toast = document.createElement('div');
   toast.textContent = message;
-  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 20px;border-radius:8px;z-index:10000;';
+  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 20px;border-radius:8px;z-index:10000;font-weight:bold;box-shadow:0 2px 10px rgba(0,0,0,0.2);';
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
@@ -2230,5 +2428,9 @@ window.getNowDateTime = getNowDateTime;
 window.escapeHtml = escapeHtml;
 window.showToastMessage = showToastMessage;
 window.seedDemoData = seedDemoData;
+window.openOnlineOrderModal = openOnlineOrderModal;
+window.closeOnlineOrderModal = closeOnlineOrderModal;
+window.openCommandesEnLigneList = openCommandesEnLigneList;
+window.closeCommandesEnLigneList = closeCommandesEnLigneList;
 
 console.log("✅ script.js chargé avec succès - Toutes les fonctionnalités sont prêtes !");
