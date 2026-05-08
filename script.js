@@ -180,11 +180,7 @@ function showPage(page) {
   if(page === 'ventes') { renderVentesHistory(); updateSortIndicatorsVentes(); }
   if(page === 'stats') updateStats();
   if(page === 'categories') renderCategoriesTable();
-  if(page === 'produits') { 
-    renderProductsTable(); 
-    // 🔥 RECHARGER DEPUIS FIREBASE QUAND ON OUVRE LA PAGE PRODUITS
-    chargerListeProduitsDepuisFirebase();
-  }
+  if(page === 'produits') renderProductsTable();
   if(page === 'clients') renderClientsTable();
   if(page === 'fournisseurs') renderFournisseursTable();
   if(page === 'depenses') { renderDepensesTable(); updateSortIndicatorsDepenses(); }
@@ -619,6 +615,10 @@ function confirmPayment() {
         if (!platsExistants.includes(plat)) platsExistants.push(plat);
       });
       client.platsPreferes = platsExistants.join(', ');
+      
+      if (typeof window.saveClientToFirebase === 'function') {
+        window.saveClientToFirebase(client);
+      }
     }
   }
   
@@ -628,6 +628,10 @@ function confirmPayment() {
       product.quantiteVendue = (product.quantiteVendue || 0) + 1;
       const prixEffectif = (product.prixPromo > 0) ? product.prixPromo : product.prixVente;
       product.chiffreAffaire = (product.chiffreAffaire || 0) + prixEffectif; 
+      
+      if (typeof window.saveProductToFirebase === 'function') {
+        window.saveProductToFirebase(product);
+      }
     }
   });
   
@@ -653,6 +657,10 @@ function confirmPayment() {
   renderClientsTable(); 
   updateStats(); 
   closePaymentModal();
+  
+  if (typeof window.syncAllDataToFirebase === 'function') {
+    setTimeout(() => window.syncAllDataToFirebase(), 100);
+  }
   
   const typeMsg = typeVente === 'espece' ? 'en espèces 💵' : 'à crédit 💳';
   const renduMsg = typeVente === 'espece' ? `\nMonnaie rendue : ${monnaieRendue.toFixed(2)} MAD` : '';
@@ -857,18 +865,20 @@ function saveCategory() {
   }
   forceSaveAllData();
   
-  // 🔥 Synchroniser vers Firebase
   setTimeout(async () => {
+    if (typeof window.saveCategoryToFirebase === 'function') {
+      const savedCat = id ? categories.find(c => c.id == id) : categories[categories.length-1];
+      if(savedCat) await window.saveCategoryToFirebase(savedCat);
+    }
     if (typeof window.syncAllDataToFirebase === 'function') {
       await window.syncAllDataToFirebase();
-      console.log("✅ Catégories synchronisées vers Firebase");
     }
   }, 500);
   
   closeCategoryModal(); 
   renderCategoriesTable(); 
   loadPOSCategories();
-  chargerCategoriesEnLigne();
+  if(typeof chargerCategoriesEnLigne === 'function') chargerCategoriesEnLigne();
 }
 
 function editCategory(id) { 
@@ -884,14 +894,13 @@ function deleteCategory(id) {
     if(avant !== categories.length) {
       forceSaveAllData();
       
-      // 🔥 Supprimer aussi dans Firebase
       if (typeof window.deleteCategoryFromFirebase === 'function') {
         window.deleteCategoryFromFirebase(idNumber);
       }
       
       renderCategoriesTable(); 
       loadPOSCategories();
-      chargerCategoriesEnLigne();
+      if(typeof chargerCategoriesEnLigne === 'function') chargerCategoriesEnLigne();
       alert("✅ Catégorie supprimée avec succès !");
     } else {
       alert("❌ Catégorie non trouvée");
@@ -921,7 +930,7 @@ function renderCategoriesTable() {
   `).join('');
 }
 
-// ========= PRODUCT IMAGE HANDLING =========
+// ========= PRODUCT IMAGE HANDLING (suite) =========
 function switchProductImageMode(mode) {
   currentProductImageMode = mode;
   const urlMode = document.getElementById('productImageUrlMode');
@@ -1199,19 +1208,19 @@ function saveProduct() {
   
   forceSaveAllData();
   
-  // 🔥 SYNCHRONISATION VERS FIREBASE
   setTimeout(async () => {
     if (typeof window.saveProductToFirebase === 'function') {
       await window.saveProductToFirebase(product);
-      console.log(`✅ Produit "${nom}" synchronisé vers Firebase`);
-      showToastMessage(`✅ Produit "${nom}" synchronisé !`);
+    }
+    if (typeof window.syncAllDataToFirebase === 'function') {
+      await window.syncAllDataToFirebase();
     }
   }, 500);
   
   closeProductModal(); 
   renderProductsTable(); 
   loadPOSCategories();
-  chargerProduitsEnLigne();
+  if(typeof chargerProduitsEnLigne === 'function') chargerProduitsEnLigne();
   if(categories.length > 0) filterPOSProducts(categories[0].id);
 }
 
@@ -1229,10 +1238,9 @@ function deleteProduct(id) {
       forceSaveAllData();
       renderProductsTable(); 
       loadPOSCategories();
-      chargerProduitsEnLigne();
+      if(typeof chargerProduitsEnLigne === 'function') chargerProduitsEnLigne();
       if(categories.length > 0) filterPOSProducts(categories[0].id);
       
-      // 🔥 Supprimer dans Firebase
       if (typeof window.deleteProductFromFirebase === 'function') {
         window.deleteProductFromFirebase(idNumber);
       }
@@ -1303,62 +1311,370 @@ function renderProductsTable() {
   }).join('');
 }
 
-// ========= CHARGEMENT DES PRODUITS DEPUIS FIREBASE POUR LA LISTE =========
-async function chargerListeProduitsDepuisFirebase() {
-    console.log("🔄 Chargement de la liste des produits depuis Firebase...");
-    
-    const tbody = document.getElementById('productsList');
-    if(tbody) {
-        tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:40px;">⏳ Chargement des produits depuis Firebase...</td></tr>';
-    }
-    
-    try {
-        let produitsFirebase = [];
-        
-        if (typeof window.loadProductsFromFirebase === 'function') {
-            produitsFirebase = await window.loadProductsFromFirebase();
-        }
-        
-        if (produitsFirebase.length === 0) {
-            produitsFirebase = JSON.parse(localStorage.getItem('chickenway_produits')) || [];
-        }
-        
-        if (produitsFirebase.length > 0) {
-            produits = produitsFirebase;
-            localStorage.setItem('chickenway_produits', JSON.stringify(produitsFirebase));
-            console.log(`✅ ${produitsFirebase.length} produits chargés depuis Firebase`);
-            renderProductsTable();
-            loadPOSCategories();
-            chargerProduitsEnLigne();
-            updateStats();
-            return true;
-        } else {
-            if(tbody) {
-                tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:40px;color:#94a3b8;">📦 Aucun produit trouvé. Cliquez sur "Ajouter" pour créer votre premier produit.</td></tr>';
-            }
-            return false;
-        }
-    } catch (error) {
-        console.error("❌ Erreur chargement produits Firebase:", error);
-        return false;
-    }
+// ========= FONCTIONS CLIENTS COMPLETES =========
+function openClientModal(editMode = false, client = null) {
+  const modal = document.getElementById('clientModal');
+  if(modal) modal.classList.remove('hidden');
+  
+  const title = document.getElementById('clientModalTitle');
+  const clientId = document.getElementById('clientId');
+  const clientNom = document.getElementById('clientNom');
+  const clientPrenom = document.getElementById('clientPrenom');
+  const clientGenre = document.getElementById('clientGenre');
+  const clientProfession = document.getElementById('clientProfession');
+  const clientAdresse = document.getElementById('clientAdresse');
+  const clientDescription = document.getElementById('clientDescription');
+  const clientTelephone = document.getElementById('clientTelephone');
+  const clientWhatsapp = document.getElementById('clientWhatsapp');
+  const clientInstagram = document.getElementById('clientInstagram');
+  const clientFacebook = document.getElementById('clientFacebook');
+  const clientCA = document.getElementById('clientCA');
+  const clientProfit = document.getElementById('clientProfit');
+  const clientPoints = document.getElementById('clientPoints');
+  const clientNiveau = document.getElementById('clientNiveau');
+  const clientPlats = document.getElementById('clientPlats');
+  const clientAllergies = document.getElementById('clientAllergies');
+  const clientDateCreation = document.getElementById('clientDateCreation');
+  
+  if(editMode && client) {
+    if(title) title.innerText = 'Modifier le client';
+    if(clientId) clientId.value = client.id;
+    if(clientNom) clientNom.value = client.nom || '';
+    if(clientPrenom) clientPrenom.value = client.prenom || '';
+    if(clientGenre) clientGenre.value = client.genre || '';
+    if(clientProfession) clientProfession.value = client.profession || '';
+    if(clientAdresse) clientAdresse.value = client.adresse || '';
+    if(clientDescription) clientDescription.value = client.description || '';
+    if(clientTelephone) clientTelephone.value = client.telephone || '';
+    if(clientWhatsapp) clientWhatsapp.value = client.whatsapp || '';
+    if(clientInstagram) clientInstagram.value = client.instagram || '';
+    if(clientFacebook) clientFacebook.value = client.facebook || '';
+    if(clientCA) clientCA.value = client.chiffreAffaire || 0;
+    if(clientProfit) clientProfit.value = client.profit || 0;
+    if(clientPoints) clientPoints.value = client.pointsFidelite || 0;
+    if(clientNiveau) clientNiveau.value = client.niveau || 'Normal';
+    if(clientPlats) clientPlats.value = client.platsPreferes || '';
+    if(clientAllergies) clientAllergies.value = client.allergies || '';
+    if(clientDateCreation) clientDateCreation.value = client.dateCreation || '';
+  } else {
+    if(title) title.innerText = 'Ajouter un client';
+    if(clientId) clientId.value = '';
+    if(clientNom) clientNom.value = '';
+    if(clientPrenom) clientPrenom.value = '';
+    if(clientGenre) clientGenre.value = '';
+    if(clientProfession) clientProfession.value = '';
+    if(clientAdresse) clientAdresse.value = '';
+    if(clientDescription) clientDescription.value = '';
+    if(clientTelephone) clientTelephone.value = '';
+    if(clientWhatsapp) clientWhatsapp.value = '';
+    if(clientInstagram) clientInstagram.value = '';
+    if(clientFacebook) clientFacebook.value = '';
+    if(clientCA) clientCA.value = 0;
+    if(clientProfit) clientProfit.value = 0;
+    if(clientPoints) clientPoints.value = 0;
+    if(clientNiveau) clientNiveau.value = 'Normal';
+    if(clientPlats) clientPlats.value = '';
+    if(clientAllergies) clientAllergies.value = '';
+    if(clientDateCreation) clientDateCreation.value = getNowDateTime();
+  }
 }
 
-// Rafraîchir depuis Firebase
-async function refreshProductsFromFirebase() {
-    showToastMessage("🔄 Rafraîchissement des produits...");
-    const success = await chargerListeProduitsDepuisFirebase();
-    if (success) {
-        showToastMessage("✅ Liste des produits mise à jour depuis Firebase !");
-    } else {
-        showToastMessage("⚠️ Aucun produit trouvé dans Firebase");
-    }
+function closeClientModal() {
+  const modal = document.getElementById('clientModal');
+  if(modal) modal.classList.add('hidden');
 }
 
-// ========= FONCTION UTILITAIRE =========
-function getNowDateTime() {
-  const now = new Date();
-  return now.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+function saveClient() {
+  const id = document.getElementById('clientId')?.value;
+  const nom = document.getElementById('clientNom')?.value.trim();
+  const prenom = document.getElementById('clientPrenom')?.value.trim();
+  
+  if(!nom) { alert("Le nom est requis"); return; }
+  
+  const clientData = {
+    id: id ? parseInt(id) : (clients.length > 0 ? Math.max(...clients.map(c=>c.id)) + 1 : 1),
+    nom: nom,
+    prenom: prenom || '',
+    genre: document.getElementById('clientGenre')?.value || '',
+    profession: document.getElementById('clientProfession')?.value || '',
+    adresse: document.getElementById('clientAdresse')?.value || '',
+    description: document.getElementById('clientDescription')?.value || '',
+    telephone: document.getElementById('clientTelephone')?.value || '',
+    whatsapp: document.getElementById('clientWhatsapp')?.value || '',
+    instagram: document.getElementById('clientInstagram')?.value || '',
+    facebook: document.getElementById('clientFacebook')?.value || '',
+    chiffreAffaire: parseFloat(document.getElementById('clientCA')?.value) || 0,
+    profit: parseFloat(document.getElementById('clientProfit')?.value) || 0,
+    pointsFidelite: parseInt(document.getElementById('clientPoints')?.value) || 0,
+    niveau: document.getElementById('clientNiveau')?.value || 'Normal',
+    platsPreferes: document.getElementById('clientPlats')?.value || '',
+    allergies: document.getElementById('clientAllergies')?.value || '',
+    dateCreation: document.getElementById('clientDateCreation')?.value || getNowDateTime()
+  };
+  
+  if(id) {
+    const index = clients.findIndex(c => c.id == id);
+    if(index !== -1) clients[index] = clientData;
+  } else {
+    clients.push(clientData);
+  }
+  
+  forceSaveAllData();
+  
+  setTimeout(async () => {
+    if (typeof window.saveClientToFirebase === 'function') {
+      await window.saveClientToFirebase(clientData);
+    }
+    if (typeof window.syncAllDataToFirebase === 'function') {
+      await window.syncAllDataToFirebase();
+    }
+  }, 500);
+  
+  closeClientModal();
+  renderClientsTable();
+  updateStats();
+  const totalClientsSpan = document.getElementById('totalClients');
+  if(totalClientsSpan) totalClientsSpan.textContent = clients.length;
+}
+
+function editClient(id) {
+  const client = clients.find(c => c.id == id);
+  if(client) openClientModal(true, client);
+}
+
+function deleteClient(id) {
+  if(confirm("⚠️ Supprimer ce client ? Cette action est irréversible.")) {
+    const idNumber = Number(id);
+    clients = clients.filter(c => Number(c.id) !== idNumber);
+    forceSaveAllData();
+    
+    if (typeof window.deleteClientFromFirebase === 'function') {
+      window.deleteClientFromFirebase(idNumber);
+    }
+    
+    renderClientsTable();
+    updateStats();
+    const totalClientsSpan = document.getElementById('totalClients');
+    if(totalClientsSpan) totalClientsSpan.textContent = clients.length;
+    alert("✅ Client supprimé avec succès !");
+  }
+}
+
+function renderClientsTable() {
+  const tbody = document.getElementById('clientsList');
+  if(!tbody) return;
+  
+  const searchInput = document.getElementById('searchClientsTable');
+  const searchTerm = searchInput ? (searchInput.value || '').toLowerCase().trim() : '';
+  let filteredClients = [...clients];
+  if (searchTerm !== '') {
+    filteredClients = filteredClients.filter(c => 
+      (c.nom || '').toLowerCase().includes(searchTerm) || 
+      (c.prenom || '').toLowerCase().includes(searchTerm) ||
+      (c.telephone || '').includes(searchTerm)
+    );
+  }
+  
+  const totalClientsSpan = document.getElementById('totalClients');
+  if(totalClientsSpan) totalClientsSpan.textContent = filteredClients.length;
+  
+  if(filteredClients.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:20px;">Aucun client</td></td>';
+    return;
+  }
+  
+  tbody.innerHTML = filteredClients.map(c => `
+    <tr>
+      <td>${c.id}</td>
+      <td>${escapeHtml(c.nom)}</td>
+      <td>${escapeHtml(c.prenom || '')}</td>
+      <td>${escapeHtml(c.genre || '')}</td>
+      <td>${escapeHtml(c.adresse || '')}</td>
+      <td>${escapeHtml(c.profession || '')}</td>
+      <td>${escapeHtml((c.description || '').substring(0,30))}</td>
+      <td>${escapeHtml(c.telephone || '')}</td>
+      <td>${escapeHtml(c.whatsapp || '')}</td>
+      <td>${escapeHtml(c.instagram || '')}</td>
+      <td>${escapeHtml(c.facebook || '')}</td>
+      <td>${(c.chiffreAffaire || 0).toFixed(2)} MAD</td>
+      <td>${(c.profit || 0).toFixed(2)} MAD</td>
+      <td>${c.pointsFidelite || 0}</td>
+      <td>${escapeHtml(c.niveau || 'Normal')}</td>
+      <td>${escapeHtml(c.platsPreferes || '')}</td>
+      <td>${escapeHtml(c.allergies || '')}</td>
+      <td>${c.dateCreation || '-'}</td>
+      <td>
+        <button class="btn-edit" onclick="editClient(${c.id})"><i class="fas fa-edit"></i></button>
+        <button class="btn-delete" onclick="deleteClient(${c.id})"><i class="fas fa-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ========= FONCTIONS FOURNISSEURS COMPLETES =========
+function openFournisseurModal(editMode = false, fournisseur = null) {
+  const modal = document.getElementById('fournisseurModal');
+  if(modal) modal.classList.remove('hidden');
+  
+  const title = document.getElementById('fournisseurModalTitle');
+  const fId = document.getElementById('fournisseurId');
+  const fCategorie = document.getElementById('fournisseurCategorie');
+  const fNom = document.getElementById('fournisseurNom');
+  const fPrenom = document.getElementById('fournisseurPrenom');
+  const fEntreprise = document.getElementById('fournisseurEntreprise');
+  const fAdresse = document.getElementById('fournisseurAdresse');
+  const fTelephone = document.getElementById('fournisseurTelephone');
+  const fWhatsapp = document.getElementById('fournisseurWhatsapp');
+  const fCA = document.getElementById('fournisseurCA');
+  const fDescription = document.getElementById('fournisseurDescription');
+  const fDateCreation = document.getElementById('fournisseurDateCreation');
+  
+  if(editMode && fournisseur) {
+    if(title) title.innerText = 'Modifier le fournisseur';
+    if(fId) fId.value = fournisseur.id;
+    if(fCategorie) fCategorie.value = fournisseur.categorie || '';
+    if(fNom) fNom.value = fournisseur.nom || '';
+    if(fPrenom) fPrenom.value = fournisseur.prenom || '';
+    if(fEntreprise) fEntreprise.value = fournisseur.entreprise || '';
+    if(fAdresse) fAdresse.value = fournisseur.adresse || '';
+    if(fTelephone) fTelephone.value = fournisseur.telephone || '';
+    if(fWhatsapp) fWhatsapp.value = fournisseur.whatsapp || '';
+    if(fCA) fCA.value = fournisseur.chiffreAffaire || 0;
+    if(fDescription) fDescription.value = fournisseur.description || '';
+    if(fDateCreation) fDateCreation.value = fournisseur.dateCreation || '';
+  } else {
+    if(title) title.innerText = 'Ajouter un fournisseur';
+    if(fId) fId.value = '';
+    if(fCategorie) fCategorie.value = '';
+    if(fNom) fNom.value = '';
+    if(fPrenom) fPrenom.value = '';
+    if(fEntreprise) fEntreprise.value = '';
+    if(fAdresse) fAdresse.value = '';
+    if(fTelephone) fTelephone.value = '';
+    if(fWhatsapp) fWhatsapp.value = '';
+    if(fCA) fCA.value = 0;
+    if(fDescription) fDescription.value = '';
+    if(fDateCreation) fDateCreation.value = getNowDateTime();
+  }
+}
+
+function closeFournisseurModal() {
+  const modal = document.getElementById('fournisseurModal');
+  if(modal) modal.classList.add('hidden');
+}
+
+function saveFournisseur() {
+  const id = document.getElementById('fournisseurId')?.value;
+  const nom = document.getElementById('fournisseurNom')?.value.trim();
+  const entreprise = document.getElementById('fournisseurEntreprise')?.value.trim();
+  
+  if(!nom) { alert("Le nom du fournisseur est requis"); return; }
+  if(!entreprise) { alert("Le nom de l'entreprise est requis"); return; }
+  
+  const fournisseurData = {
+    id: id ? parseInt(id) : (fournisseurs.length > 0 ? Math.max(...fournisseurs.map(f=>f.id)) + 1 : 1),
+    categorie: document.getElementById('fournisseurCategorie')?.value || '',
+    nom: nom,
+    prenom: document.getElementById('fournisseurPrenom')?.value || '',
+    entreprise: entreprise,
+    adresse: document.getElementById('fournisseurAdresse')?.value || '',
+    telephone: document.getElementById('fournisseurTelephone')?.value || '',
+    whatsapp: document.getElementById('fournisseurWhatsapp')?.value || '',
+    chiffreAffaire: parseFloat(document.getElementById('fournisseurCA')?.value) || 0,
+    description: document.getElementById('fournisseurDescription')?.value || '',
+    dateCreation: document.getElementById('fournisseurDateCreation')?.value || getNowDateTime()
+  };
+  
+  if(id) {
+    const index = fournisseurs.findIndex(f => f.id == id);
+    if(index !== -1) fournisseurs[index] = fournisseurData;
+  } else {
+    fournisseurs.push(fournisseurData);
+  }
+  
+  forceSaveAllData();
+  
+  setTimeout(async () => {
+    if (typeof window.saveFournisseurToFirebase === 'function') {
+      await window.saveFournisseurToFirebase(fournisseurData);
+    }
+    if (typeof window.syncAllDataToFirebase === 'function') {
+      await window.syncAllDataToFirebase();
+    }
+  }, 500);
+  
+  closeFournisseurModal();
+  renderFournisseursTable();
+  updateStats();
+  const totalFournisseursSpan = document.getElementById('totalFournisseurs');
+  if(totalFournisseursSpan) totalFournisseursSpan.textContent = fournisseurs.length;
+}
+
+function editFournisseur(id) {
+  const fournisseur = fournisseurs.find(f => f.id == id);
+  if(fournisseur) openFournisseurModal(true, fournisseur);
+}
+
+function deleteFournisseur(id) {
+  if(confirm("⚠️ Supprimer ce fournisseur ? Cette action est irréversible.")) {
+    const idNumber = Number(id);
+    fournisseurs = fournisseurs.filter(f => Number(f.id) !== idNumber);
+    forceSaveAllData();
+    
+    if (typeof window.deleteFournisseurFromFirebase === 'function') {
+      window.deleteFournisseurFromFirebase(idNumber);
+    }
+    
+    renderFournisseursTable();
+    updateStats();
+    const totalFournisseursSpan = document.getElementById('totalFournisseurs');
+    if(totalFournisseursSpan) totalFournisseursSpan.textContent = fournisseurs.length;
+    alert("✅ Fournisseur supprimé avec succès !");
+  }
+}
+
+function renderFournisseursTable() {
+  const tbody = document.getElementById('fournisseursList');
+  if(!tbody) return;
+  
+  const searchInput = document.getElementById('searchFournisseurs');
+  const searchTerm = searchInput ? (searchInput.value || '').toLowerCase().trim() : '';
+  let filteredFournisseurs = [...fournisseurs];
+  if (searchTerm !== '') {
+    filteredFournisseurs = filteredFournisseurs.filter(f => 
+      (f.nom || '').toLowerCase().includes(searchTerm) || 
+      (f.entreprise || '').toLowerCase().includes(searchTerm) ||
+      (f.telephone || '').includes(searchTerm)
+    );
+  }
+  
+  const totalFournisseursSpan = document.getElementById('totalFournisseurs');
+  if(totalFournisseursSpan) totalFournisseursSpan.textContent = filteredFournisseurs.length;
+  
+  if(filteredFournisseurs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;">Aucun fournisseur</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = filteredFournisseurs.map(f => `
+    <tr>
+      <td>${f.id}</td>
+      <td>${escapeHtml(f.categorie || '-')}</td>
+      <td>${escapeHtml(f.nom)}</td>
+      <td>${escapeHtml(f.prenom || '')}</td>
+      <td>${escapeHtml(f.entreprise)}</td>
+      <td>${escapeHtml(f.adresse || '')}</td>
+      <td>${escapeHtml(f.telephone || '')}</td>
+      <td>${escapeHtml(f.whatsapp || '')}</td>
+      <td>${(f.chiffreAffaire || 0).toFixed(2)} MAD</td>
+      <td>${escapeHtml((f.description || '').substring(0,50))}</td>
+      <td>${f.dateCreation || '-'}</td>
+      <td>
+        <button class="btn-edit" onclick="editFournisseur(${f.id})"><i class="fas fa-edit"></i></button>
+        <button class="btn-delete" onclick="deleteFournisseur(${f.id})"><i class="fas fa-trash"></i></button>
+       </td>
+    </tr>
+  `).join('');
 }
 
 // ========= VENTES =========
@@ -1366,30 +1682,171 @@ function renderVentesHistory() {
   const tbody = document.getElementById('ventesList');
   if(!tbody) return;
   
-  if(ventes.length === 0) {
-    tbody.innerHTML = '<td><td colspan="18" style="text-align:center;padding:20px;color:#94a3b8;">Aucune vente</td></tr>';
+  // Filtrer et trier les ventes
+  let filteredVentes = [...ventes];
+  
+  // Filtre par recherche
+  const searchTerm = document.getElementById('searchVentes')?.value.toLowerCase() || '';
+  if(searchTerm) {
+    filteredVentes = filteredVentes.filter(v => 
+      (v.client || '').toLowerCase().includes(searchTerm) ||
+      (v.clientCrediteur || '').toLowerCase().includes(searchTerm) ||
+      v.id.toString().includes(searchTerm)
+    );
+  }
+  
+  // Filtre par date
+  const filterDate = document.getElementById('filterDateVentes')?.value;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  if(filterDate === 'today') {
+    filteredVentes = filteredVentes.filter(v => {
+      const vDate = new Date(v.date);
+      return vDate >= today;
+    });
+  } else if(filterDate === 'yesterday') {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    filteredVentes = filteredVentes.filter(v => {
+      const vDate = new Date(v.date);
+      return vDate >= yesterday && vDate < today;
+    });
+  } else if(filterDate === '7') {
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    filteredVentes = filteredVentes.filter(v => new Date(v.date) >= weekAgo);
+  } else if(filterDate === '30') {
+    const monthAgo = new Date(today);
+    monthAgo.setDate(monthAgo.getDate() - 30);
+    filteredVentes = filteredVentes.filter(v => new Date(v.date) >= monthAgo);
+  } else if(filterDate === '90') {
+    const threeMonthsAgo = new Date(today);
+    threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+    filteredVentes = filteredVentes.filter(v => new Date(v.date) >= threeMonthsAgo);
+  } else if(filterDate === '365') {
+    const yearAgo = new Date(today);
+    yearAgo.setDate(yearAgo.getDate() - 365);
+    filteredVentes = filteredVentes.filter(v => new Date(v.date) >= yearAgo);
+  }
+  
+  // Filtre par plage personnalisée
+  const dateDebut = document.getElementById('dateDebutVentes')?.value;
+  const dateFin = document.getElementById('dateFinVentes')?.value;
+  if(dateDebut && dateFin) {
+    const debut = new Date(dateDebut);
+    const fin = new Date(dateFin);
+    fin.setHours(23,59,59);
+    filteredVentes = filteredVentes.filter(v => {
+      const vDate = new Date(v.date);
+      return vDate >= debut && vDate <= fin;
+    });
+  }
+  
+  // Tri
+  filteredVentes.sort((a,b) => {
+    if(sortColumnVentes === 'date') {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return sortDirectionVentes === 'desc' ? dateB - dateA : dateA - dateB;
+    } else if(sortColumnVentes === 'montant') {
+      return sortDirectionVentes === 'desc' ? b.montant - a.montant : a.montant - b.montant;
+    } else if(sortColumnVentes === 'client') {
+      const clientA = (a.clientCrediteur || a.client || '').toLowerCase();
+      const clientB = (b.clientCrediteur || b.client || '').toLowerCase();
+      return sortDirectionVentes === 'desc' ? (clientB > clientA ? 1 : -1) : (clientA > clientB ? 1 : -1);
+    } else if(sortColumnVentes === 'id') {
+      return sortDirectionVentes === 'desc' ? b.id - a.id : a.id - b.id;
+    } else if(sortColumnVentes === 'remise') {
+      return sortDirectionVentes === 'desc' ? (b.remise || 0) - (a.remise || 0) : (a.remise || 0) - (b.remise || 0);
+    } else if(sortColumnVentes === 'paye') {
+      const payeA = (b.montant || 0) - (b.resteAPayer || 0);
+      const payeB = (a.montant || 0) - (a.resteAPayer || 0);
+      return sortDirectionVentes === 'desc' ? payeB - payeA : payeA - payeB;
+    } else if(sortColumnVentes === 'reste') {
+      return sortDirectionVentes === 'desc' ? (b.resteAPayer || 0) - (a.resteAPayer || 0) : (a.resteAPayer || 0) - (b.resteAPayer || 0);
+    } else if(sortColumnVentes === 'type') {
+      const typeA = a.type || '';
+      const typeB = b.type || '';
+      return sortDirectionVentes === 'desc' ? (typeB > typeA ? 1 : -1) : (typeA > typeB ? 1 : -1);
+    } else if(sortColumnVentes === 'statut') {
+      const statutA = a.statutPaiement || '';
+      const statutB = b.statutPaiement || '';
+      return sortDirectionVentes === 'desc' ? (statutB > statutA ? 1 : -1) : (statutA > statutB ? 1 : -1);
+    }
+    return 0;
+  });
+  
+  const totalVentesSpan = document.getElementById('totalVentes');
+  if(totalVentesSpan) totalVentesSpan.textContent = filteredVentes.length + ' ventes';
+  
+  if(filteredVentes.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="18" style="text-align:center;padding:20px;color:#94a3b8;">Aucune vente</td></tr>';
     return;
   }
   
-  tbody.innerHTML = ventes.slice().reverse().map(v => `
+  tbody.innerHTML = filteredVentes.map(v => {
+    const paye = (v.montant || 0) - (v.resteAPayer || 0);
+    return `
     <tr>
       <td><b>#${v.id.toString().slice(-6)}</b></td>
+      <td><b>#${v.id}</b></td>
       <td><small>${v.date}</small></td>
-      <td>${escapeHtml(v.client || '-')}</td>
-      <td>${(v.montant || 0).toFixed(2)} MAD</td>
+      <td>${v.clientCrediteurId || '-'}</td>
+      <td>${escapeHtml(v.clientCrediteur || v.client || '-')}</td>
+      <td>-</td><td>-</td><td>-</td>
+      <td>-</td><td>-</td>
+      <td>-</td><td>-</td>
+      <td>${(v.remise || 0).toFixed(2)} MAD</td>
+      <td>${paye.toFixed(2)} MAD</td>
+      <td>${(v.resteAPayer || 0).toFixed(2)} MAD</td>
       <td>${v.type === 'espece' ? '💵 Espèce' : '💳 Crédit'}</td>
-      <td>${v.statutPaiement === 'payé' ? '✅ Payé' : '⏳ En attente'}</td>
-      <td>
-        <button class="btn-edit" onclick="viewVente(${v.id})"><i class="fas fa-eye"></i></button>
-      </td>
+      <td>${v.statutPaiement === 'payé' ? '<span class="status-success">✅ Payé</span>' : '<span class="status-warning">⏳ En attente</span>'}</td>
+      <td><button class="btn-edit" onclick="viewVente(${v.id})"><i class="fas fa-eye"></i></button></td>
     </tr>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function viewVente(id) {
   const vente = ventes.find(v => v.id == id);
   if(vente) {
-    alert(`Détail de la vente #${id}\nTotal: ${vente.montant} MAD\nType: ${vente.type}\nDate: ${vente.date}`);
+    let details = `📋 DÉTAIL DE LA VENTE #${vente.id}\n`;
+    details += `📅 Date: ${vente.date}\n`;
+    details += `👤 Client: ${vente.clientCrediteur || vente.client || '-'}\n`;
+    details += `💰 Montant total: ${vente.totalBrut || vente.montant} MAD\n`;
+    details += `🏷️ Remise: ${vente.remise || 0} MAD\n`;
+    details += `💵 Net à payer: ${vente.montant} MAD\n`;
+    if(vente.monnaieDonnee) details += `💸 Monnaie donnée: ${vente.monnaieDonnee} MAD\n`;
+    if(vente.monnaieRendue) details += `🔄 Monnaie rendue: ${vente.monnaieRendue} MAD\n`;
+    if(vente.resteAPayer > 0) details += `⚠️ Reste à payer: ${vente.resteAPayer} MAD\n`;
+    details += `📊 Type: ${vente.type === 'espece' ? 'Espèce' : 'Crédit'}\n`;
+    details += `✅ Statut: ${vente.statutPaiement === 'payé' ? 'Payé' : 'En attente'}`;
+    alert(details);
+  }
+}
+
+function sortVentesByColumn(column) {
+  if(sortColumnVentes === column) {
+    sortDirectionVentes = sortDirectionVentes === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortColumnVentes = column;
+    sortDirectionVentes = 'desc';
+  }
+  renderVentesHistory();
+  updateSortIndicatorsVentes();
+}
+
+function updateSortIndicatorsVentes() {
+  // Supprimer les classes existantes
+  document.querySelectorAll('#ventesPage .sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  
+  // Ajouter la classe sur la colonne triée
+  const th = document.querySelector(`#ventesPage .sortable[data-sort="${sortColumnVentes}"]`);
+  if(th) {
+    th.classList.add(sortDirectionVentes === 'desc' ? 'sort-desc' : 'sort-asc');
   }
 }
 
@@ -1398,30 +1855,129 @@ function renderCreditsTable() {
   const tbody = document.getElementById('creditsList');
   if(!tbody) return;
   
-  const creditsActifs = credits.filter(c => c.statut !== 'payé');
+  let filteredCredits = credits.filter(c => c.statut !== 'payé');
   
-  if(creditsActifs.length === 0) {
+  const searchTerm = document.getElementById('searchCredits')?.value.toLowerCase() || '';
+  if(searchTerm) {
+    filteredCredits = filteredCredits.filter(c => 
+      (c.client || '').toLowerCase().includes(searchTerm) ||
+      c.id.toString().includes(searchTerm)
+    );
+  }
+  
+  // Filtre par date
+  const filterDate = document.getElementById('filterDateCredits')?.value;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  if(filterDate === 'today') {
+    filteredCredits = filteredCredits.filter(c => {
+      const cDate = new Date(c.dateCreation);
+      return cDate >= today;
+    });
+  } else if(filterDate === 'yesterday') {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    filteredCredits = filteredCredits.filter(c => {
+      const cDate = new Date(c.dateCreation);
+      return cDate >= yesterday && cDate < today;
+    });
+  } else if(filterDate === '7') {
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    filteredCredits = filteredCredits.filter(c => new Date(c.dateCreation) >= weekAgo);
+  } else if(filterDate === '30') {
+    const monthAgo = new Date(today);
+    monthAgo.setDate(monthAgo.getDate() - 30);
+    filteredCredits = filteredCredits.filter(c => new Date(c.dateCreation) >= monthAgo);
+  } else if(filterDate === '90') {
+    const threeMonthsAgo = new Date(today);
+    threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+    filteredCredits = filteredCredits.filter(c => new Date(c.dateCreation) >= threeMonthsAgo);
+  } else if(filterDate === '365') {
+    const yearAgo = new Date(today);
+    yearAgo.setDate(yearAgo.getDate() - 365);
+    filteredCredits = filteredCredits.filter(c => new Date(c.dateCreation) >= yearAgo);
+  }
+  
+  // Tri
+  filteredCredits.sort((a,b) => {
+    if(sortColumnCredits === 'date') {
+      const dateA = new Date(a.dateCreation);
+      const dateB = new Date(b.dateCreation);
+      return sortDirectionCredits === 'desc' ? dateB - dateA : dateA - dateB;
+    } else if(sortColumnCredits === 'montant') {
+      return sortDirectionCredits === 'desc' ? b.montant - a.montant : a.montant - b.montant;
+    } else if(sortColumnCredits === 'client') {
+      const clientA = (a.client || '').toLowerCase();
+      const clientB = (b.client || '').toLowerCase();
+      return sortDirectionCredits === 'desc' ? (clientB > clientA ? 1 : -1) : (clientA > clientB ? 1 : -1);
+    } else if(sortColumnCredits === 'id') {
+      return sortDirectionCredits === 'desc' ? b.id - a.id : a.id - b.id;
+    } else if(sortColumnCredits === 'paye') {
+      const payeA = a.paye || 0;
+      const payeB = b.paye || 0;
+      return sortDirectionCredits === 'desc' ? payeB - payeA : payeA - payeB;
+    } else if(sortColumnCredits === 'reste') {
+      const resteA = (a.montant || 0) - (a.paye || 0);
+      const resteB = (b.montant || 0) - (b.paye || 0);
+      return sortDirectionCredits === 'desc' ? resteB - resteA : resteA - resteB;
+    } else if(sortColumnCredits === 'statut') {
+      const statutA = a.statut || '';
+      const statutB = b.statut || '';
+      return sortDirectionCredits === 'desc' ? (statutB > statutA ? 1 : -1) : (statutA > statutB ? 1 : -1);
+    }
+    return 0;
+  });
+  
+  const totalCreditsSpan = document.getElementById('totalCredits');
+  if(totalCreditsSpan) totalCreditsSpan.textContent = filteredCredits.length + ' crédits';
+  
+  if(filteredCredits.length === 0) {
     tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;color:#94a3b8;">Aucun crédit actif</td></tr>';
     return;
   }
   
-  tbody.innerHTML = creditsActifs.map(c => {
+  tbody.innerHTML = filteredCredits.map(c => {
     const paye = c.paye || 0;
     const reste = (c.montant || 0) - paye;
     return `
     <tr>
       <td>#${c.id}</td>
+      <td>${c.venteId || '-'}</td>
+      <td><small>${c.dateCreation}</small></td>
+      <td>${c.clientId || '-'}</td>
       <td>${escapeHtml(c.client || '-')}</td>
+      <td>-</td><td>-</td>
       <td>${(c.montant || 0).toFixed(2)} MAD</td>
       <td>${paye.toFixed(2)} MAD</td>
       <td>${reste.toFixed(2)} MAD</td>
-      <td>${c.statut === 'payé' ? '✅ Payé' : '⏳ En attente'}</td>
-      <td>
-        ${reste > 0 ? `<button class="btn-edit" onclick="payCredit(${c.id})">💵 Payer</button>` : ''}
-      </td>
+      <td>${c.statut === 'payé' ? '<span class="status-success">✅ Payé</span>' : '<span class="status-warning">⏳ En attente</span>'}</td>
+      <td>${reste > 0 ? `<button class="btn-edit" onclick="payCredit(${c.id})">💵 Payer</button>` : '-'}</td>
     </tr>
     `;
   }).join('');
+}
+
+function sortCreditsByColumn(column) {
+  if(sortColumnCredits === column) {
+    sortDirectionCredits = sortDirectionCredits === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortColumnCredits = column;
+    sortDirectionCredits = 'desc';
+  }
+  renderCreditsTable();
+  updateSortIndicatorsCredits();
+}
+
+function updateSortIndicatorsCredits() {
+  document.querySelectorAll('#creditsPage .sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  const th = document.querySelector(`#creditsPage .sortable[data-sort="${sortColumnCredits}"]`);
+  if(th) {
+    th.classList.add(sortDirectionCredits === 'desc' ? 'sort-desc' : 'sort-asc');
+  }
 }
 
 function payCredit(id) {
@@ -1431,10 +1987,15 @@ function payCredit(id) {
     const montant = prompt(`Montant à payer pour ${credit.client}? (Reste: ${reste.toFixed(2)} MAD)`);
     if(montant && parseFloat(montant) > 0) {
       credit.paye = (credit.paye || 0) + parseFloat(montant);
-      if((credit.montant || 0) - (credit.paye || 0) <= 0) {
+      if((credit.montant || 0) - (credit.paye || 0) <= 0.01) {
         credit.statut = 'payé';
       }
       forceSaveAllData();
+      
+      if (typeof window.saveCreditToFirebase === 'function') {
+        window.saveCreditToFirebase(credit);
+      }
+      
       renderCreditsTable();
       alert(`Paiement de ${montant} MAD enregistré`);
     }
@@ -1446,219 +2007,318 @@ function openDepenseModal(editMode = false, depense = null) {
   const modal = document.getElementById('depenseModal');
   if(modal) modal.classList.remove('hidden');
   
-  if (editMode && depense) {
-    const title = document.getElementById('depenseModalTitle');
-    const depId = document.getElementById('depenseId');
-    const depDate = document.getElementById('depenseDate');
-    const depCategorie = document.getElementById('depenseCategorie');
-    const depDescription = document.getElementById('depenseDescription');
-    const depMontant = document.getElementById('depenseMontant');
-    
+  const title = document.getElementById('depenseModalTitle');
+  const dId = document.getElementById('depenseId');
+  const dDate = document.getElementById('depenseDate');
+  const dHeure = document.getElementById('depenseHeure');
+  const dCategorie = document.getElementById('depenseCategorie');
+  const dMontant = document.getElementById('depenseMontant');
+  const dFournisseur = document.getElementById('depenseFournisseur');
+  const dPaiement = document.getElementById('depensePaiement');
+  const dStatut = document.getElementById('depenseStatut');
+  const dFacture = document.getElementById('depenseFacture');
+  const dDescription = document.getElementById('depenseDescription');
+  
+  // Remplir la liste des fournisseurs
+  if(dFournisseur) {
+    dFournisseur.innerHTML = '<option value="">Aucun / Autre</option>' + 
+      fournisseurs.map(f => `<option value="${escapeHtml(f.nom)}">${escapeHtml(f.nom)} (${escapeHtml(f.entreprise)})</option>`).join('');
+  }
+  
+  if(editMode && depense) {
     if(title) title.innerText = 'Modifier la dépense';
-    if(depId) depId.value = depense.id;
-    if(depDate) depDate.value = depense.dateISO || '';
-    if(depCategorie) depCategorie.value = depense.categorie || '';
-    if(depDescription) depDescription.value = depense.description || '';
-    if(depMontant) depMontant.value = depense.montant || '';
+    if(dId) dId.value = depense.id;
+    if(dDate) dDate.value = depense.dateISO || '';
+    if(dHeure) dHeure.value = depense.heure || '';
+    if(dCategorie) dCategorie.value = depense.categorie || '';
+    if(dMontant) dMontant.value = depense.montant || '';
+    if(dFournisseur) dFournisseur.value = depense.fournisseur || '';
+    if(dPaiement) dPaiement.value = depense.paiement || 'Espèces';
+    if(dStatut) dStatut.value = depense.statut || 'Payée';
+    if(dFacture) dFacture.value = depense.facture || '';
+    if(dDescription) dDescription.value = depense.description || '';
   } else {
-    const title = document.getElementById('depenseModalTitle');
-    const depId = document.getElementById('depenseId');
-    const depDate = document.getElementById('depenseDate');
-    const depCategorie = document.getElementById('depenseCategorie');
-    const depDescription = document.getElementById('depenseDescription');
-    const depMontant = document.getElementById('depenseMontant');
-    
     if(title) title.innerText = 'Ajouter une dépense';
-    if(depId) depId.value = '';
-    if(depDate) depDate.value = new Date().toISOString().split('T')[0];
-    if(depCategorie) depCategorie.value = '';
-    if(depDescription) depDescription.value = '';
-    if(depMontant) depMontant.value = '';
+    if(dId) dId.value = '';
+    if(dDate) dDate.value = new Date().toISOString().split('T')[0];
+    if(dHeure) dHeure.value = new Date().toLocaleTimeString('fr-FR').slice(0,5);
+    if(dCategorie) dCategorie.value = '';
+    if(dMontant) dMontant.value = '';
+    if(dFournisseur) dFournisseur.value = '';
+    if(dPaiement) dPaiement.value = 'Espèces';
+    if(dStatut) dStatut.value = 'Payée';
+    if(dFacture) dFacture.value = '';
+    if(dDescription) dDescription.value = '';
   }
 }
 
-function closeDepenseModal() { 
+function closeDepenseModal() {
   const modal = document.getElementById('depenseModal');
-  if(modal) modal.classList.add('hidden'); 
+  if(modal) modal.classList.add('hidden');
 }
 
 function saveDepense() {
   const id = document.getElementById('depenseId')?.value;
+  const dateValue = document.getElementById('depenseDate')?.value;
+  const heureValue = document.getElementById('depenseHeure')?.value;
   const categorie = document.getElementById('depenseCategorie')?.value;
   const montant = parseFloat(document.getElementById('depenseMontant')?.value);
-  const dateValue = document.getElementById('depenseDate')?.value;
+  const fournisseur = document.getElementById('depenseFournisseur')?.value;
+  const paiement = document.getElementById('depensePaiement')?.value;
+  const statut = document.getElementById('depenseStatut')?.value;
+  const facture = document.getElementById('depenseFacture')?.value;
+  const description = document.getElementById('depenseDescription')?.value;
   
-  if (!categorie) { alert("Catégorie requise"); return; }
-  if (!montant || montant <= 0) { alert("Montant valide requis"); return; }
-  if (!dateValue) { alert("Date requise"); return; }
+  if(!categorie) { alert("Catégorie requise"); return; }
+  if(!montant || montant <= 0) { alert("Montant valide requis"); return; }
+  if(!dateValue) { alert("Date requise"); return; }
   
   const depenseData = {
+    id: id ? parseInt(id) : (depenses.length > 0 ? Math.max(...depenses.map(d=>d.id)) + 1 : 1),
     dateISO: dateValue,
     date: new Date(dateValue).toLocaleDateString('fr-FR'),
+    heure: heureValue || '',
     categorie: categorie,
     montant: montant,
-    description: document.getElementById('depenseDescription')?.value || '',
+    fournisseur: fournisseur || '',
+    paiement: paiement || 'Espèces',
+    statut: statut || 'Payée',
+    facture: facture || '',
+    description: description || '',
     dateCreation: new Date().toLocaleString()
   };
   
-  if (id) { 
-    const idx = depenses.findIndex(d => d.id == id); 
-    if (idx !== -1) { 
-      depenseData.id = parseInt(id); 
-      depenses[idx] = depenseData; 
-    } 
-  } else { 
-    const newId = depenses.length > 0 ? Math.max(...depenses.map(d => d.id)) + 1 : 1; 
-    depenseData.id = newId; 
-    depenses.push(depenseData); 
+  if(id) {
+    const index = depenses.findIndex(d => d.id == id);
+    if(index !== -1) depenses[index] = depenseData;
+  } else {
+    depenses.push(depenseData);
   }
   
   forceSaveAllData();
+  
+  setTimeout(async () => {
+    if (typeof window.saveDepenseToFirebase === 'function') {
+      await window.saveDepenseToFirebase(depenseData);
+    }
+    if (typeof window.syncAllDataToFirebase === 'function') {
+      await window.syncAllDataToFirebase();
+    }
+  }, 500);
+  
   closeDepenseModal();
   renderDepensesTable();
   updateStats();
 }
 
-function editDepense(id) { 
-  const depense = depenses.find(d => d.id == id); 
-  if(depense) openDepenseModal(true, depense); 
+function editDepense(id) {
+  const depense = depenses.find(d => d.id == id);
+  if(depense) openDepenseModal(true, depense);
 }
 
-function deleteDepense(id) { 
-  if (confirm("Supprimer cette dépense ?")) { 
-    depenses = depenses.filter(d => d.id != id); 
-    forceSaveAllData(); 
-    renderDepensesTable(); 
-    updateStats(); 
-  } 
+function deleteDepense(id) {
+  if(confirm("Supprimer cette dépense ?")) {
+    const idNumber = Number(id);
+    depenses = depenses.filter(d => Number(d.id) !== idNumber);
+    forceSaveAllData();
+    
+    if (typeof window.deleteDepenseFromFirebase === 'function') {
+      window.deleteDepenseFromFirebase(idNumber);
+    }
+    
+    renderDepensesTable();
+    updateStats();
+    alert("✅ Dépense supprimée avec succès !");
+  }
 }
 
 function renderDepensesTable() {
   const tbody = document.getElementById('depensesList');
   if(!tbody) return;
   
-  if(depenses.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;color:#94a3b8;">Aucune dépense</td></tr>';
+  let filteredDepenses = [...depenses];
+  
+  // Filtre par catégorie
+  const filterCategorie = document.getElementById('filterCategorieDepenses')?.value;
+  if(filterCategorie && filterCategorie !== 'all') {
+    filteredDepenses = filteredDepenses.filter(d => d.categorie === filterCategorie);
+  }
+  
+  // Filtre par date
+  const filterDate = document.getElementById('filterDateDepenses')?.value;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  
+  if(filterDate === 'today') {
+    filteredDepenses = filteredDepenses.filter(d => {
+      const dDate = new Date(d.dateISO);
+      return dDate >= today;
+    });
+  } else if(filterDate === 'yesterday') {
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    filteredDepenses = filteredDepenses.filter(d => {
+      const dDate = new Date(d.dateISO);
+      return dDate >= yesterday && dDate < today;
+    });
+  } else if(filterDate === '7') {
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    filteredDepenses = filteredDepenses.filter(d => new Date(d.dateISO) >= weekAgo);
+  } else if(filterDate === '30') {
+    const monthAgo = new Date(today);
+    monthAgo.setDate(monthAgo.getDate() - 30);
+    filteredDepenses = filteredDepenses.filter(d => new Date(d.dateISO) >= monthAgo);
+  } else if(filterDate === '90') {
+    const threeMonthsAgo = new Date(today);
+    threeMonthsAgo.setDate(threeMonthsAgo.getDate() - 90);
+    filteredDepenses = filteredDepenses.filter(d => new Date(d.dateISO) >= threeMonthsAgo);
+  } else if(filterDate === '365') {
+    const yearAgo = new Date(today);
+    yearAgo.setDate(yearAgo.getDate() - 365);
+    filteredDepenses = filteredDepenses.filter(d => new Date(d.dateISO) >= yearAgo);
+  }
+  
+  // Recherche
+  const searchTerm = document.getElementById('searchDepenses')?.value.toLowerCase() || '';
+  if(searchTerm) {
+    filteredDepenses = filteredDepenses.filter(d => 
+      (d.description || '').toLowerCase().includes(searchTerm) ||
+      (d.fournisseur || '').toLowerCase().includes(searchTerm) ||
+      (d.categorie || '').toLowerCase().includes(searchTerm)
+    );
+  }
+  
+  // Tri
+  const sortOrder = document.getElementById('sortOrderDepenses')?.value;
+  if(sortOrder === 'montant-desc') {
+    filteredDepenses.sort((a,b) => b.montant - a.montant);
+  } else if(sortOrder === 'montant-asc') {
+    filteredDepenses.sort((a,b) => a.montant - b.montant);
+  } else if(sortOrder === 'asc') {
+    filteredDepenses.sort((a,b) => new Date(a.dateISO) - new Date(b.dateISO));
+  } else {
+    filteredDepenses.sort((a,b) => new Date(b.dateISO) - new Date(a.dateISO));
+  }
+  
+  // Calcul des totaux pour le résumé
+  const totalGeneral = filteredDepenses.reduce((s, d) => s + (d.montant || 0), 0);
+  const totalMois = filteredDepenses.filter(d => {
+    const dDate = new Date(d.dateISO);
+    return dDate.getMonth() === now.getMonth() && dDate.getFullYear() === now.getFullYear();
+  }).reduce((s, d) => s + (d.montant || 0), 0);
+  const totalToday = filteredDepenses.filter(d => {
+    const dDate = new Date(d.dateISO);
+    return dDate >= today;
+  }).reduce((s, d) => s + (d.montant || 0), 0);
+  const maxDepense = filteredDepenses.length > 0 ? Math.max(...filteredDepenses.map(d => d.montant)) : 0;
+  const moyenneJour = filteredDepenses.length > 0 ? totalGeneral / 30 : 0; // Approximation
+  
+  document.getElementById('summaryTotal').innerHTML = totalGeneral.toFixed(2) + ' MAD';
+  document.getElementById('summaryMois').innerHTML = totalMois.toFixed(2) + ' MAD';
+  document.getElementById('summaryToday').innerHTML = totalToday.toFixed(2) + ' MAD';
+  document.getElementById('summaryMoyenne').innerHTML = moyenneJour.toFixed(2) + ' MAD';
+  document.getElementById('summaryMax').innerHTML = maxDepense.toFixed(2) + ' MAD';
+  document.getElementById('totalDepenses').innerHTML = totalGeneral.toFixed(2) + ' MAD';
+  document.getElementById('depensesCeMois').innerHTML = totalMois.toFixed(2) + ' MAD';
+  
+  if(filteredDepenses.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:20px;">Aucune dépense</td></tr>';
     return;
   }
   
-  const totalGeneral = depenses.reduce((s, d) => s + (d.montant || 0), 0);
-  const totalDepensesEl = document.getElementById('totalDepenses');
-  if(totalDepensesEl) totalDepensesEl.textContent = totalGeneral.toFixed(2) + ' MAD';
-  
-  const maintenant = new Date();
-  const debutMois = new Date(maintenant.getFullYear(), maintenant.getMonth(), 1);
-  const totalMois = depenses.filter(d => d.dateISO && new Date(d.dateISO) >= debutMois).reduce((s, d) => s + (d.montant || 0), 0);
-  const depensesCeMoisEl = document.getElementById('depensesCeMois');
-  if(depensesCeMoisEl) depensesCeMoisEl.textContent = totalMois.toFixed(2) + ' MAD';
-  
-  tbody.innerHTML = depenses.slice().reverse().map(d => `
+  tbody.innerHTML = filteredDepenses.map(d => {
+    let statusClass = '';
+    if(d.statut === 'Payée') statusClass = 'status-payee';
+    else if(d.statut === 'En attente') statusClass = 'status-attente';
+    else if(d.statut === 'Programmée') statusClass = 'status-programmee';
+    else if(d.statut === 'Annulée') statusClass = 'status-annulee';
+    
+    return `
     <tr>
       <td>${d.id}</td>
       <td><small>${d.date || '-'}</small></td>
-      <td>${d.categorie}</td>
-      <td>${escapeHtml(d.description || '-')}</td>
+      <td><span class="categorie-badge">${escapeHtml(d.categorie || '-')}</span></td>
+      <td>${escapeHtml(d.fournisseur || '-')}</td>
+      <td>${escapeHtml((d.description || '').substring(0,50))}</td>
       <td style="color:#ef4444; font-weight:600;">${d.montant.toFixed(2)} MAD</td>
+      <td>${escapeHtml(d.paiement || '-')}</td>
+      <td>${d.facture ? '<i class="fas fa-file-pdf"></i>' : '-'}</td>
+      <td><span class="${statusClass}">${escapeHtml(d.statut || 'Payée')}</span></td>
       <td>
         <button class="btn-edit" onclick="editDepense(${d.id})"><i class="fas fa-edit"></i></button>
         <button class="btn-delete" onclick="deleteDepense(${d.id})"><i class="fas fa-trash"></i></button>
       </td>
     </tr>
-  `).join('');
+    `;
+  }).join('');
+}
+
+function sortDepensesByColumn(column) {
+  if(sortColumnDepenses === column) {
+    sortDirectionDepenses = sortDirectionDepenses === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortColumnDepenses = column;
+    sortDirectionDepenses = 'desc';
+  }
+  renderDepensesTable();
+  updateSortIndicatorsDepenses();
+}
+
+function updateSortIndicatorsDepenses() {
+  document.querySelectorAll('#depensesPage .sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  const th = document.querySelector(`#depensesPage .sortable[data-sort="${sortColumnDepenses}"]`);
+  if(th) {
+    th.classList.add(sortDirectionDepenses === 'desc' ? 'sort-desc' : 'sort-asc');
+  }
 }
 
 // ========= STATISTIQUES =========
 function updateStats() {
-  const totalCA = ventes.reduce((s,v) => s + v.montant, 0);
+  // CA Total
+  const totalCA = ventes.reduce((s,v) => s + (v.montant || 0), 0);
   const totalSalesEl = document.getElementById('totalSales');
   if(totalSalesEl) totalSalesEl.innerText = totalCA.toFixed(2);
   
+  // Nombre de commandes
   const totalOrdersEl = document.getElementById('totalOrders');
   if(totalOrdersEl) totalOrdersEl.innerText = ventes.length;
   
-  const totalProfit = produits.reduce((s,p) => s + ((p.prixPromo > 0 ? p.prixPromo : p.prixVente) - p.prixAchat) * (p.quantiteVendue || 0), 0);
+  // Profit total
+  let totalProfitValue = 0;
+  produits.forEach(p => {
+    const prixEffectif = (p.prixPromo > 0) ? p.prixPromo : p.prixVente;
+    totalProfitValue += (prixEffectif - (p.prixAchat || 0)) * (p.quantiteVendue || 0);
+  });
   const totalProfitEl = document.getElementById('totalProfit');
-  if(totalProfitEl) totalProfitEl.innerText = totalProfit.toFixed(2);
-}
-
-// ========= UTILITAIRES =========
-function escapeHtml(str) { 
-  if(!str) return ''; 
-  return str.replace(/[&<>]/g, function(m) { 
-    if(m==='&') return '&amp;'; 
-    if(m==='<') return '&lt;'; 
-    if(m==='>') return '&gt;'; 
-    return m; 
-  }); 
-}
-
-function seedDemoData() {
-  if(users.length === 0) { 
-    users.push({ username: 'admin', password: 'admin', role: 'admin', dateCreation: getNowDateTime() }); 
-    users.push({ username: 'caissier', password: 'caissier', role: 'caissier', dateCreation: getNowDateTime() }); 
-    saveUsersToLocal(); 
-  }
+  if(totalProfitEl) totalProfitEl.innerText = totalProfitValue.toFixed(2);
   
-  if(categories.length === 0) { 
-    const now = getNowDateTime(); 
-    categories.push({ id: 1, icon: '🍔', nom: 'Burgers', description: 'Nos meilleurs burgers', dateCreation: now }); 
-    categories.push({ id: 2, icon: '🍗', nom: 'Poulets', description: 'Poulets grillés', dateCreation: now }); 
-    categories.push({ id: 3, icon: '🍟', nom: 'Accompagnements', description: 'Frites, sauces', dateCreation: now }); 
-    categories.push({ id: 4, icon: '🥤', nom: 'Boissons', description: 'Boissons fraîches', dateCreation: now }); 
-    saveCategoriesToLocal(); 
-  }
-  
-  if(produits.length === 0) { 
-    const now = getNowDateTime();
-    produits.push({ id:1, nom:'Poulet Grillé', categorieId:2, prixAchat:25, prixVente:45, prixPromo:0, stock:100, quantiteVendue:0, tempsPreparation:10, disponibilite:'disponible', description:'Poulet mariné grillé', dateCreation:now });
-    produits.push({ id:2, nom:'Tacos Mixte', categorieId:1, prixAchat:18, prixVente:35, prixPromo:0, stock:100, quantiteVendue:0, tempsPreparation:8, disponibilite:'disponible', description:'Tacos sauce blanche', dateCreation:now });
-    produits.push({ id:3, nom:'Frites Maison', categorieId:3, prixAchat:5, prixVente:15, prixPromo:12, stock:200, quantiteVendue:0, tempsPreparation:5, disponibilite:'disponible', description:'Frites fraîches', dateCreation:now });
-    produits.push({ id:4, nom:'Coca-Cola', categorieId:4, prixAchat:3, prixVente:8, prixPromo:0, stock:500, quantiteVendue:0, tempsPreparation:1, disponibilite:'disponible', description:'Canette 33cl', dateCreation:now });
-    saveProduitsToLocal();
-  }
+  // Top produit
+  let topProduct = null;
+  let topQuantity = 0;
+  produits.forEach(p => {
+    if((p.quantiteVendue || 0) > topQuantity) {
+      topQuantity = p.quantiteVendue || 0;
+      topProduct = p.nom;
+    }
+  });
+  const topProductEl = document.getElementById('topProduct');
+  if(topProductEl) topProductEl.innerText = topProduct ? `${topProduct} (${topQuantity})` : '-';
 }
 
-function showToastMessage(message) {
-  const toast = document.createElement('div');
-  toast.textContent = message;
-  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 20px;border-radius:8px;z-index:10000;font-weight:bold;box-shadow:0 2px 10px rgba(0,0,0,0.2);';
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
-}
-
-// ========= COMMANDE EN LIGNE AVEC FIREBASE =========
-async function chargerCategoriesEnLigne() {
+// ========= COMMANDES EN LIGNE (FONCTIONS DE BASE) =========
+function chargerCategoriesEnLigne() {
   const container = document.getElementById('onlineCategoriesTabs');
   if(!container) return;
-  
-  let categoriesData = [];
-  
-  // Essayer de charger depuis Firebase en priorité
-  if (typeof window.getCategoriesForOnlineMenu === 'function') {
-    try {
-      categoriesData = await window.getCategoriesForOnlineMenu();
-      if (categoriesData.length > 0) {
-        console.log(`📦 ${categoriesData.length} catégories depuis Firebase pour le menu`);
-      }
-    } catch(e) {
-      console.error("Erreur chargement catégories Firebase:", e);
-    }
-  }
-  
-  // Fallback localStorage
-  if (categoriesData.length === 0) {
-    categoriesData = categories;
-  }
   
   let html = `<button class="cat-btn ${currentOnlineCategory === 'all' ? 'active' : ''}" onclick="filtrerProduitsEnLigne('all')">
     <span style="font-size:1.2rem;">🍽️</span> Tout
   </button>`;
   
-  categoriesData.forEach(cat => {
-    const iconDisplay = cat.icon ? 
-      (cat.icon.startsWith('data:image') || cat.icon.startsWith('http') ? 
-        `<img src="${cat.icon}" style="width:20px;height:20px;object-fit:contain;">` : 
-        cat.icon) : '📁';
+  categories.forEach(cat => {
+    const iconDisplay = cat.icon ? (cat.icon.startsWith('data:image') || cat.icon.startsWith('http') ? `<img src="${cat.icon}" style="width:20px;height:20px;object-fit:contain;">` : cat.icon) : '📁';
     html += `<button class="cat-btn ${currentOnlineCategory === cat.id ? 'active' : ''}" onclick="filtrerProduitsEnLigne(${cat.id})">
       <span style="font-size:1.2rem;">${iconDisplay}</span> ${escapeHtml(cat.nom)}
     </button>`;
@@ -1667,33 +2327,12 @@ async function chargerCategoriesEnLigne() {
   container.innerHTML = html;
 }
 
-async function chargerProduitsEnLigne() {
+function chargerProduitsEnLigne() {
   const container = document.getElementById('onlineProductsGrid');
   if(!container) return;
   
-  container.innerHTML = '<div style="text-align:center;padding:40px;">⏳ Chargement des produits...</div>';
+  let produitsDisponibles = produits.filter(p => p.disponibilite === 'disponible');
   
-  let produitsDisponibles = [];
-  
-  // Essayer de charger depuis Firebase en priorité
-  if (typeof window.getProductsForOnlineMenu === 'function') {
-    try {
-      const firebaseProducts = await window.getProductsForOnlineMenu();
-      produitsDisponibles = firebaseProducts.filter(p => p.disponibilite === 'disponible');
-      if (produitsDisponibles.length > 0) {
-        console.log(`📦 ${produitsDisponibles.length} produits depuis Firebase pour le menu`);
-      }
-    } catch(e) {
-      console.error("Erreur chargement Firebase pour menu:", e);
-    }
-  }
-  
-  // Fallback localStorage
-  if (produitsDisponibles.length === 0) {
-    produitsDisponibles = produits.filter(p => p.disponibilite === 'disponible');
-  }
-  
-  // Filtrer par catégorie
   let filtered = produitsDisponibles;
   if(currentOnlineCategory !== 'all') {
     filtered = filtered.filter(p => p.categorieId === currentOnlineCategory);
@@ -1711,20 +2350,20 @@ async function chargerProduitsEnLigne() {
       `<div style="width:60px;height:60px;background:#f1f5f9;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;">🍔</div>`;
     
     return `
-      <div class="online-product-card" onclick="ajouterAuPanierEnLigne(${p.id}, '${escapeHtml(p.nom)}', ${prix})">
-        <div class="online-product-image">
+      <div class="product-card" onclick="ajouterAuPanierEnLigne(${p.id}, '${escapeHtml(p.nom)}', ${prix})">
+        <div class="product-card-image">
           ${imageHtml}
         </div>
-        <div class="online-product-info">
-          <div class="online-product-title">${escapeHtml(p.nom)}</div>
+        <div class="product-card-body">
+          <div class="product-title">${escapeHtml(p.nom)}</div>
           ${p.prixPromo > 0 ? 
-            `<div style="display:flex;gap:8px;align-items:center;">
+            `<div style="display:flex;gap:8px;align-items:center;justify-content:center;">
               <span style="text-decoration:line-through;color:#94a3b8;font-size:0.7rem;">${p.prixVente.toFixed(2)} MAD</span>
-              <span class="online-product-price">${p.prixPromo.toFixed(2)} MAD</span>
+              <span class="product-price">${p.prixPromo.toFixed(2)} MAD</span>
             </div>` : 
-            `<span class="online-product-price">${prix.toFixed(2)} MAD</span>`
+            `<div class="product-price">${prix.toFixed(2)} MAD</div>`
           }
-          <button class="online-add-btn">+ Ajouter</button>
+          <button class="product-add">+ Ajouter</button>
         </div>
       </div>
     `;
@@ -1745,7 +2384,8 @@ function ajouterAuPanierEnLigne(id, nom, prix) {
     onlineCart.push({ id, nom, prix, quantite: 1 });
   }
   afficherPanierEnLigne();
-  showToastMessage(`${nom} ajouté au panier !`);
+  if(typeof showToastMessage === 'function') showToastMessage(`${nom} ajouté au panier !`);
+  else alert(`${nom} ajouté au panier !`);
 }
 
 function afficherPanierEnLigne() {
@@ -1768,13 +2408,13 @@ function afficherPanierEnLigne() {
             <div class="online-cart-item-name">${escapeHtml(item.nom)}</div>
             <div class="online-cart-item-price">${item.prix.toFixed(2)} MAD</div>
           </div>
-          <div class="online-cart-item-actions">
+          <div class="quantity-controls">
             <button class="quantity-btn" onclick="modifierQuantiteEnLigne(${idx}, -1)">-</button>
-            <span class="online-cart-quantite">${item.quantite}</span>
+            <span class="quantity-value">${item.quantite}</span>
             <button class="quantity-btn" onclick="modifierQuantiteEnLigne(${idx}, 1)">+</button>
             <button class="remove-btn" onclick="supprimerDuPanierEnLigne(${idx})">🗑️</button>
           </div>
-          <div class="online-cart-item-total">${(item.prix * item.quantite).toFixed(2)} MAD</div>
+          <div class="item-total">${(item.prix * item.quantite).toFixed(2)} MAD</div>
         </div>
       `;
     }).join('');
@@ -1798,32 +2438,7 @@ function supprimerDuPanierEnLigne(index) {
   afficherPanierEnLigne(); 
 }
 
-async function openOnlineOrderModal() {
-  const modal = document.getElementById('onlineOrderModal');
-  if(modal) modal.classList.remove('hidden');
-  
-  await chargerCategoriesEnLigne();
-  await chargerProduitsEnLigne();
-  afficherPanierEnLigne();
-}
-
-function closeOnlineOrderModal() {
-  const modal = document.getElementById('onlineOrderModal');
-  if(modal) modal.classList.add('hidden');
-}
-
-function openCommandesEnLigneList() {
-  const modal = document.getElementById('commandesEnLigneListModal');
-  if(modal) modal.classList.remove('hidden');
-  afficherCommandesEnLigneList();
-}
-
-function closeCommandesEnLigneList() {
-  const modal = document.getElementById('commandesEnLigneListModal');
-  if(modal) modal.classList.add('hidden');
-}
-
-async function validerCommandeEnLigne() {
+function validerCommandeEnLigne() {
   const clientName = document.getElementById('onlineClientName')?.value.trim();
   const clientPhone = document.getElementById('onlineClientPhone')?.value.trim();
   
@@ -1853,20 +2468,15 @@ async function validerCommandeEnLigne() {
     date: new Date().toLocaleString()
   };
   
-  if (typeof window.saveOnlineOrderToFirebase === 'function') {
-    try {
-      const firebaseId = await window.saveOnlineOrderToFirebase(commandeData);
-      if (firebaseId) {
-        console.log("✅ Commande enregistrée dans Firebase");
-      }
-    } catch(e) {
-      console.error("❌ Erreur Firebase:", e);
-    }
-  }
-  
+  // Sauvegarder dans localStorage
   let commandesEnLigne = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
   commandesEnLigne.push(commandeData);
   localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandesEnLigne));
+  
+  // Sauvegarder dans Firebase si disponible
+  if (typeof window.saveOnlineOrderToFirebase === 'function') {
+    window.saveOnlineOrderToFirebase(commandeData);
+  }
   
   let recap = `✅ Commande confirmée !\n\n`;
   recap += `📋 Numéro: ${commandeData.numero}\n`;
@@ -1881,118 +2491,75 @@ async function validerCommandeEnLigne() {
   if(document.getElementById('onlineClientName')) document.getElementById('onlineClientName').value = '';
   if(document.getElementById('onlineClientPhone')) document.getElementById('onlineClientPhone').value = '';
   afficherPanierEnLigne();
-  closeOnlineOrderModal();
   
   mettreAJourBadgeCommandes();
 }
 
-async function afficherCommandesEnLigneList() {
+function afficherCommandesEnLigneList() {
   const container = document.getElementById('commandesEnLigneListContainer');
   if(!container) return;
   
-  container.innerHTML = '<div style="text-align:center;padding:40px;">⏳ Chargement des commandes...</div>';
-  
-  let commandesEnAttente = [];
-  
-  if (typeof window.loadOnlineOrdersFromFirebase === 'function') {
-    try {
-      commandesEnAttente = await window.loadOnlineOrdersFromFirebase();
-      console.log(`📦 ${commandesEnAttente.length} commandes depuis Firebase`);
-    } catch(e) {
-      console.error("Erreur chargement Firebase:", e);
-    }
-  }
-  
-  if (commandesEnAttente.length === 0) {
-    const commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-    commandesEnAttente = commandes.filter(c => c.statut === 'en_attente');
-  }
+  let commandesEnAttente = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
+  commandesEnAttente = commandesEnAttente.filter(c => c.statut === 'en_attente');
   
   if(commandesEnAttente.length === 0) {
     container.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">🎉 Aucune commande en attente</div>';
     return;
   }
   
-  container.innerHTML = commandesEnAttente.map(cmd => {
-    const cmdId = cmd.id || cmd.firestoreId || cmd.numero;
-    return `
-      <div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:12px;margin-bottom:15px;padding:15px;">
-        <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-          <div>
-            <strong>📱 ${cmd.numero}</strong>
-            <div style="font-size:0.8rem;color:#64748b;">👤 ${escapeHtml(cmd.client)}</div>
-            <div style="font-size:0.7rem;color:#64748b;">📅 ${cmd.date}</div>
-            ${cmd.telephone ? `<div style="font-size:0.7rem;color:#64748b;">📞 ${escapeHtml(cmd.telephone)}</div>` : ''}
-          </div>
-          <span style="background:#f59e0b;padding:4px 12px;border-radius:20px;color:white;font-size:0.75rem;">⏳ En attente</span>
+  container.innerHTML = commandesEnAttente.map((cmd, idx) => `
+    <div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:12px;margin-bottom:15px;padding:15px;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <div>
+          <strong>📱 ${cmd.numero}</strong>
+          <div style="font-size:0.8rem;color:#64748b;">👤 ${escapeHtml(cmd.client)}</div>
+          <div style="font-size:0.7rem;color:#64748b;">📅 ${cmd.date}</div>
+          ${cmd.telephone ? `<div style="font-size:0.7rem;color:#64748b;">📞 ${escapeHtml(cmd.telephone)}</div>` : ''}
         </div>
-        <div style="margin:12px 0;padding:10px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
-          ${cmd.items.map(item => `
-            <div style="display:flex;justify-content:space-between;padding:6px 0;">
-              <div>
-                <strong>${escapeHtml(item.name)}</strong>
-                <div style="font-size:0.65rem;color:#64748b;">${item.quantite}x ${item.price.toFixed(2)} MAD</div>
-              </div>
-              <span style="font-weight:600;color:#e67e22;">${(item.price * item.quantite).toFixed(2)} MAD</span>
+        <span style="background:#f59e0b;padding:4px 12px;border-radius:20px;color:white;font-size:0.75rem;">⏳ En attente</span>
+      </div>
+      <div style="margin:12px 0;padding:10px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">
+        ${cmd.items.map(item => `
+          <div style="display:flex;justify-content:space-between;padding:6px 0;">
+            <div>
+              <strong>${escapeHtml(item.name)}</strong>
+              <div style="font-size:0.65rem;color:#64748b;">${item.quantite}x ${item.price.toFixed(2)} MAD</div>
             </div>
-          `).join('')}
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-          <strong>Total: ${cmd.total.toFixed(2)} MAD</strong>
-          <div style="display:flex;gap:8px;">
-            <button onclick="accepterCommandeEnLigne('${cmdId}')" style="background:#22c55e;border:none;padding:8px 20px;border-radius:8px;color:white;cursor:pointer;">
-              ✅ Accepter
-            </button>
-            <button onclick="ajouterCommandeAuPanierPOS('${cmdId}')" style="background:#8b5cf6;border:none;padding:8px 20px;border-radius:8px;color:white;cursor:pointer;">
-              🛒 Ajouter au panier
-            </button>
+            <span style="font-weight:600;color:#e67e22;">${(item.price * item.quantite).toFixed(2)} MAD</span>
           </div>
+        `).join('')}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <strong>Total: ${cmd.total.toFixed(2)} MAD</strong>
+        <div style="display:flex;gap:8px;">
+          <button onclick="accepterCommandeEnLigne(${idx})" style="background:#22c55e;border:none;padding:8px 20px;border-radius:8px;color:white;cursor:pointer;">
+            ✅ Accepter
+          </button>
+          <button onclick="ajouterCommandeAuPanierPOS(${idx})" style="background:#8b5cf6;border:none;padding:8px 20px;border-radius:8px;color:white;cursor:pointer;">
+            🛒 Ajouter au panier
+          </button>
         </div>
-      </div>`;
-  }).join('');
+      </div>
+    </div>
+  `).join('');
 }
 
-async function accepterCommandeEnLigne(id) {
-  if (typeof window.updateOrderStatusInFirebase === 'function') {
-    try {
-      await window.updateOrderStatusInFirebase(id, 'terminee');
-    } catch(e) {
-      console.error("Erreur mise à jour Firebase:", e);
-    }
-  }
-  
+function accepterCommandeEnLigne(index) {
   let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-  commandes = commandes.map(c => {
-    if (c.id === id || c.firestoreId === id || c.numero === id) {
-      return { ...c, statut: 'terminee' };
-    }
-    return c;
-  });
-  localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandes));
-  
-  await afficherCommandesEnLigneList();
-  mettreAJourBadgeCommandes();
-  showToastMessage(`✅ Commande acceptée !`);
+  if(commandes[index]) {
+    commandes[index].statut = 'terminee';
+    localStorage.setItem('chickenway_commandes_en_ligne', JSON.stringify(commandes));
+    afficherCommandesEnLigneList();
+    mettreAJourBadgeCommandes();
+    alert(`✅ Commande ${commandes[index].numero} acceptée !`);
+  }
 }
 
-async function ajouterCommandeAuPanierPOS(id) {
-  let commande = null;
+function ajouterCommandeAuPanierPOS(index) {
+  let commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
+  const commande = commandes[index];
   
-  if (typeof window.getAllOnlineOrders === 'function') {
-    try {
-      const allOrders = await window.getAllOnlineOrders();
-      commande = allOrders.find(c => c.id === id || c.firestoreId === id || c.numero === id);
-    } catch(e) {
-      console.error("Erreur recherche Firebase:", e);
-    }
-  }
-  
-  if (!commande) {
-    const commandes = JSON.parse(localStorage.getItem('chickenway_commandes_en_ligne') || '[]');
-    commande = commandes.find(c => c.id === id || c.firestoreId === id || c.numero === id);
-  }
-  
-  if (commande && commande.items) {
+  if(commande && commande.items) {
     commande.items.forEach(item => {
       for(let i = 0; i < item.quantite; i++) {
         cart.push({ 
@@ -2005,10 +2572,9 @@ async function ajouterCommandeAuPanierPOS(id) {
     });
     
     refreshCartDisplay();
-    await accepterCommandeEnLigne(commande.id || commande.firestoreId || commande.numero);
-    showToastMessage(`🛒 Article(s) ajouté(s) au panier POS`);
+    accepterCommandeEnLigne(index);
+    if(typeof showToastMessage === 'function') showToastMessage(`🛒 Article(s) ajouté(s) au panier POS`);
     showPage('pos');
-    closeCommandesEnLigneList();
   }
 }
 
@@ -2019,142 +2585,79 @@ function mettreAJourBadgeCommandes() {
   if(badge) badge.textContent = enAttente;
 }
 
-// ========= FONCTIONS DE TRI =========
-function updateSortIndicatorsVentes() {
-    document.querySelectorAll('#ventesPage .sortable .sort-icon').forEach(icon => icon.innerHTML = '');
-    const sortIcon = document.querySelector(`#ventesPage .sortable[data-sort="${sortColumnVentes}"] .sort-icon`);
-    if(sortIcon) sortIcon.innerHTML = sortDirectionVentes === 'desc' ? ' ↓' : ' ↑';
+// ========= FONCTIONS UTILITAIRES =========
+function getNowDateTime() {
+  const now = new Date();
+  return now.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
-function sortVentesByColumn(column) {
-    if(sortColumnVentes === column) {
-        sortDirectionVentes = sortDirectionVentes === 'desc' ? 'asc' : 'desc';
-    } else {
-        sortColumnVentes = column;
-        sortDirectionVentes = 'desc';
-    }
-    renderVentesHistory();
-    updateSortIndicatorsVentes();
+function escapeHtml(str) { 
+  if(!str) return ''; 
+  return str.replace(/[&<>]/g, function(m) { 
+    if(m==='&') return '&amp;'; 
+    if(m==='<') return '&lt;'; 
+    if(m==='>') return '&gt;'; 
+    return m; 
+  }); 
 }
 
-function updateSortIndicatorsCredits() {
-    document.querySelectorAll('#creditsPage .sortable .sort-icon').forEach(icon => icon.innerHTML = '');
-    const sortIcon = document.querySelector(`#creditsPage .sortable[data-sort="${sortColumnCredits}"] .sort-icon`);
-    if(sortIcon) sortIcon.innerHTML = sortDirectionCredits === 'desc' ? ' ↓' : ' ↑';
+function showToastMessage(message) {
+  const toast = document.createElement('div');
+  toast.textContent = message;
+  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 20px;border-radius:8px;z-index:10000;font-weight:bold;box-shadow:0 2px 10px rgba(0,0,0,0.2);';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
 }
 
-function sortCreditsByColumn(column) {
-    if(sortColumnCredits === column) {
-        sortDirectionCredits = sortDirectionCredits === 'desc' ? 'asc' : 'desc';
-    } else {
-        sortColumnCredits = column;
-        sortDirectionCredits = 'desc';
-    }
-    renderCreditsTable();
-    updateSortIndicatorsCredits();
-}
-
-function updateSortIndicatorsDepenses() {
-    document.querySelectorAll('#depensesPage .sortable .sort-icon').forEach(icon => icon.innerHTML = '');
-    const sortIcon = document.querySelector(`#depensesPage .sortable[data-sort="${sortColumnDepenses}"] .sort-icon`);
-    if(sortIcon) sortIcon.innerHTML = sortDirectionDepenses === 'desc' ? ' ↓' : ' ↑';
-}
-
-function sortDepensesByColumn(column) {
-    if(sortColumnDepenses === column) {
-        sortDirectionDepenses = sortDirectionDepenses === 'desc' ? 'asc' : 'desc';
-    } else {
-        sortColumnDepenses = column;
-        sortDirectionDepenses = 'desc';
-    }
-    renderDepensesTable();
-    updateSortIndicatorsDepenses();
-}
-
-// ========= INITIALISATION =========
-document.addEventListener('DOMContentLoaded', async function() {
-  console.log("🚀 Initialisation de l'application...");
-  
-  loadAllData();
-  seedDemoData();
-  
-  // 🔥 CHARGER LES PRODUITS DEPUIS FIREBASE AU DÉMARRAGE
-  await chargerListeProduitsDepuisFirebase();
-  
-  renderAllTables();
-  
-  if (typeof window.listenToOnlineOrders === 'function') {
-      window.listenToOnlineOrders((orders) => {
-          console.log(`📢 ${orders.length} commandes en attente (temps réel)`);
-          const badge = document.getElementById('notifBadge');
-          if (badge) {
-              badge.textContent = orders.length;
-          }
-          const modal = document.getElementById('commandesEnLigneListModal');
-          if (modal && !modal.classList.contains('hidden')) {
-              afficherCommandesEnLigneList();
-          }
-      });
-      console.log("🔔 Écoute Firebase démarrée");
+function seedDemoData() {
+  if(users.length === 0) { 
+    users.push({ username: 'admin', password: 'admin', role: 'admin', dateCreation: getNowDateTime() }); 
+    users.push({ username: 'caissier', password: 'caissier', role: 'caissier', dateCreation: getNowDateTime() }); 
+    saveUsersToLocal(); 
   }
   
-  const sidebarNav = document.querySelector('.sidebar-nav ul');
-  if(sidebarNav && !document.getElementById('openCommandesBtn')) {
-    const li = document.createElement('li');
-    li.innerHTML = `<button id="openCommandesBtn" onclick="openCommandesEnLigneList()" style="background: #e67e22; color: white; border: none; padding: 10px 15px; border-radius: 8px; width: 100%; text-align: left; cursor: pointer; margin-bottom: 10px;">
-      <i class="fas fa-bell"></i> 📱 Commandes en ligne
-      <span id="notifBadge" style="background:#ef4444; padding: 2px 8px; border-radius: 20px; margin-left: 10px; font-size: 0.7rem;">0</span>
-    </button>`;
-    sidebarNav.insertBefore(li, sidebarNav.firstChild);
+  if(categories.length === 0) { 
+    const now = getNowDateTime(); 
+    categories.push({ id: 1, icon: '🍔', nom: 'Burgers', description: 'Nos meilleurs burgers', dateCreation: now }); 
+    categories.push({ id: 2, icon: '🍗', nom: 'Poulets', description: 'Poulets grillés', dateCreation: now }); 
+    categories.push({ id: 3, icon: '🍟', nom: 'Accompagnements', description: 'Frites, sauces', dateCreation: now }); 
+    categories.push({ id: 4, icon: '🥤', nom: 'Boissons', description: 'Boissons fraîches', dateCreation: now }); 
+    saveCategoriesToLocal(); 
   }
   
-  mettreAJourBadgeCommandes();
-  setInterval(mettreAJourBadgeCommandes, 5000);
-  setInterval(forceSaveAllData, 10000);
-  
-  console.log("✅ Application prête !");
-});
+  if(produits.length === 0) { 
+    const now = getNowDateTime();
+    produits.push({ id:1, nom:'Poulet Grillé', categorieId:2, prixAchat:25, prixVente:45, prixPromo:0, stock:100, quantiteVendue:0, tempsPreparation:10, disponibilite:'disponible', description:'Poulet mariné grillé', dateCreation:now });
+    produits.push({ id:2, nom:'Tacos Mixte', categorieId:1, prixAchat:18, prixVente:35, prixPromo:0, stock:100, quantiteVendue:0, tempsPreparation:8, disponibilite:'disponible', description:'Tacos sauce blanche', dateCreation:now });
+    produits.push({ id:3, nom:'Frites Maison', categorieId:3, prixAchat:5, prixVente:15, prixPromo:12, stock:200, quantiteVendue:0, tempsPreparation:5, disponibilite:'disponible', description:'Frites fraîches', dateCreation:now });
+    produits.push({ id:4, nom:'Coca-Cola', categorieId:4, prixAchat:3, prixVente:8, prixPromo:0, stock:500, quantiteVendue:0, tempsPreparation:1, disponibilite:'disponible', description:'Canette 33cl', dateCreation:now });
+    saveProduitsToLocal();
+  }
+}
 
-// ========= CLIENTS (Fonctions minimales - à remplacer par vos fonctions existantes) =========
-function openClientModal(edit, client) { alert("Fonction client à implémenter"); }
-function closeClientModal() {}
-function saveClient() {}
-function editClient(id) {}
-function deleteClient(id) {}
-function renderClientsTable() { const tbody = document.getElementById('clientsList'); if(tbody) tbody.innerHTML = '<tr><td colspan="10">Clients</td></tr>'; }
+// Exposer les fonctions globalement
+window.currentUser = currentUser;
+window.currentUserRole = currentUserRole;
+window.cart = cart;
+window.users = users;
+window.orders = orders;
+window.ventes = ventes;
+window.categories = categories;
+window.produits = produits;
+window.clients = clients;
+window.fournisseurs = fournisseurs;
+window.depenses = depenses;
+window.credits = credits;
 
-// ========= FOURNISSEURS (Fonctions minimales) =========
-function openFournisseurModal(edit, fournisseur) { alert("Fonction fournisseur à implémenter"); }
-function closeFournisseurModal() {}
-function saveFournisseur() {}
-function editFournisseur(id) {}
-function deleteFournisseur(id) {}
-function renderFournisseursTable() { const tbody = document.getElementById('fournisseursList'); if(tbody) tbody.innerHTML = '<tr><td colspan="10">Fournisseurs</td></tr>'; }
-
-// Exposer les nouvelles fonctions
-window.chargerListeProduitsDepuisFirebase = chargerListeProduitsDepuisFirebase;
-window.refreshProductsFromFirebase = refreshProductsFromFirebase;
-
-// Exposer toutes les fonctions globalement
-window.openOnlineOrderModal = openOnlineOrderModal;
-window.closeOnlineOrderModal = closeOnlineOrderModal;
-window.openCommandesEnLigneList = openCommandesEnLigneList;
-window.closeCommandesEnLigneList = closeCommandesEnLigneList;
-window.filtrerProduitsEnLigne = filtrerProduitsEnLigne;
-window.ajouterAuPanierEnLigne = ajouterAuPanierEnLigne;
-window.modifierQuantiteEnLigne = modifierQuantiteEnLigne;
-window.supprimerDuPanierEnLigne = supprimerDuPanierEnLigne;
-window.validerCommandeEnLigne = validerCommandeEnLigne;
-window.accepterCommandeEnLigne = accepterCommandeEnLigne;
-window.ajouterCommandeAuPanierPOS = ajouterCommandeAuPanierPOS;
-window.afficherCommandesEnLigneList = afficherCommandesEnLigneList;
-window.mettreAJourBadgeCommandes = mettreAJourBadgeCommandes;
+// Navigation et Auth
 window.showPage = showPage;
 window.login = login;
 window.logout = logout;
 window.showRegister = showRegister;
 window.showLogin = showLogin;
 window.register = register;
+
+// POS et Panier
 window.openProductOptions = openProductOptions;
 window.closeProductOptionsModal = closeProductOptionsModal;
 window.confirmAddToCart = confirmAddToCart;
@@ -2162,10 +2665,12 @@ window.removeCartItem = removeCartItem;
 window.clearCart = clearCart;
 window.openPaymentModal = openPaymentModal;
 window.closePaymentModal = closePaymentModal;
+window.confirmPayment = confirmPayment;
+window.calculatePayment = calculatePayment;
 window.searchClients = searchClients;
 window.selectClient = selectClient;
-window.calculatePayment = calculatePayment;
-window.confirmPayment = confirmPayment;
+
+// Catégories
 window.openCategoryModal = openCategoryModal;
 window.closeCategoryModal = closeCategoryModal;
 window.saveCategory = saveCategory;
@@ -2175,6 +2680,8 @@ window.switchCategoryIconMode = switchCategoryIconMode;
 window.setCategoryEmoji = setCategoryEmoji;
 window.handleCategoryIconFileSelect = handleCategoryIconFileSelect;
 window.removeCategoryIconFile = removeCategoryIconFile;
+
+// Produits
 window.switchProductImageMode = switchProductImageMode;
 window.handleProductImageFileSelect = handleProductImageFileSelect;
 window.removeProductImageFile = removeProductImageFile;
@@ -2184,16 +2691,22 @@ window.saveProduct = saveProduct;
 window.editProduct = editProduct;
 window.deleteProduct = deleteProduct;
 window.calculateProfit = calculateProfit;
+
+// Clients
 window.openClientModal = openClientModal;
 window.closeClientModal = closeClientModal;
 window.saveClient = saveClient;
 window.editClient = editClient;
 window.deleteClient = deleteClient;
+
+// Fournisseurs
 window.openFournisseurModal = openFournisseurModal;
 window.closeFournisseurModal = closeFournisseurModal;
 window.saveFournisseur = saveFournisseur;
 window.editFournisseur = editFournisseur;
 window.deleteFournisseur = deleteFournisseur;
+
+// Ventes, Crédits, Dépenses
 window.viewVente = viewVente;
 window.payCredit = payCredit;
 window.openDepenseModal = openDepenseModal;
@@ -2204,13 +2717,24 @@ window.deleteDepense = deleteDepense;
 window.sortVentesByColumn = sortVentesByColumn;
 window.sortCreditsByColumn = sortCreditsByColumn;
 window.sortDepensesByColumn = sortDepensesByColumn;
-window.filterPOSProducts = filterPOSProducts;
-window.loadPOSCategories = loadPOSCategories;
+
+// Commandes en ligne
 window.chargerCategoriesEnLigne = chargerCategoriesEnLigne;
 window.chargerProduitsEnLigne = chargerProduitsEnLigne;
+window.filtrerProduitsEnLigne = filtrerProduitsEnLigne;
+window.ajouterAuPanierEnLigne = ajouterAuPanierEnLigne;
+window.modifierQuantiteEnLigne = modifierQuantiteEnLigne;
+window.supprimerDuPanierEnLigne = supprimerDuPanierEnLigne;
 window.afficherPanierEnLigne = afficherPanierEnLigne;
-window.refreshCartDisplay = refreshCartDisplay;
-window.updateStats = updateStats;
+window.validerCommandeEnLigne = validerCommandeEnLigne;
+window.afficherCommandesEnLigneList = afficherCommandesEnLigneList;
+window.accepterCommandeEnLigne = accepterCommandeEnLigne;
+window.ajouterCommandeAuPanierPOS = ajouterCommandeAuPanierPOS;
+window.mettreAJourBadgeCommandes = mettreAJourBadgeCommandes;
+
+// Utilitaires
+window.filterPOSProducts = filterPOSProducts;
+window.loadPOSCategories = loadPOSCategories;
 window.renderAllTables = renderAllTables;
 window.renderCategoriesTable = renderCategoriesTable;
 window.renderProductsTable = renderProductsTable;
@@ -2219,10 +2743,13 @@ window.renderFournisseursTable = renderFournisseursTable;
 window.renderDepensesTable = renderDepensesTable;
 window.renderCreditsTable = renderCreditsTable;
 window.renderVentesHistory = renderVentesHistory;
+window.updateStats = updateStats;
+window.refreshCartDisplay = refreshCartDisplay;
 window.forceSaveAllData = forceSaveAllData;
 window.sauvegarderDansLocalStorage = sauvegarderDansLocalStorage;
 window.getNowDateTime = getNowDateTime;
 window.escapeHtml = escapeHtml;
 window.showToastMessage = showToastMessage;
+window.seedDemoData = seedDemoData;
 
-console.log("✅ script.js chargé avec succès - Synchronisation Firebase activée !");
+console.log("✅ script.js chargé avec succès - Toutes les fonctionnalités sont prêtes !");
