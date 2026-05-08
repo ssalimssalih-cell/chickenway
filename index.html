@@ -129,6 +129,22 @@
     .notif-btn:hover {
       background: #d35400;
     }
+    /* Indicateur de synchronisation */
+    .sync-indicator {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: #1e293b;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      z-index: 1000;
+      font-family: monospace;
+    }
+    .sync-indicator.success { background: #22c55e; }
+    .sync-indicator.error { background: #ef4444; }
+    .sync-indicator.sync { background: #f59e0b; animation: pulse 1s infinite; }
   </style>
 </head>
 <body>
@@ -1294,9 +1310,11 @@
   </div>
 </div>
 
+<!-- Indicateur de synchronisation -->
+<div id="syncIndicator" class="sync-indicator">🔄 Chargement...</div>
+
 <!-- Firebase Configuration -->
 <script>
-
   // Fonction de synchronisation Firebase pour les produits
   window.syncProductsToFirebase = async function() {
     const produitsData = JSON.parse(localStorage.getItem('chickenway_produits') || '[]');
@@ -1337,12 +1355,136 @@
       btn.disabled = false;
     }
   };
+  
+  // Fonction pour charger TOUTES les données depuis Firebase au démarrage
+  window.chargerToutesLesDonneesDepuisFirebase = async function() {
+    const syncIndicator = document.getElementById('syncIndicator');
+    if(syncIndicator) {
+      syncIndicator.className = 'sync-indicator sync';
+      syncIndicator.innerHTML = '🔄 Synchronisation avec Firebase...';
+    }
+    
+    console.log("🔄 Chargement des données depuis Firebase...");
+    
+    try {
+      // 1. Charger les catégories
+      if (typeof window.loadCategoriesFromFirebase === 'function') {
+        const categoriesFirebase = await window.loadCategoriesFromFirebase();
+        if (categoriesFirebase.length > 0) {
+          window.categories = categoriesFirebase;
+          localStorage.setItem('chickenway_categories', JSON.stringify(categoriesFirebase));
+          console.log(`✅ ${categoriesFirebase.length} catégories chargées depuis Firebase`);
+        }
+      }
+      
+      // 2. Charger les produits
+      if (typeof window.loadProductsFromFirebase === 'function') {
+        const produitsFirebase = await window.loadProductsFromFirebase();
+        if (produitsFirebase.length > 0) {
+          window.produits = produitsFirebase;
+          localStorage.setItem('chickenway_produits', JSON.stringify(produitsFirebase));
+          console.log(`✅ ${produitsFirebase.length} produits chargés depuis Firebase`);
+        }
+      }
+      
+      // 3. Charger les clients
+      if (typeof window.loadClientsFromFirebase === 'function') {
+        const clientsFirebase = await window.loadClientsFromFirebase();
+        if (clientsFirebase.length > 0) {
+          window.clients = clientsFirebase;
+          localStorage.setItem('chickenway_clients', JSON.stringify(clientsFirebase));
+          console.log(`✅ ${clientsFirebase.length} clients chargés depuis Firebase`);
+          const totalSpan = document.getElementById('totalClients');
+          if(totalSpan) totalSpan.textContent = clientsFirebase.length;
+        }
+      }
+      
+      // 4. Charger les fournisseurs
+      if (typeof window.loadFournisseursFromFirebase === 'function') {
+        const fournisseursFirebase = await window.loadFournisseursFromFirebase();
+        if (fournisseursFirebase.length > 0) {
+          window.fournisseurs = fournisseursFirebase;
+          localStorage.setItem('chickenway_fournisseurs', JSON.stringify(fournisseursFirebase));
+          console.log(`✅ ${fournisseursFirebase.length} fournisseurs chargés depuis Firebase`);
+          const totalSpan = document.getElementById('totalFournisseurs');
+          if(totalSpan) totalSpan.textContent = fournisseursFirebase.length;
+        }
+      }
+      
+      // 5. Charger les ventes
+      if (typeof window.loadVentesFromFirebase === 'function') {
+        const ventesFirebase = await window.loadVentesFromFirebase();
+        if (ventesFirebase.length > 0) {
+          window.ventes = ventesFirebase;
+          localStorage.setItem('chickenway_ventes', JSON.stringify(ventesFirebase));
+          console.log(`✅ ${ventesFirebase.length} ventes chargées depuis Firebase`);
+        }
+      }
+      
+      // 6. Charger les crédits
+      if (typeof window.loadCreditsFromFirebase === 'function') {
+        const creditsFirebase = await window.loadCreditsFromFirebase();
+        if (creditsFirebase.length > 0) {
+          window.credits = creditsFirebase;
+          localStorage.setItem('chickenway_credits', JSON.stringify(creditsFirebase));
+          console.log(`✅ ${creditsFirebase.length} crédits chargés depuis Firebase`);
+        }
+      }
+      
+      // 7. Charger les dépenses
+      if (typeof window.loadDepensesFromFirebase === 'function') {
+        const depensesFirebase = await window.loadDepensesFromFirebase();
+        if (depensesFirebase.length > 0) {
+          window.depenses = depensesFirebase;
+          localStorage.setItem('chickenway_depenses', JSON.stringify(depensesFirebase));
+          console.log(`✅ ${depensesFirebase.length} dépenses chargées depuis Firebase`);
+        }
+      }
+      
+      // 8. Charger les utilisateurs
+      if (typeof window.loadUsersFromFirebase === 'function') {
+        const usersFirebase = await window.loadUsersFromFirebase();
+        if (usersFirebase.length > 0) {
+          window.users = usersFirebase;
+          localStorage.setItem('chickenway_users', JSON.stringify(usersFirebase));
+          console.log(`✅ ${usersFirebase.length} utilisateurs chargés depuis Firebase`);
+        }
+      }
+      
+      // Rafraîchir tous les affichages
+      if (typeof window.renderAllTables === 'function') window.renderAllTables();
+      if (typeof window.loadPOSCategories === 'function') window.loadPOSCategories();
+      if (typeof window.chargerCategoriesEnLigne === 'function') window.chargerCategoriesEnLigne();
+      if (typeof window.chargerProduitsEnLigne === 'function') window.chargerProduitsEnLigne();
+      if (typeof window.renderVentesHistory === 'function') window.renderVentesHistory();
+      if (typeof window.renderCreditsTable === 'function') window.renderCreditsTable();
+      if (typeof window.renderDepensesTable === 'function') window.renderDepensesTable();
+      if (typeof window.updateStats === 'function') window.updateStats();
+      
+      if(syncIndicator) {
+        syncIndicator.className = 'sync-indicator success';
+        syncIndicator.innerHTML = '✅ Synchro OK';
+        setTimeout(() => {
+          if(syncIndicator) syncIndicator.style.opacity = '0.5';
+        }, 3000);
+      }
+      
+      console.log("✅ Toutes les données ont été chargées depuis Firebase !");
+      return true;
+      
+    } catch (error) {
+      console.error("❌ Erreur lors du chargement des données depuis Firebase:", error);
+      if(syncIndicator) {
+        syncIndicator.className = 'sync-indicator error';
+        syncIndicator.innerHTML = '❌ Erreur synchro';
+      }
+      return false;
+    }
+  };
 </script>
 
 <!-- Scripts -->
- <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
- <script src="firebase-config.js"></script>
+<script src="firebase-config.js"></script>
 <script src="db.js"></script>
 <script src="script.js"></script>
 
@@ -1375,6 +1517,12 @@ function closeCommandesEnLigneList() {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log("🔄 Initialisation de l'application...");
     
+    // D'abord, charger les données depuis Firebase
+    if (typeof window.chargerToutesLesDonneesDepuisFirebase === 'function') {
+        await window.chargerToutesLesDonneesDepuisFirebase();
+    }
+    
+    // Ensuite, initialiser IndexedDB
     if (typeof initDB === 'function') {
         try {
             await initDB();
@@ -1432,7 +1580,6 @@ async function chargerToutesLesDonnees() {
         console.log("✅ Données chargées depuis IndexedDB");
         console.log(`📊 Statistiques: ${categories ? categories.length : 0} catégories, ${produits ? produits.length : 0} produits, ${clients ? clients.length : 0} clients`);
         
-        // Mettre à jour l'affichage des commandes en ligne
         if (typeof mettreAJourBadgeCommandes === 'function') mettreAJourBadgeCommandes();
         
     } catch(e) {
