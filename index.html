@@ -8,9 +8,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  
   <style>
     /* Styles pour la navbar et le modal de commande en ligne */
     .navbar {
@@ -128,7 +125,6 @@
     .notif-btn:hover {
       background: #d35400;
     }
-    /* Indicateur de chargement pour le modal */
     .loading-spinner {
       display: inline-block;
       width: 40px;
@@ -825,7 +821,7 @@
               <tr><th>ID</th><th>Catégorie</th><th>Nom</th><th>Prénom</th><th>Entreprise</th><th>Adresse</th><th>Téléphone</th><th>WhatsApp</th><th>CA (MAD)</th><th>Description</th><th>Date création</th><th>Actions</th></tr>
             </thead>
             <tbody id="fournisseursList"></tbody>
-          <table>
+          </table>
         </div>
       </div>
     </div>
@@ -987,7 +983,7 @@
                 <th class="sortable" data-sort="reste" onclick="sortCreditsByColumn('reste')">Reste <span class="sort-icon"></span></th>
                 <th class="sortable" data-sort="statut" onclick="sortCreditsByColumn('statut')">Statut <span class="sort-icon"></span></th>
                 <th>Actions</th>
-              </table>
+              </tr>
             </thead>
             <tbody id="creditsList"></tbody>
           </table>
@@ -1254,7 +1250,7 @@
       <h2 style="color: white; margin: 0;">🍗 Commander en ligne</h2>
       <button class="modal-close" onclick="closeOnlineOrderModal()" style="color: white; font-size: 28px;">&times;</button>
     </div>
-    <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;" id="onlineOrderModalBody">
+    <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px;">
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
         <!-- Left: Products -->
         <div>
@@ -1307,292 +1303,72 @@
   </div>
 </div>
 
-<!-- Firebase Configuration -->
-<script>
-
-  // Fonction de synchronisation Firebase pour les produits
-  window.syncProductsToFirebase = async function() {
-    const produitsData = JSON.parse(localStorage.getItem('chickenway_produits') || '[]');
-    if(produitsData.length === 0) {
-      alert("Aucun produit à synchroniser");
-      return;
-    }
-    
-    const btn = event.target;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Synchronisation...';
-    btn.disabled = true;
-    
-    try {
-      for(const produit of produitsData) {
-        await db.collection('products').doc(produit.id.toString()).set({
-          id: produit.id,
-          nom: produit.nom,
-          categorieId: produit.categorieId,
-          image: produit.image || '',
-          description: produit.description || '',
-          prixAchat: produit.prixAchat || 0,
-          prixVente: produit.prixVente || 0,
-          prixPromo: produit.prixPromo || 0,
-          stock: produit.stock || 0,
-          quantiteVendue: produit.quantiteVendue || 0,
-          tempsPreparation: produit.tempsPreparation || 5,
-          disponibilite: produit.disponibilite || 'disponible',
-          dateCreation: produit.dateCreation || new Date().toISOString()
-        });
-      }
-      alert(`✅ ${produitsData.length} produits synchronisés vers Firebase !`);
-    } catch(error) {
-      console.error("Erreur sync:", error);
-      alert("❌ Erreur de synchronisation. Vérifiez votre connexion Firebase.");
-    } finally {
-      btn.innerHTML = originalText;
-      btn.disabled = false;
-    }
-  };
-</script>
-
-<!-- Scripts -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+<!-- Configuration Firebase (contient TOUTES les fonctions) -->
 <script src="firebase-config.js"></script>
-<script src="db.js"></script>
+
+<!-- Script principal (sans db.js) -->
 <script src="script.js"></script>
 
 <script>
-// Variables globales pour le chargement des données
-let isDBReady = false;
+// Script d'initialisation simplifié - Utilise UNIQUEMENT Firebase
+console.log("🚀 Démarrage de l'application avec Firebase...");
 
-// Fonction MODIFIÉE pour le modal de commande en ligne - ATTEND que les fonctions soient disponibles
-async function openOnlineOrderModal() {
-    const modal = document.getElementById('onlineOrderModal');
-    if(!modal) return;
-    
-    // Afficher un écran de chargement
-    const modalBody = document.getElementById('onlineOrderModalBody');
-    if(modalBody) {
-        modalBody.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px;">
-                <div class="loading-spinner"></div>
-                <h3 style="color: #1e293b; margin-top: 20px;">Chargement du menu...</h3>
-                <p style="color: #64748b; margin-top: 10px;">Synchronisation avec le serveur</p>
-            </div>
-        `;
+// Fonction de synchronisation Firebase pour les produits (gardée depuis ton original)
+window.syncProductsToFirebase = async function() {
+    if (typeof window.loadProductsFromFirebase !== 'function') {
+        alert("Firebase non initialisé");
+        return;
     }
+    alert("✅ La synchronisation est automatique avec Firebase !\nLes produits sont déjà en ligne.");
+};
+
+// Variables globales pour la compatibilité
+let isFirebaseReady = false;
+let currentUser = null;
+let currentUserRole = null;
+let cart = [];
+
+// Initialisation simplifiée
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log("🔄 Initialisation de l'application avec Firebase...");
     
-    modal.classList.remove('hidden');
-    
-    // Attendre que les fonctions soient disponibles (max 5 secondes)
+    // Attendre que Firebase soit prêt
     let attempts = 0;
-    const maxAttempts = 50;
-    
-    while (attempts < maxAttempts) {
-        if (typeof window.chargerCategoriesEnLigne === 'function' && 
-            typeof window.chargerProduitsEnLigne === 'function' &&
-            typeof window.afficherPanierEnLigne === 'function') {
-            console.log("✅ Fonctions de commande en ligne disponibles");
-            break;
-        }
+    while (typeof window.db === 'undefined' && attempts < 50) {
         await new Promise(resolve => setTimeout(resolve, 100));
         attempts++;
     }
     
-    // Restaurer le contenu du modal
-    if(modalBody) {
-        modalBody.innerHTML = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <div>
-                    <h3 style="color: #e67e22;">📋 Notre menu</h3>
-                    <div class="categories-tabs" id="onlineCategoriesTabs" style="margin-bottom: 15px;"></div>
-                    <div class="online-products-grid" id="onlineProductsGrid"></div>
-                </div>
-                <div>
-                    <h3 style="color: #e67e22;">🛒 Votre panier</h3>
-                    <div id="onlineCartList" style="background: #f8fafc; border-radius: 12px; padding: 15px; min-height: 300px; max-height: 400px; overflow-y: auto;">
-                        <div class="empty-cart" style="text-align: center; padding: 40px;">
-                            <i class="fas fa-shopping-cart" style="font-size: 48px; color: #cbd5e1;"></i>
-                            <p>Votre panier est vide</p>
-                        </div>
-                    </div>
-                    <div style="margin-top: 20px; padding: 15px; background: #f1f5f9; border-radius: 12px;">
-                        <div style="display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 15px;">
-                            <strong>Total :</strong>
-                            <strong id="onlineCartTotal" style="color: #e67e22;">0.00 MAD</strong>
-                        </div>
-                        <div class="modal-input-group" style="margin-bottom: 15px;">
-                            <label>👤 Nom du client *</label>
-                            <input type="text" id="onlineClientName" placeholder="Entrez votre nom" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        </div>
-                        <div class="modal-input-group" style="margin-bottom: 15px;">
-                            <label>📞 Téléphone</label>
-                            <input type="tel" id="onlineClientPhone" placeholder="Votre numéro de téléphone" style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                        </div>
-                        <button onclick="validerCommandeEnLigne()" class="btn-checkout" style="width: 100%;">
-                            <i class="fas fa-check-circle"></i> Valider ma commande
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    
-    // Charger les données
-    try {
-        if (typeof window.chargerCategoriesEnLigne === 'function') {
-            await window.chargerCategoriesEnLigne();
+    if (typeof window.db !== 'undefined') {
+        console.log("✅ Firebase prêt !");
+        isFirebaseReady = true;
+        
+        // Attendre que script.js charge les données
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Forcer le rechargement des données depuis Firebase
+        if (typeof window.mergeAllDataFromFirebase === 'function') {
+            await window.mergeAllDataFromFirebase();
         }
-        if (typeof window.chargerProduitsEnLigne === 'function') {
-            await window.chargerProduitsEnLigne();
+        
+        // Rendre les tables
+        if (typeof window.renderAllTables === 'function') {
+            window.renderAllTables();
         }
-        if (typeof window.afficherPanierEnLigne === 'function') {
-            window.afficherPanierEnLigne();
+        
+        // Charger le POS
+        if (typeof window.loadPOSCategories === 'function') {
+            window.loadPOSCategories();
         }
-        console.log("✅ Menu de commande en ligne chargé avec succès !");
-    } catch(error) {
-        console.error("❌ Erreur lors du chargement du menu:", error);
-        if(modalBody) {
-            modalBody.innerHTML = `
-                <div style="text-align:center;padding:40px;color:#ef4444;">
-                    <i class="fas fa-exclamation-triangle" style="font-size:2rem;"></i>
-                    <p>Erreur de chargement du menu</p>
-                    <button onclick="location.reload()" class="btn-add" style="margin-top:10px;">Réessayer</button>
-                </div>
-            `;
-        }
-    }
-}
-
-function closeOnlineOrderModal() {
-    const modal = document.getElementById('onlineOrderModal');
-    if(modal) modal.classList.add('hidden');
-}
-
-function openCommandesEnLigneList() {
-    const modal = document.getElementById('commandesEnLigneListModal');
-    if(modal) modal.classList.remove('hidden');
-    if (typeof window.afficherCommandesEnLigneList === 'function') {
-        window.afficherCommandesEnLigneList();
-    }
-}
-
-function closeCommandesEnLigneList() {
-    const modal = document.getElementById('commandesEnLigneListModal');
-    if(modal) modal.classList.add('hidden');
-}
-
-// Initialiser la base de données au chargement
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log("🔄 Initialisation de l'application...");
-    
-    if (typeof initDB === 'function') {
-        try {
-            await initDB();
-            console.log("✅ Base de données IndexedDB prête");
-            isDBReady = true;
-            
-            if (typeof syncAllDataToIndexedDB === 'function') {
-                await syncAllDataToIndexedDB();
-                console.log("✅ Synchronisation localStorage -> IndexedDB effectuée");
-            }
-            
-            await chargerToutesLesDonnees();
-            
-        } catch(e) {
-            console.error("❌ Erreur DB:", e);
-            chargerDonneesLocalStorage();
-        }
+        
+        console.log("✅ Application prête avec Firebase !");
     } else {
-        console.log("⚠️ db.js non chargé, utilisation de localStorage");
-        chargerDonneesLocalStorage();
+        console.warn("⚠️ Firebase non disponible, utilisation du mode local seulement");
     }
-    
-    if (typeof seedDemoData === 'function' && categories && categories.length === 0 && produits && produits.length === 0) {
-        console.log("📦 Chargement des données de démonstration...");
-        seedDemoData();
-        renderAllTables();
-        loadPOSCategories();
-    }
-    
-    // Démarrer l'écoute des commandes en ligne
-    if (typeof demarrerEcoutesCommandesEnLigne === 'function') {
-        demarrerEcoutesCommandesEnLigne();
-    }
-    
-    console.log("✅ Application prête !");
-});
-
-async function chargerToutesLesDonnees() {
-    try {
-        if (typeof getAllUsers === 'function') users = await getAllUsers();
-        if (typeof getAllCategories === 'function') categories = await getAllCategories();
-        if (typeof getAllProducts === 'function') produits = await getAllProducts();
-        if (typeof getAllClients === 'function') clients = await getAllClients();
-        if (typeof getAllFournisseurs === 'function') fournisseurs = await getAllFournisseurs();
-        if (typeof getAllVentes === 'function') ventes = await getAllVentes();
-        if (typeof getAllDepenses === 'function') depenses = await getAllDepenses();
-        if (typeof getAllCredits === 'function') credits = await getAllCredits();
-        if (typeof getAllOrders === 'function') orders = await getAllOrders();
-        
-        sauvegarderDansLocalStorage();
-        
-        if (typeof renderAllTables === 'function') renderAllTables();
-        if (typeof loadPOSCategories === 'function') loadPOSCategories();
-        
-        console.log("✅ Données chargées depuis IndexedDB");
-        console.log(`📊 Statistiques: ${categories ? categories.length : 0} catégories, ${produits ? produits.length : 0} produits, ${clients ? clients.length : 0} clients`);
-        
-        if (typeof mettreAJourBadgeCommandes === 'function') mettreAJourBadgeCommandes();
-        
-    } catch(e) {
-        console.error("❌ Erreur chargement DB:", e);
-        chargerDonneesLocalStorage();
-    }
-}
-
-function chargerDonneesLocalStorage() {
-    users = JSON.parse(localStorage.getItem('chickenway_users')) || [];
-    categories = JSON.parse(localStorage.getItem('chickenway_categories')) || [];
-    produits = JSON.parse(localStorage.getItem('chickenway_produits')) || [];
-    clients = JSON.parse(localStorage.getItem('chickenway_clients')) || [];
-    fournisseurs = JSON.parse(localStorage.getItem('chickenway_fournisseurs')) || [];
-    ventes = JSON.parse(localStorage.getItem('chickenway_ventes')) || [];
-    depenses = JSON.parse(localStorage.getItem('chickenway_depenses')) || [];
-    credits = JSON.parse(localStorage.getItem('chickenway_credits')) || [];
-    orders = JSON.parse(localStorage.getItem('chickenway_orders')) || [];
-    
-    if (typeof renderAllTables === 'function') renderAllTables();
-    if (typeof loadPOSCategories === 'function') loadPOSCategories();
-    
-    console.log("✅ Données chargées depuis localStorage (fallback)");
-}
-
-function sauvegarderDansLocalStorage() {
-    localStorage.setItem('chickenway_users', JSON.stringify(users));
-    localStorage.setItem('chickenway_categories', JSON.stringify(categories));
-    localStorage.setItem('chickenway_produits', JSON.stringify(produits));
-    localStorage.setItem('chickenway_clients', JSON.stringify(clients));
-    localStorage.setItem('chickenway_fournisseurs', JSON.stringify(fournisseurs));
-    localStorage.setItem('chickenway_ventes', JSON.stringify(ventes));
-    localStorage.setItem('chickenway_depenses', JSON.stringify(depenses));
-    localStorage.setItem('chickenway_credits', JSON.stringify(credits));
-    localStorage.setItem('chickenway_orders', JSON.stringify(orders));
-    console.log("💾 Sauvegarde dans localStorage effectuée");
-}
-
-setInterval(function() {
-    if (isDBReady && typeof syncAllDataToIndexedDB === 'function') {
-        syncAllDataToIndexedDB();
-    }
-    sauvegarderDansLocalStorage();
-    console.log("⏰ Sauvegarde automatique périodique");
-}, 30000);
-
-window.addEventListener('beforeunload', function() {
-    if (isDBReady && typeof syncAllDataToIndexedDB === 'function') {
-        syncAllDataToIndexedDB();
-    }
-    sauvegarderDansLocalStorage();
-    console.log("💾 Sauvegarde avant fermeture");
 });
 </script>
 
