@@ -14,6 +14,7 @@ if (typeof window.firebaseConfig === 'undefined') {
 if (typeof firebase !== 'undefined' && firebase.apps.length === 0) {
     firebase.initializeApp(window.firebaseConfig);
     console.log("🔥 Firebase initialisé avec succès !");
+    console.log("📁 Project ID:", window.firebaseConfig.projectId);
 }
 
 // Déclarer db globalement
@@ -309,6 +310,18 @@ async function updateOrderStatusInFirebase(orderId, newStatus) {
     }
 }
 
+async function deleteOrderFromFirebase(orderId) {
+    try {
+        if (!window.db) return false;
+        await window.db.collection(COLLECTIONS.ONLINE_ORDERS).doc(orderId).delete();
+        console.log(`✅ Commande ${orderId} supprimée`);
+        return true;
+    } catch (error) {
+        console.error("Erreur suppression commande:", error);
+        return false;
+    }
+}
+
 // ========= ÉCOUTE EN TEMPS RÉEL =========
 let unsubscribeListeners = {};
 
@@ -416,6 +429,16 @@ function startAllRealtimeListeners() {
     console.log("✅ Toutes les écoutes temps réel sont actives");
 }
 
+function stopAllRealtimeListeners() {
+    for (const [key, unsubscribe] of Object.entries(unsubscribeListeners)) {
+        if (unsubscribe) {
+            unsubscribe();
+            console.log(`🔇 Écoute ${key} arrêtée`);
+        }
+    }
+    unsubscribeListeners = {};
+}
+
 // ========= SYNCHRONISATION TOTALE =========
 async function syncAllDataToFirebase() {
     console.log("🔄 SYNCHRONISATION TOTALE VERS FIREBASE...");
@@ -458,6 +481,26 @@ async function mergeAllDataFromFirebase() {
     if (typeof window.loadPOSCategories === 'function') window.loadPOSCategories();
 }
 
+// ========= SAUVEGARDE PÉRIODIQUE =========
+let autoSyncInterval = null;
+
+function startAutoSync(intervalMinutes = 5) {
+    if (autoSyncInterval) clearInterval(autoSyncInterval);
+    autoSyncInterval = setInterval(() => {
+        console.log("⏰ Sauvegarde automatique périodique vers Firebase...");
+        syncAllDataToFirebase();
+    }, intervalMinutes * 60 * 1000);
+    console.log(`✅ Sauvegarde automatique activée toutes les ${intervalMinutes} minutes`);
+}
+
+function stopAutoSync() {
+    if (autoSyncInterval) {
+        clearInterval(autoSyncInterval);
+        autoSyncInterval = null;
+        console.log("🔇 Sauvegarde automatique arrêtée");
+    }
+}
+
 // ========= TEST CONNEXION =========
 async function testFirebaseConnection() {
     try {
@@ -472,14 +515,31 @@ async function testFirebaseConnection() {
     }
 }
 
+// ========= STATISTIQUES FIREBASE =========
+async function getFirebaseStats() {
+    console.log("📊 STATISTIQUES FIREBASE...");
+    const stats = {};
+    
+    for (const [key, collectionName] of Object.entries(COLLECTIONS)) {
+        const items = await loadFromFirebase(collectionName);
+        stats[collectionName] = items.length;
+    }
+    
+    console.table(stats);
+    return stats;
+}
+
 // ========= MENU EN LIGNE (CACHE) =========
 let cachedProducts = null;
+let cachedCategories = null;
 let lastProductsFetch = 0;
-const CACHE_DURATION = 60000;
+let lastCategoriesFetch = 0;
+const CACHE_DURATION = 60000; // 1 minute
 
 async function getProductsForOnlineMenu(forceRefresh = false) {
     const now = Date.now();
     if (!forceRefresh && cachedProducts && (now - lastProductsFetch) < CACHE_DURATION) {
+        console.log("📦 Utilisation du cache produits (menu en ligne)");
         return cachedProducts;
     }
     const products = await loadProductsFromFirebase();
@@ -490,8 +550,26 @@ async function getProductsForOnlineMenu(forceRefresh = false) {
     return products;
 }
 
-async function getCategoriesForOnlineMenu() {
-    return loadCategoriesFromFirebase();
+async function getCategoriesForOnlineMenu(forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && cachedCategories && (now - lastCategoriesFetch) < CACHE_DURATION) {
+        console.log("📦 Utilisation du cache catégories (menu en ligne)");
+        return cachedCategories;
+    }
+    const categories = await loadCategoriesFromFirebase();
+    if (categories.length > 0) {
+        cachedCategories = categories;
+        lastCategoriesFetch = now;
+    }
+    return categories;
+}
+
+function clearCache() {
+    cachedProducts = null;
+    cachedCategories = null;
+    lastProductsFetch = 0;
+    lastCategoriesFetch = 0;
+    console.log("🗑️ Cache vidé");
 }
 
 // ========= INITIALISATION COMPLÈTE =========
@@ -516,13 +594,22 @@ async function initFirebaseComplete() {
         }
         
         await ensureCollectionsExist();
-        await testFirebaseConnection();
+        const isConnected = await testFirebaseConnection();
         
-        // Fusionner toutes les données
-        await mergeAllDataFromFirebase();
-        
-        // Démarrer les écoutes en temps réel
-        startAllRealtimeListeners();
+        if (isConnected) {
+            console.log("✅ Firebase connecté et opérationnel !");
+            
+            // Fusionner toutes les données
+            await mergeAllDataFromFirebase();
+            
+            // Démarrer les écoutes en temps réel
+            startAllRealtimeListeners();
+            
+            // Démarrer la sauvegarde automatique
+            startAutoSync(5);
+        } else {
+            console.warn("⚠️ Firebase non connecté, mode offline uniquement");
+        }
         
         console.log("=====================================");
         console.log("✅ FIREBASE PRÊT - Synchronisation complète activée !");
@@ -540,7 +627,6 @@ async function initFirebaseComplete() {
 
 // ========= FONCTIONS POUR CLIENTS (COMPATIBILITÉ) =========
 function demarrerEcoutesCommandesEnLigne() {
-    // Déjà géré dans startAllRealtimeListeners
     console.log("📱 Écoute commandes en ligne active");
 }
 
@@ -623,6 +709,7 @@ window.saveOnlineOrderToFirebase = saveOnlineOrderToFirebase;
 window.loadOnlineOrdersFromFirebase = loadOnlineOrdersFromFirebase;
 window.getAllOnlineOrders = getAllOnlineOrders;
 window.updateOrderStatusInFirebase = updateOrderStatusInFirebase;
+window.deleteOrderFromFirebase = deleteOrderFromFirebase;
 
 // Utilitaires
 window.syncAllDataToFirebase = syncAllDataToFirebase;
@@ -630,6 +717,11 @@ window.mergeAllDataFromFirebase = mergeAllDataFromFirebase;
 window.testFirebaseConnection = testFirebaseConnection;
 window.startRealtimeListener = startRealtimeListener;
 window.startAllRealtimeListeners = startAllRealtimeListeners;
+window.stopAllRealtimeListeners = stopAllRealtimeListeners;
+window.startAutoSync = startAutoSync;
+window.stopAutoSync = stopAutoSync;
+window.getFirebaseStats = getFirebaseStats;
+window.clearCache = clearCache;
 window.initFirebase = initFirebaseComplete;
 window.demarrerEcoutesCommandesEnLigne = demarrerEcoutesCommandesEnLigne;
 window.arreterEcoutesCommandesEnLigne = arreterEcoutesCommandesEnLigne;
@@ -647,3 +739,4 @@ if (document.readyState === 'loading') {
 
 console.log("✅ firebase-config.js chargé - Synchronisation COMPLÈTE activée !");
 console.log("📦 9 collections configurées:", Object.keys(COLLECTIONS).join(", "));
+console.log("🔧 Fonctions disponibles: syncAllDataToFirebase, mergeAllDataFromFirebase, getFirebaseStats, startAutoSync, stopAutoSync");
