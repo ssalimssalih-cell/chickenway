@@ -43,33 +43,37 @@ function initDB() {
         const clientStore = db.createObjectStore("clients", { keyPath: "id", autoIncrement: true });
         clientStore.createIndex("nom", "nom", { unique: false });
         clientStore.createIndex("email", "email", { unique: false });
+        clientStore.createIndex("telephone", "telephone", { unique: false });
       }
       
       if (!db.objectStoreNames.contains("fournisseurs")) {
         const fournisseurStore = db.createObjectStore("fournisseurs", { keyPath: "id", autoIncrement: true });
         fournisseurStore.createIndex("nom", "nom", { unique: false });
+        fournisseurStore.createIndex("entreprise", "entreprise", { unique: false });
       }
       
       if (!db.objectStoreNames.contains("depenses")) {
         const depenseStore = db.createObjectStore("depenses", { keyPath: "id", autoIncrement: true });
         depenseStore.createIndex("date", "date", { unique: false });
+        depenseStore.createIndex("categorie", "categorie", { unique: false });
       }
       
       if (!db.objectStoreNames.contains("credits")) {
         const creditStore = db.createObjectStore("credits", { keyPath: "id", autoIncrement: true });
         creditStore.createIndex("client", "client", { unique: false });
         creditStore.createIndex("statut", "statut", { unique: false });
+        creditStore.createIndex("dateCreation", "dateCreation", { unique: false });
       }
     };
 
     request.onsuccess = (e) => {
       db = e.target.result;
-      console.log("Base de données IndexedDB initialisée avec succès");
+      console.log("✅ Base de données IndexedDB initialisée avec succès");
       resolve();
     };
 
     request.onerror = (e) => {
-      console.error("Erreur d'ouverture de la base de données:", e.target.error);
+      console.error("❌ Erreur d'ouverture de la base de données:", e.target.error);
       reject("DB error: " + e.target.error);
     };
   });
@@ -89,6 +93,22 @@ function waitForDB() {
       }, 100);
     }
   });
+}
+
+async function clearAllStores() {
+  await waitForDB();
+  const stores = ["users", "orders", "ventes", "categories", "produits", "clients", "fournisseurs", "depenses", "credits"];
+  for (const store of stores) {
+    if (db.objectStoreNames.contains(store)) {
+      const tx = db.transaction(store, "readwrite");
+      const req = tx.objectStore(store).clear();
+      await new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject();
+      });
+    }
+  }
+  console.log("🗑️ Tous les stores vidés");
 }
 
 // ========= USERS =========
@@ -174,6 +194,26 @@ async function getOrdersByUser(username) {
   });
 }
 
+async function updateOrder(order) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("orders", "readwrite");
+    const req = tx.objectStore("orders").put(order);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject("Erreur lors de la mise à jour de la commande");
+  });
+}
+
+async function deleteOrder(id) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("orders", "readwrite");
+    const req = tx.objectStore("orders").delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject("Erreur lors de la suppression de la commande");
+  });
+}
+
 // ========= VENTES =========
 async function addVente(vente) {
   await waitForDB();
@@ -203,6 +243,26 @@ async function getVentesByDate(date) {
     const req = index.getAll(date);
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject("Erreur lors de la récupération des ventes par date");
+  });
+}
+
+async function updateVente(vente) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("ventes", "readwrite");
+    const req = tx.objectStore("ventes").put(vente);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject("Erreur lors de la mise à jour de la vente");
+  });
+}
+
+async function deleteVente(id) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("ventes", "readwrite");
+    const req = tx.objectStore("ventes").delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject("Erreur lors de la suppression de la vente");
   });
 }
 
@@ -286,6 +346,17 @@ async function getProductsByCategory(categorieId) {
     const req = index.getAll(categorieId);
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject("Erreur lors de la récupération des produits par catégorie");
+  });
+}
+
+async function getProductsByDisponibilite(disponibilite) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("produits", "readonly");
+    const index = tx.objectStore("produits").index("disponibilite");
+    const req = index.getAll(disponibilite);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject("Erreur lors de la récupération des produits par disponibilité");
   });
 }
 
@@ -374,6 +445,27 @@ async function getAllClients() {
   });
 }
 
+async function getClientById(id) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("clients", "readonly");
+    const req = tx.objectStore("clients").get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject("Erreur lors de la récupération du client");
+  });
+}
+
+async function getClientByTelephone(telephone) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("clients", "readonly");
+    const index = tx.objectStore("clients").index("telephone");
+    const req = index.get(telephone);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject("Erreur lors de la récupération du client par téléphone");
+  });
+}
+
 async function updateClient(client) {
   await waitForDB();
   return new Promise((resolve, reject) => {
@@ -384,13 +476,14 @@ async function updateClient(client) {
   });
 }
 
-function deleteClient(id) {
-  if (confirm("Supprimer ce client ? Cette action est irréversible.")) {
-    clients = clients.filter(c => String(c.id) !== String(id));
-    saveClientsToLocal();
-    renderClientsTable();
-    updateStats();
-  }
+async function deleteClient(id) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("clients", "readwrite");
+    const req = tx.objectStore("clients").delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject("Erreur lors de la suppression du client");
+  });
 }
 
 // ========= FOURNISSEURS =========
@@ -414,6 +507,16 @@ async function getAllFournisseurs() {
   });
 }
 
+async function getFournisseurById(id) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("fournisseurs", "readonly");
+    const req = tx.objectStore("fournisseurs").get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject("Erreur lors de la récupération du fournisseur");
+  });
+}
+
 async function updateFournisseur(fournisseur) {
   await waitForDB();
   return new Promise((resolve, reject) => {
@@ -424,12 +527,14 @@ async function updateFournisseur(fournisseur) {
   });
 }
 
-function deleteFournisseur(id) {
-  if (confirm("Supprimer ce fournisseur ? Cette action est irréversible.")) {
-    fournisseurs = fournisseurs.filter(f => String(f.id) !== String(id));
-    saveFournisseursToLocal();
-    renderFournisseursTable();
-  }
+async function deleteFournisseur(id) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("fournisseurs", "readwrite");
+    const req = tx.objectStore("fournisseurs").delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject("Erreur lors de la suppression du fournisseur");
+  });
 }
 
 // ========= DEPENSES =========
@@ -453,6 +558,28 @@ async function getAllDepenses() {
   });
 }
 
+async function getDepensesByDate(date) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("depenses", "readonly");
+    const index = tx.objectStore("depenses").index("date");
+    const req = index.getAll(date);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject("Erreur lors de la récupération des dépenses par date");
+  });
+}
+
+async function getDepensesByCategorie(categorie) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("depenses", "readonly");
+    const index = tx.objectStore("depenses").index("categorie");
+    const req = index.getAll(categorie);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject("Erreur lors de la récupération des dépenses par catégorie");
+  });
+}
+
 async function updateDepense(depense) {
   await waitForDB();
   return new Promise((resolve, reject) => {
@@ -463,7 +590,15 @@ async function updateDepense(depense) {
   });
 }
 
-
+async function deleteDepense(id) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("depenses", "readwrite");
+    const req = tx.objectStore("depenses").delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject("Erreur lors de la suppression de la dépense");
+  });
+}
 
 // ========= CREDITS =========
 async function addCredit(credit) {
@@ -486,6 +621,16 @@ async function getAllCredits() {
   });
 }
 
+async function getCreditById(id) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("credits", "readonly");
+    const req = tx.objectStore("credits").get(id);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject("Erreur lors de la récupération du crédit");
+  });
+}
+
 async function updateCredit(credit) {
   await waitForDB();
   return new Promise((resolve, reject) => {
@@ -496,12 +641,14 @@ async function updateCredit(credit) {
   });
 }
 
-function deleteCredit(id) {
-  if (confirm("Supprimer ce crédit ?")) {
-    credits = credits.filter(c => String(c.id) !== String(id));
-    saveCreditsToLocal();
-    renderCreditsTable();
-  }
+async function deleteCredit(id) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("credits", "readwrite");
+    const req = tx.objectStore("credits").delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject("Erreur lors de la suppression du crédit");
+  });
 }
 
 async function getCreditsByClient(clientName) {
@@ -512,6 +659,17 @@ async function getCreditsByClient(clientName) {
     const req = index.getAll(clientName);
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject("Erreur lors de la récupération des crédits par client");
+  });
+}
+
+async function getCreditsByStatut(statut) {
+  await waitForDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("credits", "readonly");
+    const index = tx.objectStore("credits").index("statut");
+    const req = index.getAll(statut);
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject("Erreur lors de la récupération des crédits par statut");
   });
 }
 
@@ -534,19 +692,102 @@ async function getTopProducts(limit = 5) {
     .slice(0, limit);
 }
 
-// Export des fonctions si nécessaire (pour module)
+async function getTotalClients() {
+  const clients = await getAllClients();
+  return clients.length;
+}
+
+async function getTotalFournisseurs() {
+  const fournisseurs = await getAllFournisseurs();
+  return fournisseurs.length;
+}
+
+async function getTotalCreditsEnAttente() {
+  const credits = await getAllCredits();
+  return credits.filter(c => c.statut === 'en attente').reduce((total, c) => total + (c.montant - (c.paye || 0)), 0);
+}
+
+// ========= FONCTIONS DE NETTOYAGE =========
+async function clearAllData() {
+  await clearAllStores();
+  console.log("🗑️ Toutes les données IndexedDB ont été effacées");
+}
+
+async function getDatabaseSize() {
+  if (navigator.storage && navigator.storage.estimate) {
+    const estimate = await navigator.storage.estimate();
+    console.log(`💾 Espace utilisé: ${(estimate.usage / 1024 / 1024).toFixed(2)} MB`);
+    return estimate.usage;
+  }
+  return null;
+}
+
+// ========= SYNC VERS LOCALSTORAGE =========
+async function syncAllDataToLocalStorage() {
+  const categories = await getAllCategories();
+  const produits = await getAllProducts();
+  const clients = await getAllClients();
+  const fournisseurs = await getAllFournisseurs();
+  const ventes = await getAllVentes();
+  const depenses = await getAllDepenses();
+  const credits = await getAllCredits();
+  const users = await getAllUsers();
+  const orders = await getAllOrders();
+  
+  localStorage.setItem('chickenway_categories', JSON.stringify(categories));
+  localStorage.setItem('chickenway_produits', JSON.stringify(produits));
+  localStorage.setItem('chickenway_clients', JSON.stringify(clients));
+  localStorage.setItem('chickenway_fournisseurs', JSON.stringify(fournisseurs));
+  localStorage.setItem('chickenway_ventes', JSON.stringify(ventes));
+  localStorage.setItem('chickenway_depenses', JSON.stringify(depenses));
+  localStorage.setItem('chickenway_credits', JSON.stringify(credits));
+  localStorage.setItem('chickenway_users', JSON.stringify(users));
+  localStorage.setItem('chickenway_orders', JSON.stringify(orders));
+  
+  console.log("💾 Données synchronisées vers localStorage");
+}
+
+// ========= EXPORT DES FONCTIONS =========
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     initDB,
+    waitForDB,
+    clearAllStores,
+    clearAllData,
+    getDatabaseSize,
+    syncAllDataToLocalStorage,
+    
+    // Users
     addUser, getUser, getAllUsers, updateUser, deleteUser,
-    addOrder, getAllOrders, getOrdersByUser,
-    addVente, getAllVentes, getVentesByDate,
+    
+    // Orders
+    addOrder, getAllOrders, getOrdersByUser, updateOrder, deleteOrder,
+    
+    // Ventes
+    addVente, getAllVentes, getVentesByDate, updateVente, deleteVente,
+    
+    // Categories
     addCategory, getAllCategories, updateCategory, deleteCategory,
-    addProduct, getAllProducts, getProductById, getProductsByCategory, updateProduct, deleteProduct, updateProductStock, incrementProductSales,
-    addClient, getAllClients, updateClient, deleteClient,
-    addFournisseur, getAllFournisseurs, updateFournisseur, deleteFournisseur,
-    addDepense, getAllDepenses, updateDepense, deleteDepense,
-    addCredit, getAllCredits, updateCredit, deleteCredit, getCreditsByClient,
-    getTotalSales, getTotalProfit, getTopProducts
+    
+    // Produits
+    addProduct, getAllProducts, getProductById, getProductsByCategory, getProductsByDisponibilite, 
+    updateProduct, deleteProduct, updateProductStock, incrementProductSales,
+    
+    // Clients
+    addClient, getAllClients, getClientById, getClientByTelephone, updateClient, deleteClient,
+    
+    // Fournisseurs
+    addFournisseur, getAllFournisseurs, getFournisseurById, updateFournisseur, deleteFournisseur,
+    
+    // Depenses
+    addDepense, getAllDepenses, getDepensesByDate, getDepensesByCategorie, updateDepense, deleteDepense,
+    
+    // Credits
+    addCredit, getAllCredits, getCreditById, updateCredit, deleteCredit, getCreditsByClient, getCreditsByStatut,
+    
+    // Statistiques
+    getTotalSales, getTotalProfit, getTopProducts, getTotalClients, getTotalFournisseurs, getTotalCreditsEnAttente
   };
 }
+
+console.log("✅ db.js chargé - IndexedDB prêt à l'emploi");
