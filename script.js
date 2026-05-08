@@ -1292,7 +1292,7 @@ function renderProductsTable() {
     <tr>
       <td>${p.id}<\/td>
       <td>${p.image ? `<img src="${p.image}" class="product-img" onerror="this.style.display='none'">` : '📷'}<\/td>
-      <td><b>${escapeHtml(p.nom)}<\/b><br><small>${escapeHtml((p.description || '').substring(0,30))}<\/small><\/td>
+      <tr><b>${escapeHtml(p.nom)}<\/b><br><small>${escapeHtml((p.description || '').substring(0,30))}<\/small><\/td>
       <td>${displayCategoryIconSmall(categories.find(c=>c.id==p.categorieId)?.icon)} ${catName}<\/td>
       <td>${(p.prixAchat || 0).toFixed(2)} MAD<\/td>
       <td>${prixAffichage}<\/td>
@@ -1651,7 +1651,7 @@ function renderFournisseursTable() {
   }
   
   tbody.innerHTML = filteredFournisseurs.map(f => `
-    <tr>
+    </tr>
       <td>${f.id}<\/td><td>${escapeHtml(f.categorie || '-')}<\/td>
       <td>${escapeHtml(f.nom)}<\/td><td>${escapeHtml(f.prenom || '')}<\/td>
       <td>${escapeHtml(f.entreprise)}<\/td><td>${escapeHtml(f.adresse || '')}<\/td>
