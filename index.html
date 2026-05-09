@@ -1307,68 +1307,35 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
-<!-- Configuration Firebase (contient TOUTES les fonctions) -->
+<!-- Configuration Firebase -->
 <script src="firebase-config.js"></script>
 
-<!-- Script principal (sans db.js) -->
+<!-- Script principal -->
 <script src="script.js"></script>
 
 <script>
-// Script d'initialisation simplifié - Utilise UNIQUEMENT Firebase
+// Script d'initialisation simplifié
 console.log("🚀 Démarrage de l'application avec Firebase...");
 
-// Fonction de synchronisation Firebase pour les produits (gardée depuis ton original)
+// Fonction de synchronisation
 window.syncProductsToFirebase = async function() {
-    if (typeof window.loadProductsFromFirebase !== 'function') {
-        alert("Firebase non initialisé");
-        return;
-    }
-    alert("✅ La synchronisation est automatique avec Firebase !\nLes produits sont déjà en ligne.");
+    alert("✅ La synchronisation est automatique avec Firebase !");
 };
 
-// Variables globales pour la compatibilité
-let isFirebaseReady = false;
-let currentUser = null;
-let currentUserRole = null;
-let cart = [];
-
-// Initialisation simplifiée
+// Attendre le chargement complet
 document.addEventListener('DOMContentLoaded', async function() {
-    console.log("🔄 Initialisation de l'application avec Firebase...");
+    console.log("🔄 Initialisation de l'application...");
     
-    // Attendre que Firebase soit prêt
-    let attempts = 0;
-    while (typeof window.db === 'undefined' && attempts < 50) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-    }
-    
-    if (typeof window.db !== 'undefined') {
-        console.log("✅ Firebase prêt !");
-        isFirebaseReady = true;
-        
-        // Attendre que script.js charge les données
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Forcer le rechargement des données depuis Firebase
-        if (typeof window.mergeAllDataFromFirebase === 'function') {
-            await window.mergeAllDataFromFirebase();
-        }
-        
-        // Rendre les tables
+    // Attendre que les données soient chargées
+    setTimeout(function() {
         if (typeof window.renderAllTables === 'function') {
             window.renderAllTables();
         }
-        
-        // Charger le POS
         if (typeof window.loadPOSCategories === 'function') {
             window.loadPOSCategories();
         }
-        
-        console.log("✅ Application prête avec Firebase !");
-    } else {
-        console.warn("⚠️ Firebase non disponible, utilisation du mode local seulement");
-    }
+        console.log("✅ Application prête !");
+    }, 1000);
 });
 </script>
 
