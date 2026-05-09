@@ -1,23 +1,18 @@
 // ============================================
-// CHICKEN WAY - SCRIPT AVEC OPTIONS
+// CHICKEN WAY - SCRIPT
 // ============================================
 
 let currentUser = null;
 let currentUserData = null;
 
 // ============================================
-// INITIALISATION
+// INIT
 // ============================================
 window.addEventListener('DOMContentLoaded', function() {
     console.log('🍗 Chicken Way - Prêt');
     
     if (typeof firebase === 'undefined') {
         console.error('❌ Firebase SDK manquant');
-        return;
-    }
-    
-    if (typeof auth === 'undefined') {
-        console.error('❌ Auth non défini');
         return;
     }
     
@@ -64,7 +59,7 @@ function showRegister() {
 }
 
 // ============================================
-// AUTHENTIFICATION
+// LOGIN
 // ============================================
 function handleLogin(event) {
     event.preventDefault();
@@ -112,6 +107,9 @@ function handleLogin(event) {
     return false;
 }
 
+// ============================================
+// REGISTER
+// ============================================
 function handleRegister(event) {
     event.preventDefault();
     
@@ -170,6 +168,9 @@ function handleRegister(event) {
     return false;
 }
 
+// ============================================
+// LOGOUT
+// ============================================
 function handleLogout() {
     if (confirm('Déconnexion ?')) {
         auth.signOut().then(function() {
@@ -182,7 +183,7 @@ function handleLogout() {
 }
 
 // ============================================
-// DONNÉES UTILISATEUR
+// USER DATA
 // ============================================
 function loadUserData(uid) {
     db.collection('users').doc(uid).get()
@@ -320,7 +321,8 @@ function navigateTo(page) {
                 <div style="text-align: center; padding: 60px 20px; color: #94a3b8;">
                     <i class="fas fa-cog" style="font-size: 4rem; margin-bottom: 20px; display: block;"></i>
                     <p style="font-size: 1.3rem; font-weight: 600;">Options</p>
-                    <p>Page options en cours de développement</p>
+                    <p>Gestion des paramètres et autorisations</p>
+                    <p style="font-size: 0.85rem; margin-top: 10px;">Page en cours de développement</p>
                 </div>
             </div>
         `;
@@ -342,7 +344,7 @@ function navigateTo(page) {
 }
 
 // ============================================
-// STATISTIQUES DASHBOARD
+// STATS
 // ============================================
 function loadDashboardStats() {
     db.collection('products').get().then(function(snap) {
