@@ -3,37 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restaurant Pro</title>
+    <title>Chicken Way - Gestion Restaurant</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <!-- NAVBAR -->
     <nav class="navbar">
         <div class="nav-left">
-            <img src="logo.png" alt="Logo" class="logo">
-            <span class="brand">Restaurant Pro</span>
+            <img src="logo.png" alt="Logo Chicken Way" class="logo">
+            <span class="brand">Chicken Way</span>
         </div>
         <div class="nav-right">
-            <button class="btn-order">🛒 Commande en ligne</button>
+            <button class="btn-order" onclick="alert('🛒 Fonctionnalité à venir !')">
+                🛒 Commande en ligne
+            </button>
         </div>
     </nav>
 
-    <!-- MAIN -->
+    <!-- MAIN CONTENT AVEC BACKGROUND -->
     <main class="main">
         <div class="overlay"></div>
         
-        <!-- FORMULAIRE -->
+        <!-- BOÎTE DE FORMULAIRE -->
         <div class="form-box">
-            <h1>🍽️ Bienvenue</h1>
+            <h1>🍗 Chicken Way</h1>
             <p>Connectez-vous ou créez un compte</p>
 
-            <!-- Tabs -->
+            <!-- TABS -->
             <div class="tabs">
                 <button class="tab active" onclick="switchTab('login')">Connexion</button>
                 <button class="tab" onclick="switchTab('register')">Inscription</button>
             </div>
 
-            <!-- LOGIN -->
+            <!-- FORMULAIRE LOGIN -->
             <form id="loginForm" class="form active" onsubmit="login(event)">
                 <div class="input-group">
                     <label>📧 Email</label>
@@ -46,34 +48,34 @@
                 <button type="submit" class="btn">Se connecter</button>
             </form>
 
-            <!-- REGISTER -->
+            <!-- FORMULAIRE REGISTER -->
             <form id="registerForm" class="form" onsubmit="register(event)">
                 <div class="row">
                     <div class="input-group half">
                         <label>👤 Nom</label>
-                        <input type="text" id="nom" required>
+                        <input type="text" id="nom" required placeholder="Votre nom">
                     </div>
                     <div class="input-group half">
                         <label>👤 Prénom</label>
-                        <input type="text" id="prenom" required>
+                        <input type="text" id="prenom" required placeholder="Votre prénom">
                     </div>
                 </div>
                 <div class="input-group">
-                    <label>🆔 Username</label>
-                    <input type="text" id="username" required>
+                    <label>🆔 Nom d'utilisateur</label>
+                    <input type="text" id="username" required placeholder="Choisissez un username">
                 </div>
                 <div class="input-group">
                     <label>📧 Email</label>
-                    <input type="email" id="email" required>
+                    <input type="email" id="email" required placeholder="votre@email.com">
                 </div>
                 <div class="input-group">
                     <label>📱 Téléphone</label>
-                    <input type="tel" id="telephone" required>
+                    <input type="tel" id="telephone" required placeholder="+33 6 12 34 56 78">
                 </div>
                 <div class="input-group">
                     <label>👔 Rôle</label>
                     <select id="role" required>
-                        <option value="">Choisir...</option>
+                        <option value="">Sélectionnez un rôle</option>
                         <option value="admin">Admin</option>
                         <option value="caissier">Caissier</option>
                         <option value="client">Client</option>
@@ -81,7 +83,7 @@
                 </div>
                 <div class="input-group">
                     <label>🔒 Mot de passe</label>
-                    <input type="password" id="password" required placeholder="6+ caractères">
+                    <input type="password" id="password" required placeholder="Minimum 6 caractères">
                 </div>
                 <button type="submit" class="btn">Créer un compte</button>
             </form>
@@ -93,8 +95,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     
-    <!-- Scripts -->
-    <script src="firebase.js"></script>
+    <!-- Script principal -->
     <script src="script.js"></script>
 </body>
 </html>
