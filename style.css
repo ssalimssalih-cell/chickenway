@@ -5,60 +5,67 @@
 }
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* NAVBAR */
+/* ========== NAVBAR ========== */
 .navbar {
     position: fixed;
     top: 0;
     width: 100%;
-    background: rgba(0,0,0,0.9);
+    background: rgba(0, 0, 0, 0.9);
     padding: 15px 30px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     z-index: 100;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
 
 .nav-left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
 }
 
 .logo {
-    width: 40px;
-    height: 40px;
+    width: 45px;
+    height: 45px;
     border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #fff;
 }
 
 .brand {
     color: white;
-    font-size: 22px;
+    font-size: 24px;
     font-weight: bold;
+    letter-spacing: 1px;
 }
 
 .btn-order {
-    background: #e74c3c;
+    background: #ff6b35;
     color: white;
     border: none;
     padding: 12px 25px;
     border-radius: 25px;
     font-size: 16px;
+    font-weight: 600;
     cursor: pointer;
-    transition: 0.3s;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(255,107,53,0.3);
 }
 
 .btn-order:hover {
-    background: #c0392b;
-    transform: scale(1.05);
+    background: #e55a2b;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(255,107,53,0.5);
 }
 
-/* MAIN BACKGROUND */
+/* ========== MAIN BACKGROUND ========== */
 .main {
     min-height: 100vh;
-    background: url('background.png') center/cover fixed;
+    background: url('background.png') center/cover no-repeat fixed;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -68,11 +75,14 @@ body {
 
 .overlay {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.7);
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
 }
 
-/* FORM BOX */
+/* ========== FORM BOX ========== */
 .form-box {
     position: relative;
     z-index: 1;
@@ -81,12 +91,25 @@ body {
     border-radius: 20px;
     width: 100%;
     max-width: 450px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    animation: slideUp 0.5s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .form-box h1 {
     text-align: center;
-    font-size: 28px;
+    font-size: 32px;
+    color: #333;
     margin-bottom: 5px;
 }
 
@@ -94,9 +117,10 @@ body {
     text-align: center;
     color: #666;
     margin-bottom: 25px;
+    font-size: 14px;
 }
 
-/* TABS */
+/* ========== TABS ========== */
 .tabs {
     display: flex;
     gap: 10px;
@@ -110,23 +134,35 @@ body {
     background: transparent;
     border-radius: 10px;
     cursor: pointer;
-    font-weight: bold;
-    transition: 0.3s;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s ease;
 }
 
 .tab.active {
-    background: #e74c3c;
+    background: #ff6b35;
     color: white;
-    border-color: #e74c3c;
+    border-color: #ff6b35;
 }
 
-/* FORMS */
+.tab:hover:not(.active) {
+    border-color: #ff6b35;
+    color: #ff6b35;
+}
+
+/* ========== FORMS ========== */
 .form {
     display: none;
 }
 
 .form.active {
     display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .input-group {
@@ -135,25 +171,29 @@ body {
 
 .input-group label {
     display: block;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
     font-weight: 600;
     font-size: 14px;
+    color: #333;
 }
 
 .input-group input,
 .input-group select {
     width: 100%;
-    padding: 12px;
-    border: 2px solid #ddd;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
     border-radius: 10px;
     font-size: 15px;
-    transition: 0.3s;
+    transition: all 0.3s ease;
+    background: #fafafa;
 }
 
 .input-group input:focus,
 .input-group select:focus {
     outline: none;
-    border-color: #3498db;
+    border-color: #ff6b35;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(255,107,53,0.1);
 }
 
 .row {
@@ -168,18 +208,45 @@ body {
 .btn {
     width: 100%;
     padding: 14px;
-    background: #e74c3c;
+    background: #ff6b35;
     color: white;
     border: none;
     border-radius: 10px;
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
-    transition: 0.3s;
+    transition: all 0.3s ease;
     margin-top: 10px;
+    box-shadow: 0 4px 10px rgba(255,107,53,0.3);
 }
 
 .btn:hover {
-    background: #c0392b;
+    background: #e55a2b;
     transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(255,107,53,0.5);
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 600px) {
+    .navbar {
+        padding: 10px 15px;
+    }
+    
+    .brand {
+        font-size: 18px;
+    }
+    
+    .btn-order {
+        padding: 8px 15px;
+        font-size: 14px;
+    }
+    
+    .form-box {
+        padding: 25px;
+    }
+    
+    .row {
+        flex-direction: column;
+        gap: 0;
+    }
 }
