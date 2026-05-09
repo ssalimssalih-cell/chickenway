@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chicken Way - Restaurant Management</title>
+    <title>Chicken Way</title>
     
     <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- Font Awesome Icons -->
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <!-- Styles -->
@@ -16,29 +16,27 @@
 </head>
 <body>
     
-    <!-- ==================== PAGE LOGIN/REGISTER ==================== -->
+    <!-- PAGE LOGIN/REGISTER -->
     <div id="authPage" class="login-wrapper">
         
-        <!-- LOGIN CONTAINER -->
+        <!-- LOGIN -->
         <div id="loginContainer" class="login-container">
-            <!-- Partie gauche : Brand -->
             <div class="login-brand">
                 <div class="brand-icon">
-                    <img src="logo.png" alt="Chicken Way Logo" class="brand-logo">
+                    <img src="logo.png" alt="Logo" class="brand-logo">
                 </div>
                 <h1>Chicken <span>Way</span></h1>
                 <p style="color: rgba(255,255,255,0.7); margin-top: 10px; font-size: 0.9rem;">
-                    Restaurant Management System
+                    Restaurant Management
                 </p>
             </div>
             
-            <!-- Partie droite : Formulaire Login -->
             <div class="login-form">
                 <h2 style="color: white; margin-bottom: 20px; text-align: center;">
                     <i class="fas fa-sign-in-alt"></i> Connexion
                 </h2>
                 
-                <form id="loginForm" onsubmit="handleLogin(event)">
+                <form id="loginForm" onsubmit="return handleLogin(event)">
                     <div class="input-group">
                         <i class="fas fa-envelope"></i>
                         <input type="email" id="loginEmail" placeholder="Votre email" required>
@@ -63,12 +61,11 @@
             </div>
         </div>
 
-        <!-- REGISTER CONTAINER (caché par défaut) -->
+        <!-- REGISTER -->
         <div id="registerContainer" class="register-container hidden">
-            <!-- Partie gauche : Brand -->
             <div class="register-brand">
                 <div class="brand-icon">
-                    <img src="logo.png" alt="Chicken Way Logo" class="brand-logo">
+                    <img src="logo.png" alt="Logo" class="brand-logo">
                 </div>
                 <h1>Chicken <span>Way</span></h1>
                 <p style="color: rgba(255,255,255,0.7); margin-top: 10px; font-size: 0.9rem;">
@@ -76,13 +73,12 @@
                 </p>
             </div>
             
-            <!-- Partie droite : Formulaire Register -->
             <div class="register-form">
                 <h2 style="color: white; margin-bottom: 20px; text-align: center;">
                     <i class="fas fa-user-plus"></i> Inscription
                 </h2>
                 
-                <form id="registerForm" onsubmit="handleRegister(event)">
+                <form id="registerForm" onsubmit="return handleRegister(event)">
                     <div style="display: flex; gap: 10px;">
                         <div class="input-group" style="flex: 1;">
                             <i class="fas fa-user"></i>
@@ -139,10 +135,9 @@
         </div>
     </div>
 
-    <!-- ==================== PAGE DASHBOARD (cachée par défaut) ==================== -->
+    <!-- DASHBOARD -->
     <div id="dashboardPage" class="dashboard hidden">
         
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
@@ -198,24 +193,21 @@
             </div>
         </aside>
         
-        <!-- Main Content -->
-        <main class="main-content" id="mainContent">
+        <main class="main-content">
             <div class="page-header">
                 <div class="header-title">
                     <i class="fas fa-th-large"></i>
                     <h2 id="pageTitle">Dashboard</h2>
                 </div>
-                <div class="header-stats" id="headerStats"></div>
             </div>
             
-            <!-- Contenu dynamique -->
             <div id="dynamicContent">
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon"><i class="fas fa-shopping-bag"></i></div>
                         <div class="stat-info">
                             <span class="stat-label">Ventes aujourd'hui</span>
-                            <span class="stat-value">0</span>
+                            <span class="stat-value" id="todayOrders">0</span>
                             <span class="stat-unit">commandes</span>
                         </div>
                     </div>
@@ -223,7 +215,7 @@
                         <div class="stat-icon"><i class="fas fa-euro-sign"></i></div>
                         <div class="stat-info">
                             <span class="stat-label">Revenus aujourd'hui</span>
-                            <span class="stat-value">0.00</span>
+                            <span class="stat-value" id="todayRevenue">0.00</span>
                             <span class="stat-unit">€</span>
                         </div>
                     </div>
@@ -231,7 +223,7 @@
                         <div class="stat-icon"><i class="fas fa-utensils"></i></div>
                         <div class="stat-info">
                             <span class="stat-label">Produits</span>
-                            <span class="stat-value">0</span>
+                            <span class="stat-value" id="productsCount">0</span>
                             <span class="stat-unit">articles</span>
                         </div>
                     </div>
@@ -239,7 +231,7 @@
                         <div class="stat-icon"><i class="fas fa-users"></i></div>
                         <div class="stat-info">
                             <span class="stat-label">Clients</span>
-                            <span class="stat-value">0</span>
+                            <span class="stat-value" id="clientsCount">0</span>
                             <span class="stat-unit">inscrits</span>
                         </div>
                     </div>
@@ -256,13 +248,12 @@
                                     <th>N°</th>
                                     <th>Client</th>
                                     <th>Total</th>
-                                    <th>Statut</th>
                                     <th>Date</th>
                                 </tr>
                             </thead>
                             <tbody id="recentOrdersTable">
                                 <tr>
-                                    <td colspan="5" style="text-align: center;">Aucune commande</td>
+                                    <td colspan="4" style="text-align: center;">Aucune commande</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -272,13 +263,15 @@
         </main>
     </div>
 
-    <!-- Firebase SDK -->
+    <!-- FIREBASE SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     
-    <!-- Scripts -->
+    <!-- CONFIG -->
     <script src="firebase-config.js"></script>
+    
+    <!-- SCRIPT -->
     <script src="script.js"></script>
 </body>
 </html>
