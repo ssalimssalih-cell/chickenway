@@ -1,39 +1,27 @@
-// ============================================
-// CHICKEN WAY - SCRIPT PRINCIPAL
-// ============================================
-
-// Variables globales
-let currentUser = null;
-let currentUserData = null;
-
-// ============================================
-// INITIALISATION
-// ============================================
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🍗 Chicken Way - Application démarrée');
+// Attendre que tout soit chargé
+window.addEventListener('DOMContentLoaded', function() {
+    console.log('🍗 Chicken Way - Ready');
     
-    // Vérifier que Firebase est bien initialisé
+    // Vérifier Firebase
+    if (typeof firebase === 'undefined') {
+        console.error('❌ Firebase SDK non chargé');
+        return;
+    }
+    
     if (typeof auth === 'undefined') {
-        console.error('❌ Firebase Auth non initialisé');
-        alert('Erreur de configuration Firebase');
+        console.error('❌ Auth non défini - Vérifiez firebase-config.js');
         return;
     }
     
-    if (typeof db === 'undefined') {
-        console.error('❌ Firestore non initialisé');
-        alert('Erreur de configuration Firestore');
-        return;
-    }
-    
-    // Vérifier l'état de l'authentification
-    auth.onAuthStateChanged((user) => {
+    // Auth state observer
+    auth.onAuthStateChanged(function(user) {
         if (user) {
-            console.log('✅ Utilisateur connecté:', user.email);
+            console.log('✅ Connecté:', user.email);
             currentUser = user;
             loadUserData(user.uid);
             showDashboard();
         } else {
-            console.log('👋 Aucun utilisateur connecté');
+            console.log('👋 Non connecté');
             currentUser = null;
             currentUserData = null;
             showAuthPage();
@@ -41,13 +29,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// ============================================
-// GESTION DES PAGES (AUTH / DASHBOARD)
-// ============================================
+let currentUser = null;
+let currentUserData = null;
+
 function showAuthPage() {
     document.getElementById('authPage').classList.remove('hidden');
     document.getElementById('dashboardPage').classList.add('hidden');
-    showLogin();
+    document.getElementById('loginContainer').classList.remove('hidden');
+    document.getElementById('registerContainer').classList.add('hidden');
 }
 
 function showDashboard() {
@@ -67,20 +56,15 @@ function showRegister() {
     document.getElementById('registerContainer').classList.remove('hidden');
 }
 
-// ============================================
-// AUTHENTIFICATION
-// ============================================
-
-// LOGIN
 function handleLogin(event) {
     event.preventDefault();
     
-    const email = document.getElementById('loginEmail').value.trim();
-    const password = document.getElementById('loginPassword').value;
-    const btn = document.getElementById('loginBtn');
+    var email = document.getElementById('loginEmail').value.trim();
+    var password = document.getElementById('loginPassword').value;
+    var btn = document.getElementById('loginBtn');
     
     if (!email || !password) {
-        alert('❌ Veuillez remplir tous les champs');
+        alert('❌ Remplissez tous les champs');
         return false;
     }
     
@@ -88,11 +72,10 @@ function handleLogin(event) {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connexion...';
     
     auth.signInWithEmailAndPassword(email, password)
-        .then((userCredential) => {
-            console.log('✅ Connecté:', userCredential.user.uid);
+        .then(function(userCredential) {
             return db.collection('users').doc(userCredential.user.uid).get();
         })
-        .then((doc) => {
+        .then(function(doc) {
             if (doc.exists) {
                 currentUserData = { uid: doc.id, ...doc.data() };
                 localStorage.setItem('currentUser', JSON.stringify(currentUserData));
@@ -103,16 +86,16 @@ function handleLogin(event) {
                 auth.signOut();
             }
         })
-        .catch((error) => {
-            console.error('❌ Erreur login:', error.code, error.message);
-            let message = 'Erreur de connexion';
-            if (error.code === 'auth/user-not-found') message = '❌ Email non trouvé';
-            else if (error.code === 'auth/wrong-password') message = '❌ Mot de passe incorrect';
-            else if (error.code === 'auth/invalid-email') message = '❌ Email invalide';
-            else message = '❌ ' + error.message;
-            alert(message);
+        .catch(function(error) {
+            console.error('❌ Erreur:', error.code);
+            var msg = 'Erreur';
+            if (error.code === 'auth/user-not-found') msg = '❌ Email non trouvé';
+            else if (error.code === 'auth/wrong-password') msg = '❌ Mot de passe incorrect';
+            else if (error.code === 'auth/configuration-not-found') msg = '❌ Activez Email/Password dans Firebase Console';
+            else msg = '❌ ' + error.message;
+            alert(msg);
         })
-        .finally(() => {
+        .finally(function() {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Se connecter';
         });
@@ -120,18 +103,17 @@ function handleLogin(event) {
     return false;
 }
 
-// REGISTER
 function handleRegister(event) {
     event.preventDefault();
     
-    const nom = document.getElementById('regNom').value.trim();
-    const prenom = document.getElementById('regPrenom').value.trim();
-    const username = document.getElementById('regUsername').value.trim();
-    const email = document.getElementById('regEmail').value.trim();
-    const telephone = document.getElementById('regTelephone').value.trim();
-    const role = document.getElementById('regRole').value;
-    const password = document.getElementById('regPassword').value;
-    const btn = document.getElementById('registerBtn');
+    var nom = document.getElementById('regNom').value.trim();
+    var prenom = document.getElementById('regPrenom').value.trim();
+    var username = document.getElementById('regUsername').value.trim();
+    var email = document.getElementById('regEmail').value.trim();
+    var telephone = document.getElementById('regTelephone').value.trim();
+    var role = document.getElementById('regRole').value;
+    var password = document.getElementById('regPassword').value;
+    var btn = document.getElementById('registerBtn');
     
     if (!nom || !prenom || !username || !email || !telephone || !role || !password) {
         alert('❌ Tous les champs sont obligatoires');
@@ -147,10 +129,8 @@ function handleRegister(event) {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Création...';
     
     auth.createUserWithEmailAndPassword(email, password)
-        .then((userCredential) => {
-            const user = userCredential.user;
-            console.log('✅ Compte créé:', user.uid);
-            
+        .then(function(userCredential) {
+            var user = userCredential.user;
             return db.collection('users').doc(user.uid).set({
                 nom: nom,
                 prenom: prenom,
@@ -161,21 +141,21 @@ function handleRegister(event) {
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         })
-        .then(() => {
-            alert('✅ Compte créé avec succès !');
+        .then(function() {
+            alert('✅ Compte créé !');
             document.getElementById('registerForm').reset();
             showLogin();
         })
-        .catch((error) => {
-            console.error('❌ Erreur register:', error.code, error.message);
-            let message = 'Erreur inscription';
-            if (error.code === 'auth/email-already-in-use') message = '❌ Email déjà utilisé';
-            else if (error.code === 'auth/weak-password') message = '❌ Mot de passe trop faible';
-            else if (error.code === 'auth/operation-not-allowed') message = '❌ Inscription par email désactivée dans Firebase';
-            else message = '❌ ' + error.message;
-            alert(message);
+        .catch(function(error) {
+            console.error('❌ Erreur:', error.code);
+            var msg = 'Erreur';
+            if (error.code === 'auth/email-already-in-use') msg = '❌ Email déjà utilisé';
+            else if (error.code === 'auth/operation-not-allowed') msg = '❌ Activez Email/Password dans Firebase Console';
+            else if (error.code === 'auth/configuration-not-found') msg = '❌ Configuration Firebase manquante';
+            else msg = '❌ ' + error.message;
+            alert(msg);
         })
-        .finally(() => {
+        .finally(function() {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-user-plus"></i> Créer mon compte';
         });
@@ -183,206 +163,78 @@ function handleRegister(event) {
     return false;
 }
 
-// LOGOUT
 function handleLogout() {
-    if (confirm('Voulez-vous vraiment vous déconnecter ?')) {
-        auth.signOut()
-            .then(() => {
-                localStorage.removeItem('currentUser');
-                currentUser = null;
-                currentUserData = null;
-                showAuthPage();
-            })
-            .catch((error) => {
-                console.error('❌ Erreur logout:', error);
-            });
+    if (confirm('Déconnexion ?')) {
+        auth.signOut().then(function() {
+            localStorage.removeItem('currentUser');
+            currentUser = null;
+            currentUserData = null;
+            showAuthPage();
+        });
     }
 }
 
-// ============================================
-// CHARGEMENT DONNÉES UTILISATEUR
-// ============================================
 function loadUserData(uid) {
     db.collection('users').doc(uid).get()
-        .then((doc) => {
+        .then(function(doc) {
             if (doc.exists) {
                 currentUserData = { uid: doc.id, ...doc.data() };
-                localStorage.setItem('currentUser', JSON.stringify(currentUserData));
-                console.log('👤 Données chargées:', currentUserData.prenom);
                 updateSidebarUserInfo();
             }
         })
-        .catch((error) => {
-            console.error('❌ Erreur chargement user:', error);
+        .catch(function(error) {
+            console.error('Erreur:', error);
         });
 }
 
 function updateSidebarUserInfo() {
-    const userInfo = document.getElementById('sidebarUserInfo');
-    if (userInfo && currentUserData) {
-        userInfo.innerHTML = `
-            <i class="fas fa-user-circle"></i>
-            <span>${currentUserData.prenom} ${currentUserData.nom}<br><small style="color: #f39c12;">${currentUserData.role}</small></span>
-        `;
+    var el = document.getElementById('sidebarUserInfo');
+    if (el && currentUserData) {
+        el.innerHTML = '<i class="fas fa-user-circle"></i> ' + currentUserData.prenom + ' ' + currentUserData.nom + ' <small style="color:#f39c12;">' + currentUserData.role + '</small>';
     }
 }
 
-// ============================================
-// NAVIGATION DASHBOARD
-// ============================================
 function navigateTo(page) {
-    console.log('📄 Navigation vers:', page);
+    var items = document.querySelectorAll('.nav-item');
+    items.forEach(function(item) { item.classList.remove('active'); });
     
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    var pages = ['dashboard', 'pos', 'categories', 'products', 'clients', 'fournisseurs', 'ventes', 'credits', 'depenses', 'statistiques'];
+    var index = pages.indexOf(page);
+    if (index >= 0 && items[index]) items[index].classList.add('active');
     
-    const items = document.querySelectorAll('.nav-item');
-    const pages = ['dashboard', 'pos', 'categories', 'products', 'clients', 'fournisseurs', 'ventes', 'credits', 'depenses', 'statistiques'];
-    const index = pages.indexOf(page);
-    
-    if (index >= 0 && items[index]) {
-        items[index].classList.add('active');
-    }
-    
-    const titles = {
-        dashboard: 'Dashboard',
-        pos: 'Point de Vente',
-        categories: 'Catégories',
-        products: 'Produits',
-        clients: 'Clients',
-        fournisseurs: 'Fournisseurs',
-        ventes: 'Ventes',
-        credits: 'Crédits',
-        depenses: 'Dépenses',
-        statistiques: 'Statistiques'
+    var titles = {
+        dashboard: 'Dashboard', pos: 'Point de Vente', categories: 'Catégories',
+        products: 'Produits', clients: 'Clients', fournisseurs: 'Fournisseurs',
+        ventes: 'Ventes', credits: 'Crédits', depenses: 'Dépenses', statistiques: 'Statistiques'
     };
     
     document.getElementById('pageTitle').textContent = titles[page] || 'Page';
     
-    const content = document.getElementById('dynamicContent');
-    
     if (page === 'dashboard') {
-        content.innerHTML = `
+        document.getElementById('dynamicContent').innerHTML = `
             <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-shopping-bag"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Ventes aujourd'hui</span>
-                        <span class="stat-value" id="todayOrders">0</span>
-                        <span class="stat-unit">commandes</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-euro-sign"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Revenus aujourd'hui</span>
-                        <span class="stat-value" id="todayRevenue">0.00</span>
-                        <span class="stat-unit">€</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-utensils"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Produits</span>
-                        <span class="stat-value" id="productsCount">0</span>
-                        <span class="stat-unit">articles</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-users"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Clients</span>
-                        <span class="stat-value" id="clientsCount">0</span>
-                        <span class="stat-unit">inscrits</span>
-                    </div>
-                </div>
-            </div>
-            <div class="content-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-clock"></i> Commandes récentes</h3>
-                </div>
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>N°</th>
-                                <th>Client</th>
-                                <th>Total</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recentOrdersTable">
-                            <tr><td colspan="4" style="text-align:center;">Aucune commande</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-bag"></i></div><div class="stat-info"><span class="stat-label">Ventes aujourd'hui</span><span class="stat-value" id="todayOrders">0</span><span class="stat-unit">commandes</span></div></div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-euro-sign"></i></div><div class="stat-info"><span class="stat-label">Revenus</span><span class="stat-value" id="todayRevenue">0.00</span><span class="stat-unit">€</span></div></div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-utensils"></i></div><div class="stat-info"><span class="stat-label">Produits</span><span class="stat-value" id="productsCount">0</span></div></div>
+                <div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-info"><span class="stat-label">Clients</span><span class="stat-value" id="clientsCount">0</span></div></div>
             </div>
         `;
         loadDashboardStats();
     } else {
-        content.innerHTML = `
-            <div class="content-card">
-                <div class="card-header">
-                    <h3>📄 ${titles[page]}</h3>
-                </div>
-                <div style="text-align:center; padding:60px 20px; color:#94a3b8;">
-                    <i class="fas fa-tools" style="font-size:4rem; margin-bottom:20px;"></i>
-                    <p style="font-size:1.2rem; font-weight:600;">Page en développement</p>
-                    <p style="font-size:0.9rem;">La page "${titles[page]}" sera bientôt disponible</p>
-                </div>
-            </div>
-        `;
+        document.getElementById('dynamicContent').innerHTML = '<div class="content-card"><h3>' + titles[page] + ' - En développement</h3></div>';
     }
 }
 
-// ============================================
-// DASHBOARD STATS
-// ============================================
 function loadDashboardStats() {
-    console.log('📊 Chargement des statistiques...');
+    db.collection('products').get().then(function(snap) {
+        var el = document.getElementById('productsCount');
+        if (el) el.textContent = snap.size;
+    }).catch(function() {});
     
-    // Compter les produits
-    db.collection('products').get()
-        .then((snapshot) => {
-            const el = document.getElementById('productsCount');
-            if (el) el.textContent = snapshot.size;
-        })
-        .catch((error) => {
-            console.log('⚠️ Collection products pas encore créée');
-        });
-    
-    // Compter les clients
-    db.collection('users').where('role', '==', 'client').get()
-        .then((snapshot) => {
-            const el = document.getElementById('clientsCount');
-            if (el) el.textContent = snapshot.size;
-        })
-        .catch((error) => {
-            console.log('⚠️ Erreur comptage clients:', error.message);
-        });
-    
-    // Commandes du jour
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    db.collection('orders')
-        .where('createdAt', '>=', today)
-        .get()
-        .then((snapshot) => {
-            let totalRevenue = 0;
-            snapshot.forEach((doc) => {
-                const order = doc.data();
-                totalRevenue += order.total || 0;
-            });
-            
-            const ordersEl = document.getElementById('todayOrders');
-            const revenueEl = document.getElementById('todayRevenue');
-            
-            if (ordersEl) ordersEl.textContent = snapshot.size;
-            if (revenueEl) revenueEl.textContent = totalRevenue.toFixed(2);
-        })
-        .catch((error) => {
-            console.log('⚠️ Collection orders pas encore créée');
-        });
+    db.collection('users').where('role', '==', 'client').get().then(function(snap) {
+        var el = document.getElementById('clientsCount');
+        if (el) el.textContent = snap.size;
+    }).catch(function() {});
 }
 
-console.log('🍗 Script.js chargé avec succès');
+console.log('✅ Script OK');
