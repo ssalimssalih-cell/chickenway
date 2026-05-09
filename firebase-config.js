@@ -10,17 +10,52 @@ if (typeof window.firebaseConfig === 'undefined') {
     };
 }
 
-// Initialiser Firebase si ce n'est pas déjà fait
-if (typeof firebase !== 'undefined' && firebase.apps.length === 0) {
-    firebase.initializeApp(window.firebaseConfig);
-    console.log("🔥 Firebase initialisé avec succès !");
-    console.log("📁 Project ID:", window.firebaseConfig.projectId);
+// Initialisation sécurisée de Firebase
+let firebaseInitialized = false;
+
+function initFirebaseSafe() {
+    if (firebaseInitialized) return true;
+    
+    if (typeof firebase === 'undefined') {
+        console.warn("⚠️ Firebase SDK non chargé, tentative dans 1s...");
+        return false;
+    }
+    
+    try {
+        if (firebase.apps.length === 0) {
+            firebase.initializeApp(window.firebaseConfig);
+            console.log("🔥 Firebase initialisé avec succès !");
+            console.log("📁 Project ID:", window.firebaseConfig.projectId);
+        }
+        
+        if (!window.db) {
+            window.db = firebase.firestore();
+            
+            // Configuration pour la persistance offline (optionnelle mais recommandée)
+            window.db.enablePersistence({ synchronizeTabs: true })
+                .then(() => console.log("💾 Persistence offline activée"))
+                .catch((err) => {
+                    if (err.code === 'failed-precondition') {
+                        console.warn("⚠️ Persistence impossible (onglet multiple)");
+                    } else if (err.code === 'unimplemented') {
+                        console.warn("⚠️ Persistence non supportée");
+                    }
+                });
+            
+            console.log("📁 Firestore initialisé");
+        }
+        
+        firebaseInitialized = true;
+        return true;
+    } catch (error) {
+        console.error("❌ Erreur initialisation Firebase:", error);
+        return false;
+    }
 }
 
-// Déclarer db globalement
-if (typeof firebase !== 'undefined' && !window.db) {
-    window.db = firebase.firestore();
-    console.log("📁 Firestore initialisé");
+// Initialisation immédiate si disponible
+if (typeof firebase !== 'undefined') {
+    initFirebaseSafe();
 }
 
 // ========= COLLECTIONS =========
@@ -38,10 +73,31 @@ const COLLECTIONS = {
 
 console.log("📦 Collections configurées:", Object.keys(COLLECTIONS));
 
+// ========= ATTENDRE QUE FIREBASE SOIT PRÊT =========
+function waitForFirebase(maxAttempts = 30) {
+    return new Promise((resolve) => {
+        let attempts = 0;
+        const interval = setInterval(() => {
+            if (window.db && firebaseInitialized) {
+                clearInterval(interval);
+                resolve(true);
+            } else if (attempts >= maxAttempts) {
+                clearInterval(interval);
+                console.warn("⚠️ Firebase non disponible après " + maxAttempts + " tentatives");
+                resolve(false);
+            }
+            attempts++;
+        }, 200);
+    });
+}
+
 // ========= VÉRIFIER ET CRÉER LES COLLECTIONS =========
 async function ensureCollectionsExist() {
     try {
-        if (!window.db) return false;
+        if (!window.db) {
+            const ready = await waitForFirebase();
+            if (!ready) return false;
+        }
         
         for (const [key, collectionName] of Object.entries(COLLECTIONS)) {
             const snapshot = await window.db.collection(collectionName).limit(1).get();
@@ -584,13 +640,11 @@ async function initFirebaseComplete() {
     }
     
     try {
-        if (firebase.apps.length === 0) {
-            firebase.initializeApp(window.firebaseConfig);
-            console.log("🔥 Firebase initialisé");
-        }
-        if (!window.db) {
-            window.db = firebase.firestore();
-            console.log("📁 Firestore initialisé");
+        const initialized = initFirebaseSafe();
+        
+        if (!initialized) {
+            console.warn("⚠️ Firebase n'a pas pu être initialisé");
+            return;
         }
         
         await ensureCollectionsExist();
@@ -730,7 +784,7 @@ window.arreterEcoutesCommandesEnLigne = arreterEcoutesCommandesEnLigne;
 window.getProductsForOnlineMenu = getProductsForOnlineMenu;
 window.getCategoriesForOnlineMenu = getCategoriesForOnlineMenu;
 
-// Démarrer l'initialisation
+// Attendre que le DOM soit chargé puis initialiser
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initFirebaseComplete);
 } else {
