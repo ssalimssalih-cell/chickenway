@@ -1,7 +1,4 @@
 // ========== CONFIGURATION FIREBASE ==========
-// Chicken Way - Restaurant Management
-// Date: 2024
-
 const firebaseConfig = {
     apiKey: "AIzaSyDBtroF6W2tgAmJeGwtSCjNGeYcG77IfsU",
     authDomain: "chickenway2026.firebaseapp.com",
@@ -18,4 +15,4 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-console.log('✅ Firebase initialisé avec succès - Chicken Way');
+console.log('✅ Firebase initialisé - Chicken Way');
