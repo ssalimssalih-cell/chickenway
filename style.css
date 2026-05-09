@@ -22,7 +22,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: url('background.jpg') center/cover no-repeat fixed;
+  background: url('./background.jpg') center/cover no-repeat fixed;
   position: relative;
 }
 
