@@ -5,11 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chicken Way - Gestion Restaurant</title>
     <link rel="stylesheet" href="style.css">
-    
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <!-- NAVBAR -->
@@ -36,12 +31,12 @@
 
             <!-- TABS -->
             <div class="tabs">
-                <button class="tab active" onclick="switchTab('login')">Connexion</button>
-                <button class="tab" onclick="switchTab('register')">Inscription</button>
+                <button class="tab active" id="tabLogin" onclick="switchTab('login')">Connexion</button>
+                <button class="tab" id="tabRegister" onclick="switchTab('register')">Inscription</button>
             </div>
 
             <!-- FORMULAIRE LOGIN -->
-            <form id="loginForm" class="form active" onsubmit="login(event)">
+            <form id="loginForm" class="form active" onsubmit="return login(event)">
                 <div class="input-group">
                     <label>📧 Email</label>
                     <input type="email" id="loginEmail" required placeholder="votre@email.com">
@@ -54,7 +49,7 @@
             </form>
 
             <!-- FORMULAIRE REGISTER -->
-            <form id="registerForm" class="form" onsubmit="register(event)">
+            <form id="registerForm" class="form" onsubmit="return register(event)">
                 <div class="row">
                     <div class="input-group half">
                         <label>👤 Nom</label>
@@ -95,7 +90,12 @@
         </div>
     </main>
 
-    <!-- Scripts dans l'ordre -->
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+    
+    <!-- IMPORTANT: firebase-config.js AVANT script.js -->
     <script src="firebase-config.js"></script>
     <script src="script.js"></script>
 </body>
