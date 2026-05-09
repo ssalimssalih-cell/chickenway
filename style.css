@@ -72,7 +72,7 @@ body {
 /* ========== MAIN BACKGROUND ========== */
 .main {
     min-height: 100vh;
-    background: url('background.jpeg') center/cover no-repeat fixed;
+    background: url('background.jpg') center/cover no-repeat fixed;
     display: flex;
     justify-content: center;
     align-items: center;
