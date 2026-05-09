@@ -12,6 +12,19 @@ let currentUserData = null;
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🍗 Chicken Way - Application démarrée');
     
+    // Vérifier que Firebase est bien initialisé
+    if (typeof auth === 'undefined') {
+        console.error('❌ Firebase Auth non initialisé');
+        alert('Erreur de configuration Firebase');
+        return;
+    }
+    
+    if (typeof db === 'undefined') {
+        console.error('❌ Firestore non initialisé');
+        alert('Erreur de configuration Firestore');
+        return;
+    }
+    
     // Vérifier l'état de l'authentification
     auth.onAuthStateChanged((user) => {
         if (user) {
@@ -68,10 +81,9 @@ function handleLogin(event) {
     
     if (!email || !password) {
         alert('❌ Veuillez remplir tous les champs');
-        return;
+        return false;
     }
     
-    // Désactiver le bouton
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connexion...';
     
@@ -92,12 +104,12 @@ function handleLogin(event) {
             }
         })
         .catch((error) => {
-            console.error('❌ Erreur login:', error);
+            console.error('❌ Erreur login:', error.code, error.message);
             let message = 'Erreur de connexion';
             if (error.code === 'auth/user-not-found') message = '❌ Email non trouvé';
             else if (error.code === 'auth/wrong-password') message = '❌ Mot de passe incorrect';
             else if (error.code === 'auth/invalid-email') message = '❌ Email invalide';
-            else if (error.code === 'auth/too-many-requests') message = '❌ Trop de tentatives';
+            else message = '❌ ' + error.message;
             alert(message);
         })
         .finally(() => {
@@ -121,7 +133,6 @@ function handleRegister(event) {
     const password = document.getElementById('regPassword').value;
     const btn = document.getElementById('registerBtn');
     
-    // Validation
     if (!nom || !prenom || !username || !email || !telephone || !role || !password) {
         alert('❌ Tous les champs sont obligatoires');
         return false;
@@ -132,7 +143,6 @@ function handleRegister(event) {
         return false;
     }
     
-    // Désactiver le bouton
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Création...';
     
@@ -141,7 +151,6 @@ function handleRegister(event) {
             const user = userCredential.user;
             console.log('✅ Compte créé:', user.uid);
             
-            // Sauvegarder dans Firestore
             return db.collection('users').doc(user.uid).set({
                 nom: nom,
                 prenom: prenom,
@@ -149,8 +158,7 @@ function handleRegister(event) {
                 email: email,
                 telephone: telephone,
                 role: role,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         })
         .then(() => {
@@ -159,10 +167,12 @@ function handleRegister(event) {
             showLogin();
         })
         .catch((error) => {
-            console.error('❌ Erreur register:', error);
+            console.error('❌ Erreur register:', error.code, error.message);
             let message = 'Erreur inscription';
             if (error.code === 'auth/email-already-in-use') message = '❌ Email déjà utilisé';
             else if (error.code === 'auth/weak-password') message = '❌ Mot de passe trop faible';
+            else if (error.code === 'auth/operation-not-allowed') message = '❌ Inscription par email désactivée dans Firebase';
+            else message = '❌ ' + error.message;
             alert(message);
         })
         .finally(() => {
@@ -212,7 +222,7 @@ function updateSidebarUserInfo() {
     if (userInfo && currentUserData) {
         userInfo.innerHTML = `
             <i class="fas fa-user-circle"></i>
-            <span>${currentUserData.prenom} ${currentUserData.nom} <br><small>${currentUserData.role}</small></span>
+            <span>${currentUserData.prenom} ${currentUserData.nom}<br><small style="color: #f39c12;">${currentUserData.role}</small></span>
         `;
     }
 }
@@ -223,20 +233,16 @@ function updateSidebarUserInfo() {
 function navigateTo(page) {
     console.log('📄 Navigation vers:', page);
     
-    // Mettre à jour les classes actives
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-    });
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
     
-    // Trouver l'élément cliqué et le marquer actif
-    const navItems = document.querySelectorAll('.nav-item');
-    const pageNames = ['dashboard', 'pos', 'categories', 'products', 'clients', 'fournisseurs', 'ventes', 'credits', 'depenses', 'statistiques'];
-    const index = pageNames.indexOf(page);
-    if (index >= 0 && navItems[index]) {
-        navItems[index].classList.add('active');
+    const items = document.querySelectorAll('.nav-item');
+    const pages = ['dashboard', 'pos', 'categories', 'products', 'clients', 'fournisseurs', 'ventes', 'credits', 'depenses', 'statistiques'];
+    const index = pages.indexOf(page);
+    
+    if (index >= 0 && items[index]) {
+        items[index].classList.add('active');
     }
     
-    // Mettre à jour le titre
     const titles = {
         dashboard: 'Dashboard',
         pos: 'Point de Vente',
@@ -252,9 +258,65 @@ function navigateTo(page) {
     
     document.getElementById('pageTitle').textContent = titles[page] || 'Page';
     
-    // Afficher un message pour les pages non encore développées
     const content = document.getElementById('dynamicContent');
+    
     if (page === 'dashboard') {
+        content.innerHTML = `
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-shopping-bag"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Ventes aujourd'hui</span>
+                        <span class="stat-value" id="todayOrders">0</span>
+                        <span class="stat-unit">commandes</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-euro-sign"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Revenus aujourd'hui</span>
+                        <span class="stat-value" id="todayRevenue">0.00</span>
+                        <span class="stat-unit">€</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-utensils"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Produits</span>
+                        <span class="stat-value" id="productsCount">0</span>
+                        <span class="stat-unit">articles</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Clients</span>
+                        <span class="stat-value" id="clientsCount">0</span>
+                        <span class="stat-unit">inscrits</span>
+                    </div>
+                </div>
+            </div>
+            <div class="content-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-clock"></i> Commandes récentes</h3>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>N°</th>
+                                <th>Client</th>
+                                <th>Total</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentOrdersTable">
+                            <tr><td colspan="4" style="text-align:center;">Aucune commande</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
         loadDashboardStats();
     } else {
         content.innerHTML = `
@@ -262,10 +324,10 @@ function navigateTo(page) {
                 <div class="card-header">
                     <h3>📄 ${titles[page]}</h3>
                 </div>
-                <div style="text-align: center; padding: 50px; color: #94a3b8;">
-                    <i class="fas fa-tools" style="font-size: 3rem; margin-bottom: 20px;"></i>
-                    <p style="font-size: 1.2rem;">Page en cours de développement</p>
-                    <p style="font-size: 0.9rem;">La page "${titles[page]}" sera bientôt disponible</p>
+                <div style="text-align:center; padding:60px 20px; color:#94a3b8;">
+                    <i class="fas fa-tools" style="font-size:4rem; margin-bottom:20px;"></i>
+                    <p style="font-size:1.2rem; font-weight:600;">Page en développement</p>
+                    <p style="font-size:0.9rem;">La page "${titles[page]}" sera bientôt disponible</p>
                 </div>
             </div>
         `;
@@ -281,24 +343,24 @@ function loadDashboardStats() {
     // Compter les produits
     db.collection('products').get()
         .then((snapshot) => {
-            const statValue = document.querySelector('.stats-grid .stat-card:nth-child(3) .stat-value');
-            if (statValue) statValue.textContent = snapshot.size;
+            const el = document.getElementById('productsCount');
+            if (el) el.textContent = snapshot.size;
         })
         .catch((error) => {
-            console.error('❌ Erreur comptage produits:', error);
+            console.log('⚠️ Collection products pas encore créée');
         });
     
     // Compter les clients
     db.collection('users').where('role', '==', 'client').get()
         .then((snapshot) => {
-            const statValue = document.querySelector('.stats-grid .stat-card:nth-child(4) .stat-value');
-            if (statValue) statValue.textContent = snapshot.size;
+            const el = document.getElementById('clientsCount');
+            if (el) el.textContent = snapshot.size;
         })
         .catch((error) => {
-            console.error('❌ Erreur comptage clients:', error);
+            console.log('⚠️ Erreur comptage clients:', error.message);
         });
     
-    // Compter les ventes du jour
+    // Commandes du jour
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -309,45 +371,18 @@ function loadDashboardStats() {
             let totalRevenue = 0;
             snapshot.forEach((doc) => {
                 const order = doc.data();
-                if (order.status !== 'annulée') {
-                    totalRevenue += order.total || 0;
-                }
+                totalRevenue += order.total || 0;
             });
             
-            // Mettre à jour les stats
-            const ordersCount = document.querySelector('.stats-grid .stat-card:nth-child(1) .stat-value');
-            const revenueValue = document.querySelector('.stats-grid .stat-card:nth-child(2) .stat-value');
+            const ordersEl = document.getElementById('todayOrders');
+            const revenueEl = document.getElementById('todayRevenue');
             
-            if (ordersCount) ordersCount.textContent = snapshot.size;
-            if (revenueValue) revenueValue.textContent = totalRevenue.toFixed(2);
+            if (ordersEl) ordersEl.textContent = snapshot.size;
+            if (revenueEl) revenueEl.textContent = totalRevenue.toFixed(2);
         })
         .catch((error) => {
-            console.error('❌ Erreur ventes:', error);
+            console.log('⚠️ Collection orders pas encore créée');
         });
-}
-
-// ============================================
-// UTILITAIRES
-// ============================================
-function getCurrentUser() {
-    const userStr = localStorage.getItem('currentUser');
-    return userStr ? JSON.parse(userStr) : null;
-}
-
-function formatDate(timestamp) {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('fr-FR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-function formatPrice(price) {
-    return parseFloat(price).toFixed(2) + ' €';
 }
 
 console.log('🍗 Script.js chargé avec succès');
