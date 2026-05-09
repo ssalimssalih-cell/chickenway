@@ -1,19 +1,26 @@
-// Attendre que tout soit chargé
+// ============================================
+// CHICKEN WAY - SCRIPT COMPLET
+// ============================================
+
+let currentUser = null;
+let currentUserData = null;
+
+// ============================================
+// INITIALISATION
+// ============================================
 window.addEventListener('DOMContentLoaded', function() {
-    console.log('🍗 Chicken Way - Ready');
+    console.log('🍗 Chicken Way - Prêt');
     
-    // Vérifier Firebase
     if (typeof firebase === 'undefined') {
-        console.error('❌ Firebase SDK non chargé');
+        console.error('❌ Firebase SDK manquant');
         return;
     }
     
     if (typeof auth === 'undefined') {
-        console.error('❌ Auth non défini - Vérifiez firebase-config.js');
+        console.error('❌ Auth non défini');
         return;
     }
     
-    // Auth state observer
     auth.onAuthStateChanged(function(user) {
         if (user) {
             console.log('✅ Connecté:', user.email);
@@ -29,9 +36,9 @@ window.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-let currentUser = null;
-let currentUserData = null;
-
+// ============================================
+// AFFICHAGE PAGES
+// ============================================
 function showAuthPage() {
     document.getElementById('authPage').classList.remove('hidden');
     document.getElementById('dashboardPage').classList.add('hidden');
@@ -43,7 +50,7 @@ function showDashboard() {
     document.getElementById('authPage').classList.add('hidden');
     document.getElementById('dashboardPage').classList.remove('hidden');
     updateSidebarUserInfo();
-    loadDashboardStats();
+    navigateTo('dashboard');
 }
 
 function showLogin() {
@@ -56,6 +63,9 @@ function showRegister() {
     document.getElementById('registerContainer').classList.remove('hidden');
 }
 
+// ============================================
+// AUTHENTIFICATION
+// ============================================
 function handleLogin(event) {
     event.preventDefault();
     
@@ -151,7 +161,6 @@ function handleRegister(event) {
             var msg = 'Erreur';
             if (error.code === 'auth/email-already-in-use') msg = '❌ Email déjà utilisé';
             else if (error.code === 'auth/operation-not-allowed') msg = '❌ Activez Email/Password dans Firebase Console';
-            else if (error.code === 'auth/configuration-not-found') msg = '❌ Configuration Firebase manquante';
             else msg = '❌ ' + error.message;
             alert(msg);
         })
@@ -174,6 +183,9 @@ function handleLogout() {
     }
 }
 
+// ============================================
+// DONNÉES UTILISATEUR
+// ============================================
 function loadUserData(uid) {
     db.collection('users').doc(uid).get()
         .then(function(doc) {
@@ -190,41 +202,160 @@ function loadUserData(uid) {
 function updateSidebarUserInfo() {
     var el = document.getElementById('sidebarUserInfo');
     if (el && currentUserData) {
-        el.innerHTML = '<i class="fas fa-user-circle"></i> ' + currentUserData.prenom + ' ' + currentUserData.nom + ' <small style="color:#f39c12;">' + currentUserData.role + '</small>';
+        el.innerHTML = '<i class="fas fa-user-circle"></i> ' + currentUserData.prenom + ' ' + currentUserData.nom + ' <small style="color:#f39c12;">(' + currentUserData.role + ')</small>';
     }
 }
 
+// ============================================
+// NAVIGATION
+// ============================================
 function navigateTo(page) {
+    // Mise à jour menu actif
     var items = document.querySelectorAll('.nav-item');
     items.forEach(function(item) { item.classList.remove('active'); });
     
-    var pages = ['dashboard', 'pos', 'categories', 'products', 'clients', 'fournisseurs', 'ventes', 'credits', 'depenses', 'statistiques'];
-    var index = pages.indexOf(page);
-    if (index >= 0 && items[index]) items[index].classList.add('active');
+    var pages = [
+        'dashboard', 'pos', 'categories', 'products', 'commandes-en-ligne',
+        'clients', 'fournisseurs', 'stock', 'employes', 'tables',
+        'reservations', 'livraisons', 'ventes', 'credits', 'depenses',
+        'factures', 'promotions', 'menu', 'statistiques', 'parametres'
+    ];
     
+    var index = pages.indexOf(page);
+    if (index >= 0 && items[index]) {
+        items[index].classList.add('active');
+    }
+    
+    // Titres et icônes
     var titles = {
-        dashboard: 'Dashboard', pos: 'Point de Vente', categories: 'Catégories',
-        products: 'Produits', clients: 'Clients', fournisseurs: 'Fournisseurs',
-        ventes: 'Ventes', credits: 'Crédits', depenses: 'Dépenses', statistiques: 'Statistiques'
+        'dashboard': 'Dashboard',
+        'pos': 'Point de Vente (POS)',
+        'categories': 'Catégories',
+        'products': 'Produits',
+        'commandes-en-ligne': 'Commandes en ligne',
+        'clients': 'Clients',
+        'fournisseurs': 'Fournisseurs',
+        'stock': 'Gestion du Stock',
+        'employes': 'Employés',
+        'tables': 'Tables',
+        'reservations': 'Réservations',
+        'livraisons': 'Livraisons',
+        'ventes': 'Ventes',
+        'credits': 'Crédits',
+        'depenses': 'Dépenses',
+        'factures': 'Factures',
+        'promotions': 'Promotions',
+        'menu': 'Menu',
+        'statistiques': 'Statistiques',
+        'parametres': 'Paramètres'
+    };
+    
+    var icons = {
+        'dashboard': 'fa-th-large',
+        'pos': 'fa-cash-register',
+        'categories': 'fa-layer-group',
+        'products': 'fa-utensils',
+        'commandes-en-ligne': 'fa-globe',
+        'clients': 'fa-users',
+        'fournisseurs': 'fa-truck',
+        'stock': 'fa-boxes',
+        'employes': 'fa-user-tie',
+        'tables': 'fa-chair',
+        'reservations': 'fa-calendar-check',
+        'livraisons': 'fa-motorcycle',
+        'ventes': 'fa-shopping-cart',
+        'credits': 'fa-credit-card',
+        'depenses': 'fa-money-bill-wave',
+        'factures': 'fa-file-invoice',
+        'promotions': 'fa-tags',
+        'menu': 'fa-book-open',
+        'statistiques': 'fa-chart-bar',
+        'parametres': 'fa-cog'
     };
     
     document.getElementById('pageTitle').textContent = titles[page] || 'Page';
     
+    var headerIcon = document.querySelector('.header-title i');
+    if (headerIcon && icons[page]) {
+        headerIcon.className = 'fas ' + icons[page];
+    }
+    
+    var content = document.getElementById('dynamicContent');
+    
+    // Page Dashboard
     if (page === 'dashboard') {
-        document.getElementById('dynamicContent').innerHTML = `
+        content.innerHTML = `
             <div class="stats-grid">
-                <div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-bag"></i></div><div class="stat-info"><span class="stat-label">Ventes aujourd'hui</span><span class="stat-value" id="todayOrders">0</span><span class="stat-unit">commandes</span></div></div>
-                <div class="stat-card"><div class="stat-icon"><i class="fas fa-euro-sign"></i></div><div class="stat-info"><span class="stat-label">Revenus</span><span class="stat-value" id="todayRevenue">0.00</span><span class="stat-unit">€</span></div></div>
-                <div class="stat-card"><div class="stat-icon"><i class="fas fa-utensils"></i></div><div class="stat-info"><span class="stat-label">Produits</span><span class="stat-value" id="productsCount">0</span></div></div>
-                <div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-info"><span class="stat-label">Clients</span><span class="stat-value" id="clientsCount">0</span></div></div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-shopping-bag"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Ventes aujourd'hui</span>
+                        <span class="stat-value" id="todayOrders">0</span>
+                        <span class="stat-unit">commandes</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-euro-sign"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Revenus</span>
+                        <span class="stat-value" id="todayRevenue">0.00</span>
+                        <span class="stat-unit">€</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-utensils"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Produits</span>
+                        <span class="stat-value" id="productsCount">0</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Clients</span>
+                        <span class="stat-value" id="clientsCount">0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="content-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-clock"></i> Commandes récentes</h3>
+                </div>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr><th>N°</th><th>Client</th><th>Total</th><th>Date</th></tr>
+                        </thead>
+                        <tbody id="recentOrdersTable">
+                            <tr><td colspan="4" style="text-align:center;">Aucune commande</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         `;
         loadDashboardStats();
+        
     } else {
-        document.getElementById('dynamicContent').innerHTML = '<div class="content-card"><h3>' + titles[page] + ' - En développement</h3></div>';
+        // Toutes les autres pages
+        content.innerHTML = `
+            <div class="content-card">
+                <div class="card-header">
+                    <h3><i class="fas ${icons[page] || 'fa-file'}"></i> ${titles[page]}</h3>
+                </div>
+                <div style="text-align: center; padding: 60px 20px; color: #94a3b8;">
+                    <i class="fas ${icons[page] || 'fa-tools'}" style="font-size: 4rem; margin-bottom: 20px; display: block;"></i>
+                    <p style="font-size: 1.3rem; font-weight: 600; margin-bottom: 10px;">${titles[page]}</p>
+                    <p style="font-size: 1rem;">Cette page est en cours de développement</p>
+                    <p style="font-size: 0.85rem; margin-top: 5px;">Elle sera bientôt disponible</p>
+                </div>
+            </div>
+        `;
     }
 }
 
+// ============================================
+// STATISTIQUES DASHBOARD
+// ============================================
 function loadDashboardStats() {
     db.collection('products').get().then(function(snap) {
         var el = document.getElementById('productsCount');
@@ -234,6 +365,21 @@ function loadDashboardStats() {
     db.collection('users').where('role', '==', 'client').get().then(function(snap) {
         var el = document.getElementById('clientsCount');
         if (el) el.textContent = snap.size;
+    }).catch(function() {});
+    
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    db.collection('orders').where('createdAt', '>=', today).get().then(function(snap) {
+        var el = document.getElementById('todayOrders');
+        if (el) el.textContent = snap.size;
+        
+        var total = 0;
+        snap.forEach(function(doc) {
+            total += doc.data().total || 0;
+        });
+        var revEl = document.getElementById('todayRevenue');
+        if (revEl) revEl.textContent = total.toFixed(2);
     }).catch(function() {});
 }
 
