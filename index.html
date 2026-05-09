@@ -153,7 +153,7 @@
                         <i class="fas fa-th-large"></i> Dashboard
                     </li>
                     <li class="nav-item" onclick="navigateTo('pos')">
-                        <i class="fas fa-cash-register"></i> Point de vente
+                        <i class="fas fa-cash-register"></i> POS
                     </li>
                     <li class="nav-item" onclick="navigateTo('categories')">
                         <i class="fas fa-layer-group"></i> Catégories
@@ -179,6 +179,9 @@
                     <li class="nav-item" onclick="navigateTo('statistiques')">
                         <i class="fas fa-chart-bar"></i> Statistiques
                     </li>
+                    <li class="nav-item" onclick="navigateTo('options')">
+                        <i class="fas fa-cog"></i> Options
+                    </li>
                 </ul>
             </nav>
             
@@ -202,63 +205,7 @@
             </div>
             
             <div id="dynamicContent">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-shopping-bag"></i></div>
-                        <div class="stat-info">
-                            <span class="stat-label">Ventes aujourd'hui</span>
-                            <span class="stat-value" id="todayOrders">0</span>
-                            <span class="stat-unit">commandes</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-euro-sign"></i></div>
-                        <div class="stat-info">
-                            <span class="stat-label">Revenus aujourd'hui</span>
-                            <span class="stat-value" id="todayRevenue">0.00</span>
-                            <span class="stat-unit">€</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-utensils"></i></div>
-                        <div class="stat-info">
-                            <span class="stat-label">Produits</span>
-                            <span class="stat-value" id="productsCount">0</span>
-                            <span class="stat-unit">articles</span>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon"><i class="fas fa-users"></i></div>
-                        <div class="stat-info">
-                            <span class="stat-label">Clients</span>
-                            <span class="stat-value" id="clientsCount">0</span>
-                            <span class="stat-unit">inscrits</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="content-card">
-                    <div class="card-header">
-                        <h3><i class="fas fa-clock"></i> Commandes récentes</h3>
-                    </div>
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>N°</th>
-                                    <th>Client</th>
-                                    <th>Total</th>
-                                    <th>Date</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recentOrdersTable">
-                                <tr>
-                                    <td colspan="4" style="text-align: center;">Aucune commande</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <!-- Contenu dynamique -->
             </div>
         </main>
     </div>
