@@ -1,631 +1,642 @@
-// ============================================
-// CHICKEN WAY - COMPLETE SCRIPT
-// ============================================
+/* ============================================
+   CHICKEN WAY - COMPLETE STYLES
+   ============================================ */
 
-let currentUser = null;
-let currentUserData = null;
-
-// ============================================
-// INITIALIZATION
-// ============================================
-window.addEventListener('DOMContentLoaded', function() {
-    console.log('🍗 Chicken Way - Started');
-    
-    auth.onAuthStateChanged(function(user) {
-        if (user) {
-            console.log('✅ User connected:', user.email);
-            currentUser = user;
-            loadUserData(user.uid);
-            showDashboard();
-        } else {
-            console.log('👋 No user connected');
-            currentUser = null;
-            currentUserData = null;
-            showAuthPage();
-        }
-    });
-});
-
-// ============================================
-// PAGE DISPLAY
-// ============================================
-function showAuthPage() {
-    document.getElementById('authPage').classList.remove('hidden');
-    document.getElementById('dashboardPage').classList.add('hidden');
-    document.getElementById('loginContainer').classList.remove('hidden');
-    document.getElementById('registerContainer').classList.add('hidden');
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
-function showDashboard() {
-    document.getElementById('authPage').classList.add('hidden');
-    document.getElementById('dashboardPage').classList.remove('hidden');
-    updateSidebarUserInfo();
-    navigateTo('dashboard');
+body {
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
 }
 
-function showLogin() {
-    document.getElementById('loginContainer').classList.remove('hidden');
-    document.getElementById('registerContainer').classList.add('hidden');
+/* ==========================================
+   LOGIN & REGISTER
+   ========================================== */
+.login-wrapper {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: url('background.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    position: relative;
 }
 
-function showRegister() {
-    document.getElementById('loginContainer').classList.add('hidden');
-    document.getElementById('registerContainer').classList.remove('hidden');
+.login-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(0,0,0,0.75), rgba(0,0,0,0.5));
+    z-index: 1;
 }
 
-// ============================================
-// AUTHENTICATION
-// ============================================
+.login-container,
+.register-container {
+    position: relative;
+    z-index: 2;
+    width: 750px;
+    max-width: 95%;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-radius: 32px;
+    display: flex;
+    overflow: hidden;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
 
-// LOGIN
-function handleLogin(event) {
-    event.preventDefault();
-    
-    var email = document.getElementById('loginEmail').value.trim();
-    var password = document.getElementById('loginPassword').value;
-    var btn = document.getElementById('loginBtn');
-    
-    if (!email || !password) {
-        alert('❌ Please fill all fields');
-        return false;
+.login-brand,
+.register-brand {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 30px;
+    text-align: center;
+    border-right: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.brand-icon {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 25px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(243, 156, 18, 0.3);
+}
+
+.brand-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.login-brand h1,
+.register-brand h1 {
+    font-size: 1.8rem;
+    color: white;
+    font-weight: 800;
+}
+
+.login-brand h1 span,
+.register-brand h1 span {
+    color: #f39c12;
+}
+
+.login-form,
+.register-form {
+    flex: 1;
+    padding: 40px 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.login-form h2,
+.register-form h2 {
+    color: white;
+    margin-bottom: 25px;
+    text-align: center;
+    font-size: 1.4rem;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border: 2px solid transparent;
+    transition: all 0.3s;
+}
+
+.input-group:focus-within {
+    border-color: #f39c12;
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.3);
+}
+
+.input-group i {
+    padding: 0 15px;
+    color: #e67e22;
+    font-size: 1rem;
+}
+
+.input-group input,
+.role-select {
+    flex: 1;
+    padding: 14px 14px 14px 0;
+    border: none;
+    background: transparent;
+    font-size: 0.95rem;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+    color: #1e293b;
+}
+
+.role-select {
+    cursor: pointer;
+}
+
+.btn-login {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 15px;
+    transition: all 0.3s;
+    box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(243, 156, 18, 0.6);
+}
+
+.btn-login:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.register-link {
+    text-align: center;
+    margin-top: 20px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.85rem;
+}
+
+.register-link strong {
+    color: #f39c12;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.register-link strong:hover {
+    color: #ffa726;
+    text-decoration: underline;
+}
+
+/* ==========================================
+   DASHBOARD
+   ========================================== */
+.dashboard {
+    display: flex;
+    min-height: 100vh;
+    background: #f1f5f9;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    z-index: 100;
+    overflow-y: auto;
+}
+
+.sidebar-header {
+    padding: 20px 15px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-logo {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 12px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: white;
+    padding: 5px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.sidebar-header h2 {
+    color: white;
+    font-size: 1.2rem;
+}
+
+.sidebar-header h2 span {
+    color: #f39c12;
+}
+
+.sidebar-subtitle {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.7rem;
+    margin-top: 5px;
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: 15px 10px;
+}
+
+.sidebar-nav ul {
+    list-style: none;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    transition: all 0.3s;
+    margin-bottom: 3px;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+}
+
+.nav-item:hover {
+    background: rgba(243, 156, 18, 0.2);
+    color: #f39c12;
+}
+
+.nav-item.active {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 5px 15px rgba(243, 156, 18, 0.3);
+}
+
+.logout-item {
+    margin-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 15px;
+    color: #ef4444 !important;
+}
+
+.logout-item:hover {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+}
+
+.sidebar-footer {
+    padding: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.8rem;
+}
+
+.user-info i {
+    font-size: 1.5rem;
+}
+
+/* Main Content */
+.main-content {
+    flex: 1;
+    margin-left: 260px;
+    padding: 25px 30px;
+    background: #f1f5f9;
+    min-height: 100vh;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-title i {
+    font-size: 1.6rem;
+    color: #f39c12;
+}
+
+.header-title h2 {
+    font-size: 1.5rem;
+    color: #1e293b;
+    font-weight: 700;
+}
+
+.content-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+.card-header h3 {
+    color: #1e293b;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ==========================================
+   STATS
+   ========================================== */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    background: rgba(243, 156, 18, 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-icon i {
+    font-size: 1.4rem;
+    color: #f39c12;
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.stat-unit {
+    font-size: 0.7rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+/* ==========================================
+   TABLE
+   ========================================== */
+.table-container {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.85rem;
+}
+
+.data-table th {
+    background: #f8fafc;
+    font-weight: 700;
+    color: #1e293b;
+    position: sticky;
+    top: 0;
+}
+
+.data-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* ==========================================
+   BADGES
+   ========================================== */
+.status-success {
+    background: #dcfce7;
+    color: #16a34a;
+    padding: 3px 8px;
+    border-radius: 15px;
+    font-size: 0.7rem;
+    display: inline-block;
+    font-weight: 600;
+}
+
+.status-warning {
+    background: #fef3c7;
+    color: #d97706;
+    padding: 3px 8px;
+    border-radius: 15px;
+    font-size: 0.7rem;
+    display: inline-block;
+    font-weight: 600;
+}
+
+.status-danger {
+    background: #fee2e2;
+    color: #dc2626;
+    padding: 3px 8px;
+    border-radius: 15px;
+    font-size: 0.7rem;
+    display: inline-block;
+    font-weight: 600;
+}
+
+/* ==========================================
+   BUTTONS
+   ========================================== */
+.btn-add {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn-add:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+}
+
+.btn-edit {
+    background: none;
+    border: none;
+    color: #f39c12;
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.btn-edit:hover {
+    color: #e67e22;
+    transform: scale(1.1);
+}
+
+.btn-delete {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.btn-delete:hover {
+    color: #dc2626;
+    transform: scale(1.1);
+}
+
+/* ==========================================
+   UTILITIES
+   ========================================== */
+.hidden {
+    display: none !important;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+@media (max-width: 768px) {
+    .login-container,
+    .register-container {
+        flex-direction: column;
+        width: 95%;
     }
-    
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connecting...';
-    
-    auth.signInWithEmailAndPassword(email, password)
-        .then(function(userCredential) {
-            return db.collection('users').doc(userCredential.user.uid).get();
-        })
-        .then(function(doc) {
-            if (doc.exists) {
-                var userData = doc.data();
-                
-                // CHECK IF AUTHORIZED
-                if (userData.authorized !== 'yes') {
-                    alert('⏳ Your account has not been authorized yet.\n\nPlease wait for admin approval.');
-                    auth.signOut();
-                    return;
-                }
-                
-                // AUTHORIZED - LOGIN SUCCESS
-                currentUserData = { uid: doc.id, ...userData };
-                localStorage.setItem('currentUser', JSON.stringify(currentUserData));
-                alert('✅ Welcome ' + currentUserData.prenom + ' !');
-                showDashboard();
-            } else {
-                alert('❌ Profile not found');
-                auth.signOut();
-            }
-        })
-        .catch(function(error) {
-            console.error('❌ Login error:', error.code);
-            var msg = 'Error';
-            if (error.code === 'auth/user-not-found') msg = '❌ Email not found';
-            else if (error.code === 'auth/wrong-password') msg = '❌ Wrong password';
-            else if (error.code === 'auth/too-many-requests') msg = '❌ Too many attempts. Try later.';
-            else msg = '❌ ' + error.message;
-            alert(msg);
-        })
-        .finally(function() {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
-        });
-    
-    return false;
-}
 
-// REGISTER
-function handleRegister(event) {
-    event.preventDefault();
-    
-    var nom = document.getElementById('regNom').value.trim();
-    var prenom = document.getElementById('regPrenom').value.trim();
-    var username = document.getElementById('regUsername').value.trim();
-    var email = document.getElementById('regEmail').value.trim();
-    var telephone = document.getElementById('regTelephone').value.trim();
-    var role = document.getElementById('regRole').value;
-    var password = document.getElementById('regPassword').value;
-    var btn = document.getElementById('registerBtn');
-    
-    // Validation
-    if (!nom || !prenom || !username || !email || !telephone || !role || !password) {
-        alert('❌ All fields are required');
-        return false;
+    .login-brand,
+    .register-brand {
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        padding: 30px 20px;
     }
-    
-    if (password.length < 6) {
-        alert('❌ Password: minimum 6 characters');
-        return false;
+
+    .brand-icon {
+        width: 80px;
+        height: 80px;
     }
-    
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
-    
-    // Create user - ALWAYS authorized = "no"
-    auth.createUserWithEmailAndPassword(email, password)
-        .then(function(userCredential) {
-            var user = userCredential.user;
-            
-            // Save to Firestore
-            return db.collection('users').doc(user.uid).set({
-                nom: nom,
-                prenom: prenom,
-                username: username,
-                email: email,
-                telephone: telephone,
-                role: role,
-                authorized: 'no', // ALWAYS "no" - waiting for admin approval
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        })
-        .then(function() {
-            alert('✅ Account created successfully!\n\n⏳ Waiting for admin authorization.\n\nYou will be able to login once approved.');
-            document.getElementById('registerForm').reset();
-            showLogin();
-        })
-        .catch(function(error) {
-            console.error('❌ Register error:', error.code);
-            var msg = 'Error';
-            if (error.code === 'auth/email-already-in-use') msg = '❌ Email already in use';
-            else if (error.code === 'auth/weak-password') msg = '❌ Password too weak';
-            else if (error.code === 'auth/operation-not-allowed') msg = '❌ Email/Password signup not enabled in Firebase Console';
-            else msg = '❌ ' + error.message;
-            alert(msg);
-        })
-        .finally(function() {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-user-plus"></i> Create Account';
-        });
-    
-    return false;
-}
 
-// LOGOUT
-function handleLogout() {
-    if (confirm('Are you sure you want to logout?')) {
-        auth.signOut()
-            .then(function() {
-                localStorage.removeItem('currentUser');
-                currentUser = null;
-                currentUserData = null;
-                showAuthPage();
-            })
-            .catch(function(error) {
-                console.error('❌ Logout error:', error);
-            });
+    .sidebar {
+        transform: translateX(-100%);
     }
-}
 
-// ============================================
-// USER DATA
-// ============================================
-function loadUserData(uid) {
-    db.collection('users').doc(uid).get()
-        .then(function(doc) {
-            if (doc.exists) {
-                currentUserData = { uid: doc.id, ...doc.data() };
-                localStorage.setItem('currentUser', JSON.stringify(currentUserData));
-                updateSidebarUserInfo();
-            }
-        })
-        .catch(function(error) {
-            console.error('❌ Error loading user:', error);
-        });
-}
-
-function updateSidebarUserInfo() {
-    var el = document.getElementById('sidebarUserInfo');
-    if (el && currentUserData) {
-        el.innerHTML = '<i class="fas fa-user-circle"></i> ' + 
-            currentUserData.prenom + ' ' + currentUserData.nom + 
-            ' <small style="color:#f39c12;">(' + currentUserData.role + ')</small>';
+    .main-content {
+        margin-left: 0;
+        padding: 20px 15px;
     }
-}
 
-// ============================================
-// NAVIGATION
-// ============================================
-function navigateTo(page) {
-    // Update active menu item
-    var items = document.querySelectorAll('.nav-item');
-    items.forEach(function(item) { item.classList.remove('active'); });
-    
-    var pages = [
-        'dashboard', 'pos', 'categories', 'products',
-        'clients', 'fournisseurs', 'ventes', 'credits', 'depenses',
-        'statistiques', 'options'
-    ];
-    
-    var index = pages.indexOf(page);
-    if (index >= 0 && items[index]) {
-        items[index].classList.add('active');
-    }
-    
-    // Page titles
-    var titles = {
-        'dashboard': 'Dashboard',
-        'pos': 'Point of Sale (POS)',
-        'categories': 'Categories',
-        'products': 'Products',
-        'clients': 'Clients',
-        'fournisseurs': 'Suppliers',
-        'ventes': 'Sales',
-        'credits': 'Credits',
-        'depenses': 'Expenses',
-        'statistiques': 'Statistics',
-        'options': 'Options - User Management'
-    };
-    
-    // Page icons
-    var icons = {
-        'dashboard': 'fa-th-large',
-        'pos': 'fa-cash-register',
-        'categories': 'fa-layer-group',
-        'products': 'fa-utensils',
-        'clients': 'fa-users',
-        'fournisseurs': 'fa-truck',
-        'ventes': 'fa-shopping-cart',
-        'credits': 'fa-credit-card',
-        'depenses': 'fa-money-bill-wave',
-        'statistiques': 'fa-chart-bar',
-        'options': 'fa-cog'
-    };
-    
-    // Update page title
-    document.getElementById('pageTitle').textContent = titles[page] || 'Page';
-    
-    // Update header icon
-    var headerIcon = document.querySelector('.header-title i');
-    if (headerIcon && icons[page]) {
-        headerIcon.className = 'fas ' + icons[page];
-    }
-    
-    var content = document.getElementById('dynamicContent');
-    
-    // Load page content
-    if (page === 'dashboard') {
-        loadDashboardPage(content);
-    } else if (page === 'options') {
-        loadOptionsPage();
-    } else {
-        // Placeholder for other pages
-        content.innerHTML = `
-            <div class="content-card">
-                <div class="card-header">
-                    <h3><i class="fas ${icons[page] || 'fa-file'}"></i> ${titles[page]}</h3>
-                </div>
-                <div style="text-align: center; padding: 60px 20px; color: #94a3b8;">
-                    <i class="fas ${icons[page] || 'fa-tools'}" style="font-size: 4rem; margin-bottom: 20px; display: block;"></i>
-                    <p style="font-size: 1.3rem; font-weight: 600;">${titles[page]}</p>
-                    <p style="margin-top: 10px;">This page is under development</p>
-                </div>
-            </div>
-        `;
-    }
-}
-
-// ============================================
-// DASHBOARD PAGE
-// ============================================
-function loadDashboardPage(content) {
-    content.innerHTML = `
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-shopping-bag"></i></div>
-                <div class="stat-info">
-                    <span class="stat-label">Today's Orders</span>
-                    <span class="stat-value" id="todayOrders">0</span>
-                    <span class="stat-unit">orders</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-euro-sign"></i></div>
-                <div class="stat-info">
-                    <span class="stat-label">Today's Revenue</span>
-                    <span class="stat-value" id="todayRevenue">0.00</span>
-                    <span class="stat-unit">€</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-utensils"></i></div>
-                <div class="stat-info">
-                    <span class="stat-label">Products</span>
-                    <span class="stat-value" id="productsCount">0</span>
-                    <span class="stat-unit">items</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-users"></i></div>
-                <div class="stat-info">
-                    <span class="stat-label">Clients</span>
-                    <span class="stat-value" id="clientsCount">0</span>
-                    <span class="stat-unit">registered</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="content-card">
-            <div class="card-header">
-                <h3><i class="fas fa-clock"></i> Recent Orders</h3>
-            </div>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Order #</th>
-                            <th>Client</th>
-                            <th>Total</th>
-                            <th>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody id="recentOrdersTable">
-                        <tr>
-                            <td colspan="4" style="text-align: center;">No orders yet</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-    
-    loadDashboardStats();
-}
-
-function loadDashboardStats() {
-    // Count products
-    db.collection('products').get()
-        .then(function(snap) {
-            var el = document.getElementById('productsCount');
-            if (el) el.textContent = snap.size;
-        })
-        .catch(function() {});
-    
-    // Count clients
-    db.collection('users').where('role', '==', 'client').get()
-        .then(function(snap) {
-            var el = document.getElementById('clientsCount');
-            if (el) el.textContent = snap.size;
-        })
-        .catch(function() {});
-    
-    // Today's orders
-    var today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    db.collection('orders').where('createdAt', '>=', today).get()
-        .then(function(snap) {
-            var el = document.getElementById('todayOrders');
-            if (el) el.textContent = snap.size;
-            
-            var total = 0;
-            snap.forEach(function(doc) {
-                total += doc.data().total || 0;
-            });
-            
-            var revEl = document.getElementById('todayRevenue');
-            if (revEl) revEl.textContent = total.toFixed(2);
-        })
-        .catch(function() {});
-}
-
-// ============================================
-// OPTIONS PAGE - USER MANAGEMENT
-// ============================================
-function loadOptionsPage() {
-    var content = document.getElementById('dynamicContent');
-    
-    // Check if current user is admin
-    if (!currentUserData || currentUserData.role !== 'admin') {
-        content.innerHTML = `
-            <div class="content-card">
-                <div style="text-align: center; padding: 60px; color: #ef4444;">
-                    <i class="fas fa-lock" style="font-size: 4rem; margin-bottom: 20px;"></i>
-                    <p style="font-size: 1.3rem; font-weight: 600;">Access Denied</p>
-                    <p>Only administrators can access this page</p>
-                </div>
-            </div>
-        `;
-        return;
-    }
-    
-    content.innerHTML = `
-        <!-- Stats -->
-        <div class="stats-grid" style="margin-bottom: 20px;">
-            <div class="stat-card">
-                <div class="stat-icon" style="background: #fef3c7;">
-                    <i class="fas fa-clock" style="color: #d97706;"></i>
-                </div>
-                <div class="stat-info">
-                    <span class="stat-label">Pending</span>
-                    <span class="stat-value" id="pendingCount">0</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon" style="background: #dcfce7;">
-                    <i class="fas fa-check-circle" style="color: #16a34a;"></i>
-                </div>
-                <div class="stat-info">
-                    <span class="stat-label">Authorized</span>
-                    <span class="stat-value" id="authorizedCount">0</span>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon" style="background: #e0e7ff;">
-                    <i class="fas fa-users" style="color: #4f46e5;"></i>
-                </div>
-                <div class="stat-info">
-                    <span class="stat-label">Total Users</span>
-                    <span class="stat-value" id="totalUsers">0</span>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Users Table -->
-        <div class="content-card">
-            <div class="card-header">
-                <h3><i class="fas fa-users-cog"></i> User Authorization Management</h3>
-                <button class="btn-add" onclick="refreshUsers()">
-                    <i class="fas fa-sync-alt"></i> Refresh
-                </button>
-            </div>
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>Full Name</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Status</th>
-                            <th>Date</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="usersTableBody">
-                        <tr>
-                            <td colspan="7" style="text-align: center;">Loading...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-    
-    loadUsersList();
-}
-
-function loadUsersList() {
-    db.collection('users').orderBy('createdAt', 'desc').get()
-        .then(function(snapshot) {
-            var pending = 0, authorized = 0;
-            var tbody = document.getElementById('usersTableBody');
-            tbody.innerHTML = '';
-            
-            if (snapshot.empty) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No users found</td></tr>';
-                document.getElementById('pendingCount').textContent = '0';
-                document.getElementById('authorizedCount').textContent = '0';
-                document.getElementById('totalUsers').textContent = '0';
-                return;
-            }
-            
-            snapshot.forEach(function(doc) {
-                var user = doc.data();
-                var userId = doc.id;
-                
-                if (user.authorized === 'no') pending++;
-                else authorized++;
-                
-                var statusBadge = user.authorized === 'yes' ? 
-                    '<span class="status-success">✅ Authorized</span>' : 
-                    '<span class="status-warning">⏳ Pending</span>';
-                
-                var dateStr = user.createdAt ? 
-                    new Date(user.createdAt.seconds * 1000).toLocaleDateString('fr-FR') : 'N/A';
-                
-                // Action buttons
-                var actionBtns = '';
-                
-                if (user.authorized === 'no') {
-                    actionBtns = `
-                        <button class="btn-add" style="padding:6px 10px;font-size:0.7rem;margin-right:5px;" 
-                            onclick="authorizeUser('${userId}')" title="Authorize">
-                            <i class="fas fa-check"></i> Authorize
-                        </button>
-                        <button class="btn-delete" style="padding:6px 10px;font-size:0.7rem;" 
-                            onclick="deleteUser('${userId}')" title="Delete">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    `;
-                } else {
-                    actionBtns = `
-                        <button class="btn-edit" style="padding:6px 10px;font-size:0.7rem;margin-right:5px;color:#d97706;" 
-                            onclick="deauthorizeUser('${userId}')" title="Deauthorize">
-                            <i class="fas fa-ban"></i> Deauthorize
-                        </button>
-                        <button class="btn-delete" style="padding:6px 10px;font-size:0.7rem;" 
-                            onclick="deleteUser('${userId}')" title="Delete">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    `;
-                }
-                
-                var row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><strong>@${user.username}</strong></td>
-                    <td>${user.prenom} ${user.nom}</td>
-                    <td>${user.email}</td>
-                    <td><span style="text-transform:capitalize;">${user.role}</span></td>
-                    <td>${statusBadge}</td>
-                    <td>${dateStr}</td>
-                    <td>${actionBtns}</td>
-                `;
-                tbody.appendChild(row);
-            });
-            
-            document.getElementById('pendingCount').textContent = pending;
-            document.getElementById('authorizedCount').textContent = authorized;
-            document.getElementById('totalUsers').textContent = snapshot.size;
-        })
-        .catch(function(error) {
-            console.error('❌ Error:', error);
-            document.getElementById('usersTableBody').innerHTML = 
-                '<tr><td colspan="7" style="text-align:center;color:#ef4444;">Error loading users</td></tr>';
-        });
-}
-
-// Authorize user
-function authorizeUser(uid) {
-    if (confirm('✅ Authorize this user? They will be able to login.')) {
-        db.collection('users').doc(uid).update({
-            authorized: 'yes',
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        })
-        .then(function() {
-            alert('✅ User authorized successfully!');
-            loadUsersList();
-        })
-        .catch(function(error) {
-            alert('❌ Error: ' + error.message);
-        });
-    }
-}
-
-// Deauthorize user
-function deauthorizeUser(uid) {
-    if (confirm('⏳ Deauthorize this user? They will not be able to login.')) {
-        db.collection('users').doc(uid).update({
-            authorized: 'no',
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        })
-        .then(function() {
-            alert('✅ User deauthorized!');
-            loadUsersList();
-        })
-        .catch(function(error) {
-            alert('❌ Error: ' + error.message);
-        });
-    }
-}
-
-// Delete user
-function deleteUser(uid) {
-    if (confirm('⚠️ WARNING!\n\nAre you sure you want to DELETE this user?\n\nThis action cannot be undone!')) {
-        db.collection('users').doc(uid).delete()
-            .then(function() {
-                alert('✅ User deleted from database!');
-                loadUsersList();
-                console.log('⚠️ Note: To completely remove the user, also delete from Firebase Auth Console');
-            })
-            .catch(function(error) {
-                alert('❌ Error: ' + error.message);
-            });
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
     }
 }
 
-function refreshUsers() {
-    loadUsersList();
+/* ==========================================
+   SCROLLBAR
+   ========================================== */
+.sidebar-nav::-webkit-scrollbar,
+.main-content::-webkit-scrollbar {
+    width: 6px;
 }
 
-console.log('✅ Chicken Way - Script loaded successfully');
+.sidebar-nav::-webkit-scrollbar-track,
+.main-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(243, 156, 18, 0.3);
+    border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
