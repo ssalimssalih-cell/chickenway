@@ -1,9 +1,6 @@
 let currentUser = null;
 let currentUserData = null;
 
-// ============================================
-// INIT
-// ============================================
 window.addEventListener('DOMContentLoaded', function() {
     console.log('Chicken Way Started');
     
@@ -37,7 +34,6 @@ window.addEventListener('DOMContentLoaded', function() {
                     currentUserData = { uid: doc.id, ...userData };
                     localStorage.setItem('currentUser', JSON.stringify(currentUserData));
                     
-                    // Rediriger selon le role
                     if (userData.role === 'client') {
                         showClientPage();
                     } else {
@@ -58,9 +54,6 @@ window.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// ============================================
-// PAGES
-// ============================================
 function showAuthPage() {
     document.getElementById('dashboardPage').classList.add('hidden');
     document.getElementById('clientPage').classList.add('hidden');
@@ -99,14 +92,10 @@ function showRegister() {
     hideLoginError();
 }
 
-// ============================================
-// CONSTRUIRE LE MENU SELON LE ROLE
-// ============================================
 function buildMenu() {
     var menu = document.getElementById('navMenu');
     
     if (currentUserData.role === 'admin') {
-        // Admin : menu complet
         menu.innerHTML = `
             <li class="nav-item active" onclick="navigateTo('dashboard')"><i class="fas fa-th-large"></i> Dashboard</li>
             <li class="nav-item" onclick="navigateTo('pos')"><i class="fas fa-cash-register"></i> POS</li>
@@ -122,7 +111,6 @@ function buildMenu() {
         `;
         document.getElementById('sidebarRole').textContent = 'Admin';
     } else if (currentUserData.role === 'caissier') {
-        // Caissier : UNIQUEMENT POS
         menu.innerHTML = `
             <li class="nav-item active" onclick="navigateTo('pos')"><i class="fas fa-cash-register"></i> POS</li>
         `;
@@ -130,9 +118,6 @@ function buildMenu() {
     }
 }
 
-// ============================================
-// NAVIGATION ADMIN/CAISSIER
-// ============================================
 function navigateTo(page) {
     if (!currentUserData || currentUserData.authorized !== 'yes') {
         auth.signOut();
@@ -140,7 +125,6 @@ function navigateTo(page) {
         return;
     }
     
-    // Caissier ne peut aller QUE sur POS
     if (currentUserData.role === 'caissier' && page !== 'pos') {
         return;
     }
@@ -173,9 +157,6 @@ function navigateTo(page) {
     }
 }
 
-// ============================================
-// NAVIGATION CLIENT
-// ============================================
 function clientNavigate(page) {
     var items = document.querySelectorAll('#clientPage .nav-item');
     items.forEach(function(item) { item.classList.remove('active'); });
@@ -227,18 +208,22 @@ function clientNavigate(page) {
         content.innerHTML = `
             <div class="content-card">
                 <div class="card-header"><h3><i class="fas fa-cog"></i> Parametres du compte</h3></div>
+                <div id="profileMessage" style="display:none;padding:12px;border-radius:8px;margin-bottom:15px;"></div>
                 <form onsubmit="return updateClientProfile(event)">
-                    <div class="input-group" style="margin-bottom:15px;">
-                        <i class="fas fa-envelope"></i>
-                        <input type="email" id="clientEmail" value="${currentUserData.email}" required>
-                    </div>
+                    <p style="margin-bottom:15px;"><strong>Email actuel:</strong> ${currentUserData.email}</p>
+                    <p style="margin-bottom:15px;"><strong>Telephone actuel:</strong> ${currentUserData.telephone || 'Non defini'}</p>
+                    
                     <div class="input-group" style="margin-bottom:15px;">
                         <i class="fas fa-phone"></i>
-                        <input type="tel" id="clientTelephone" value="${currentUserData.telephone || ''}" required>
+                        <input type="tel" id="clientTelephone" value="${currentUserData.telephone || ''}" placeholder="Nouveau telephone">
                     </div>
                     <div class="input-group" style="margin-bottom:15px;">
                         <i class="fas fa-lock"></i>
-                        <input type="password" id="clientNewPassword" placeholder="Nouveau mot de passe (laisser vide pour ne pas changer)">
+                        <input type="password" id="clientNewPassword" placeholder="Nouveau mot de passe (min 6 caracteres)">
+                    </div>
+                    <div class="input-group" style="margin-bottom:15px;">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="clientConfirmPassword" placeholder="Confirmer le mot de passe">
                     </div>
                     <button type="submit" class="btn-add" style="width:100%;justify-content:center;padding:12px;">
                         <i class="fas fa-save"></i> Enregistrer les modifications
@@ -249,9 +234,6 @@ function clientNavigate(page) {
     }
 }
 
-// ============================================
-// LOGIN
-// ============================================
 function handleLogin(event) {
     event.preventDefault();
     
@@ -280,7 +262,7 @@ function handleLogin(event) {
                     
                     if (userData.authorized !== 'yes') {
                         auth.signOut();
-                        showLoginError('Compte en attente de validation par l\'administrateur.');
+                        showLoginError('Compte en attente de validation.');
                         btn.disabled = false;
                         btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Se connecter';
                         return;
@@ -289,7 +271,6 @@ function handleLogin(event) {
                     currentUserData = { uid: doc.id, ...userData };
                     localStorage.setItem('currentUser', JSON.stringify(currentUserData));
                     
-                    // Rediriger selon le role
                     if (userData.role === 'client') {
                         showClientPage();
                     } else {
@@ -331,9 +312,6 @@ function hideLoginError() {
     if (errorEl) errorEl.style.display = 'none';
 }
 
-// ============================================
-// REGISTER
-// ============================================
 function handleRegister(event) {
     event.preventDefault();
     
@@ -379,9 +357,6 @@ function handleRegister(event) {
     return false;
 }
 
-// ============================================
-// LOGOUT
-// ============================================
 function handleLogout() {
     auth.signOut().then(function() {
         localStorage.removeItem('currentUser');
@@ -391,9 +366,6 @@ function handleLogout() {
     });
 }
 
-// ============================================
-// USER INFO
-// ============================================
 function updateSidebarUserInfo() {
     var el = document.getElementById('sidebarUserInfo');
     if (el && currentUserData) {
@@ -408,17 +380,11 @@ function updateClientSidebarInfo() {
     }
 }
 
-// ============================================
-// DASHBOARD STATS
-// ============================================
 function loadDashboardStats() {
     db.collection('products').get().then(function(s) { var e = document.getElementById('productsCount'); if (e) e.textContent = s.size; }).catch(function() {});
     db.collection('users').where('role','==','client').get().then(function(s) { var e = document.getElementById('clientsCount'); if (e) e.textContent = s.size; }).catch(function() {});
 }
 
-// ============================================
-// OPTIONS PAGE
-// ============================================
 function loadOptionsPage(content) {
     if (!currentUserData || currentUserData.role !== 'admin') {
         content.innerHTML = '<div class="content-card"><p>Access Denied</p></div>';
@@ -446,16 +412,54 @@ function loadUsersList() {
     });
 }
 
-function authorizeUser(uid){if(confirm('Autoriser ?')){db.collection('users').doc(uid).update({authorized:'yes',updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).then(function(){loadUsersList();});}}
-function deauthorizeUser(uid){if(confirm('Bloquer ?')){db.collection('users').doc(uid).update({authorized:'no',updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).then(function(){loadUsersList();});}}
-function deleteUser(uid){if(confirm('Supprimer ?')){db.collection('users').doc(uid).delete().then(function(){loadUsersList();});}}
+function authorizeUser(uid){
+    if(confirm('Autoriser ?')){
+        db.collection('users').doc(uid).update({
+            authorized:'yes',
+            updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function(){
+            alert('Utilisateur autorise !');
+            loadUsersList();
+        }).catch(function(e){
+            alert('Erreur: '+e.message);
+        });
+    }
+}
+
+function deauthorizeUser(uid){
+    if(confirm('Bloquer ?')){
+        db.collection('users').doc(uid).update({
+            authorized:'no',
+            updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+        }).then(function(){
+            alert('Utilisateur bloque !');
+            loadUsersList();
+        }).catch(function(e){
+            alert('Erreur: '+e.message);
+        });
+    }
+}
+
+function deleteUser(uid){
+    if(confirm('Supprimer ?')){
+        db.collection('users').doc(uid).delete().then(function(){
+            alert('Supprime !');
+            loadUsersList();
+        }).catch(function(e){
+            alert('Erreur: '+e.message);
+        });
+    }
+}
+
 function refreshUsers(){loadUsersList();}
 
-// ============================================
-// CLIENT - HISTORIQUE
-// ============================================
 function loadClientOrders() {
-    db.collection('orders').where('clientId','==',currentUser.uid).orderBy('createdAt','desc').get()
+    if (!currentUser) return;
+    
+    db.collection('orders')
+        .where('clientId','==',currentUser.uid)
+        .orderBy('createdAt','desc')
+        .get()
         .then(function(snapshot) {
             var tbody = document.getElementById('clientOrdersTable');
             if (!tbody) return;
@@ -469,33 +473,48 @@ function loadClientOrders() {
                 var d = o.createdAt ? new Date(o.createdAt.seconds*1000).toLocaleDateString() : 'N/A';
                 tbody.innerHTML += '<tr><td>#'+doc.id.slice(-6)+'</td><td>'+d+'</td><td>'+(o.total||0).toFixed(2)+' EUR</td><td>'+o.status+'</td></tr>';
             });
+        })
+        .catch(function(e) {
+            console.log('No orders yet');
         });
 }
 
 // ============================================
-// CLIENT - UPDATE PROFILE
+// UPDATE CLIENT PROFILE - CORRIGE
 // ============================================
 function updateClientProfile(event) {
     event.preventDefault();
     
-    var newEmail = document.getElementById('clientEmail').value.trim();
     var newPhone = document.getElementById('clientTelephone').value.trim();
     var newPassword = document.getElementById('clientNewPassword').value;
+    var confirmPassword = document.getElementById('clientConfirmPassword').value;
+    var msgEl = document.getElementById('profileMessage');
     
+    // Valider mot de passe
+    if (newPassword.length > 0) {
+        if (newPassword.length < 6) {
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#fee2e2';
+            msgEl.style.color = '#991b1b';
+            msgEl.textContent = 'Le mot de passe doit contenir au moins 6 caracteres';
+            return false;
+        }
+        if (newPassword !== confirmPassword) {
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#fee2e2';
+            msgEl.style.color = '#991b1b';
+            msgEl.textContent = 'Les mots de passe ne correspondent pas';
+            return false;
+        }
+    }
+    
+    // Mettre a jour Firestore
     var updates = {
-        email: newEmail,
         telephone: newPhone,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
-    // Mettre a jour Firestore
     db.collection('users').doc(currentUser.uid).update(updates)
-        .then(function() {
-            // Mettre a jour email Auth si change
-            if (newEmail !== currentUserData.email) {
-                return currentUser.updateEmail(newEmail);
-            }
-        })
         .then(function() {
             // Mettre a jour mot de passe si fourni
             if (newPassword.length >= 6) {
@@ -503,14 +522,26 @@ function updateClientProfile(event) {
             }
         })
         .then(function() {
-            alert('Profil mis a jour !');
-            // Mettre a jour localData
-            currentUserData.email = newEmail;
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#dcfce7';
+            msgEl.style.color = '#16a34a';
+            msgEl.textContent = 'Profil mis a jour avec succes !';
+            
+            // Mettre a jour les donnees locales
             currentUserData.telephone = newPhone;
             localStorage.setItem('currentUser', JSON.stringify(currentUserData));
         })
         .catch(function(error) {
-            alert('Erreur: ' + error.message);
+            console.error('Error:', error);
+            msgEl.style.display = 'block';
+            msgEl.style.background = '#fee2e2';
+            msgEl.style.color = '#991b1b';
+            
+            if (error.code === 'auth/requires-recent-login') {
+                msgEl.textContent = 'Veuillez vous reconnecter pour changer le mot de passe.';
+            } else {
+                msgEl.textContent = 'Erreur: ' + error.message;
+            }
         });
     
     return false;
