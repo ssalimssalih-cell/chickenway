@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chicken Way</title>
+    <title>Chicken Way - Restaurant Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
@@ -13,6 +13,7 @@
     <!-- ==================== PAGE LOGIN/REGISTER ==================== -->
     <div id="authPage" class="login-wrapper">
         
+        <!-- LOGIN -->
         <div id="loginContainer" class="login-container">
             <div class="login-brand">
                 <div class="brand-icon"><img src="logo.png" alt="Logo" class="brand-logo"></div>
@@ -26,15 +27,16 @@
                     <div class="input-group"><i class="fas fa-lock"></i><input type="password" id="loginPassword" placeholder="Mot de passe" required></div>
                     <button type="submit" class="btn-login" id="loginBtn"><i class="fas fa-sign-in-alt"></i> Se connecter</button>
                 </form>
-                <p class="register-link">Pas encore de compte ? <strong onclick="showRegister()">Créer un compte</strong></p>
+                <p class="register-link">Pas encore de compte ? <strong onclick="showRegister()">Creer un compte</strong></p>
             </div>
         </div>
 
+        <!-- REGISTER -->
         <div id="registerContainer" class="register-container hidden">
             <div class="register-brand">
                 <div class="brand-icon"><img src="logo.png" alt="Logo" class="brand-logo"></div>
                 <h1>Chicken <span>Way</span></h1>
-                <p style="color:rgba(255,255,255,0.7);margin-top:10px;font-size:0.9rem;">Créez votre compte</p>
+                <p style="color:rgba(255,255,255,0.7);margin-top:10px;font-size:0.9rem;">Creez votre compte</p>
             </div>
             <div class="register-form">
                 <h2><i class="fas fa-user-plus"></i> Inscription</h2>
@@ -46,7 +48,14 @@
                     <div class="input-group"><i class="fas fa-id-badge"></i><input type="text" id="regUsername" placeholder="Nom d'utilisateur" required></div>
                     <div class="input-group"><i class="fas fa-envelope"></i><input type="email" id="regEmail" placeholder="Email" required></div>
                     <div class="input-group"><i class="fas fa-phone"></i><input type="tel" id="regTelephone" placeholder="Telephone" required></div>
-                    <div class="input-group"><i class="fas fa-user-tag"></i><select id="regRole" class="role-select" required><option value="">Selectionnez un role</option><option value="admin">Admin</option><option value="caissier">Caissier</option><option value="client">Client</option></select></div>
+                    <div class="input-group"><i class="fas fa-user-tag"></i>
+                        <select id="regRole" class="role-select" required>
+                            <option value="">Selectionnez un role</option>
+                            <option value="admin">Admin</option>
+                            <option value="caissier">Caissier</option>
+                            <option value="client">Client</option>
+                        </select>
+                    </div>
                     <div class="input-group"><i class="fas fa-lock"></i><input type="password" id="regPassword" placeholder="Mot de passe (6+)" required minlength="6"></div>
                     <button type="submit" class="btn-login" id="registerBtn"><i class="fas fa-user-plus"></i> Creer mon compte</button>
                 </form>
@@ -64,9 +73,7 @@
                 <p class="sidebar-subtitle" id="sidebarRole">Restaurant Management</p>
             </div>
             <nav class="sidebar-nav">
-                <ul id="navMenu">
-                    <!-- Menu charge dynamiquement selon le role -->
-                </ul>
+                <ul id="navMenu"></ul>
             </nav>
             <div class="sidebar-footer">
                 <div class="user-info" id="sidebarUserInfo"><i class="fas fa-user-circle"></i><span>Chargement...</span></div>
@@ -74,9 +81,7 @@
             </div>
         </aside>
         <main class="main-content" id="mainContent">
-            <div class="page-header">
-                <div class="header-title"><i class="fas fa-th-large"></i><h2 id="pageTitle">Dashboard</h2></div>
-            </div>
+            <div class="page-header"><div class="header-title"><i class="fas fa-th-large"></i><h2 id="pageTitle">Dashboard</h2></div></div>
             <div id="dynamicContent"></div>
         </main>
     </div>
@@ -91,8 +96,8 @@
             </div>
             <nav class="sidebar-nav">
                 <ul>
-                    <li class="nav-item active" onclick="clientNavigate('commander')"><i class="fas fa-shopping-basket"></i> Commander en ligne</li>
-                    <li class="nav-item" onclick="clientNavigate('historique')"><i class="fas fa-history"></i> Historique Commandes</li>
+                    <li class="nav-item active" onclick="clientNavigate('commander')"><i class="fas fa-shopping-basket"></i> Commander</li>
+                    <li class="nav-item" onclick="clientNavigate('historique')"><i class="fas fa-history"></i> Historique</li>
                     <li class="nav-item" onclick="clientNavigate('parametres')"><i class="fas fa-cog"></i> Parametres</li>
                 </ul>
             </nav>
@@ -102,13 +107,12 @@
             </div>
         </aside>
         <main class="main-content" id="clientMainContent">
-            <div class="page-header">
-                <div class="header-title"><i class="fas fa-shopping-basket"></i><h2 id="clientPageTitle">Commander en ligne</h2></div>
-            </div>
+            <div class="page-header"><div class="header-title"><i class="fas fa-shopping-basket"></i><h2 id="clientPageTitle">Commander</h2></div></div>
             <div id="clientDynamicContent"></div>
         </main>
     </div>
 
+    <!-- ==================== SCRIPTS ==================== -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
