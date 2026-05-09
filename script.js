@@ -1,19 +1,4 @@
-// ========== CONFIGURATION FIREBASE ==========
-const firebaseConfig = {
-    apiKey: "AIzaSyDBtroF6W2tgAmJeGwtSCjNGeYcG77IfsU",
-    authDomain: "chickenway2026.firebaseapp.com",
-    projectId: "chickenway2026",
-    storageBucket: "chickenway2026.firebasestorage.app",
-    messagingSenderId: "734739564037",
-    appId: "1:734739564037:web:649d31ff5d5b561ae93e6c"
-};
-
-// Initialiser Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-// ========== SWITCH TABS ==========
+// ========== SWITCH TABS (Login/Register) ==========
 function switchTab(tab) {
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
@@ -32,10 +17,11 @@ function switchTab(tab) {
     }
 }
 
-// ========== REGISTER ==========
+// ========== FONCTION REGISTER ==========
 function register(event) {
     event.preventDefault();
     
+    // Récupérer les valeurs
     const nom = document.getElementById('nom').value.trim();
     const prenom = document.getElementById('prenom').value.trim();
     const username = document.getElementById('username').value.trim();
@@ -50,12 +36,17 @@ function register(event) {
         return;
     }
 
-    // Créer utilisateur dans Firebase Auth
+    // Désactiver le bouton pendant l'inscription
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Création en cours...';
+
+    // Créer l'utilisateur dans Firebase Auth
     auth.createUserWithEmailAndPassword(email, password)
         .then((userCredential) => {
             const user = userCredential.user;
             
-            // Sauvegarder les infos dans Firestore
+            // Sauvegarder les informations dans Firestore
             return db.collection('users').doc(user.uid).set({
                 nom: nom,
                 prenom: prenom,
@@ -63,35 +54,66 @@ function register(event) {
                 email: email,
                 telephone: telephone,
                 role: role,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
         })
         .then(() => {
-            alert('✅ Compte créé avec succès !');
-            // Rediriger vers dashboard (à créer plus tard)
+            // Succès
+            alert('✅ Compte créé avec succès ! Bienvenue ' + prenom + ' !');
+            
+            // Réinitialiser le formulaire
+            document.getElementById('registerForm').reset();
+            
+            // Rediriger vers le dashboard (à créer)
             // window.location.href = 'dashboard.html';
+            
+            console.log('✅ Utilisateur enregistré dans Firestore');
         })
         .catch((error) => {
-            let message = 'Erreur lors de l\'inscription';
-            if (error.code === 'auth/email-already-in-use') {
-                message = '❌ Cet email est déjà utilisé';
-            } else if (error.code === 'auth/invalid-email') {
-                message = '❌ Email invalide';
-            } else if (error.code === 'auth/weak-password') {
-                message = '❌ Mot de passe trop faible';
+            // Gestion des erreurs
+            let message = '❌ Erreur lors de l\'inscription';
+            
+            switch(error.code) {
+                case 'auth/email-already-in-use':
+                    message = '❌ Cet email est déjà utilisé';
+                    break;
+                case 'auth/invalid-email':
+                    message = '❌ Format d\'email invalide';
+                    break;
+                case 'auth/weak-password':
+                    message = '❌ Le mot de passe est trop faible';
+                    break;
+                case 'auth/operation-not-allowed':
+                    message = '❌ Inscription par email/mot de passe non activée';
+                    break;
+                default:
+                    message = '❌ ' + error.message;
             }
+            
             alert(message);
-            console.error(error);
+            console.error('Erreur registration:', error);
+        })
+        .finally(() => {
+            // Réactiver le bouton
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Créer un compte';
         });
 }
 
-// ========== LOGIN ==========
+// ========== FONCTION LOGIN ==========
 function login(event) {
     event.preventDefault();
     
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
 
+    // Désactiver le bouton pendant la connexion
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Connexion en cours...';
+
+    // Connecter l'utilisateur
     auth.signInWithEmailAndPassword(email, password)
         .then((userCredential) => {
             const user = userCredential.user;
@@ -102,40 +124,107 @@ function login(event) {
         .then((doc) => {
             if (doc.exists) {
                 const userData = doc.data();
+                
+                // Sauvegarder les infos utilisateur dans localStorage
+                localStorage.setItem('currentUser', JSON.stringify({
+                    uid: doc.id,
+                    ...userData
+                }));
+                
                 alert('✅ Bienvenue ' + userData.prenom + ' ' + userData.nom + ' !');
                 
-                // Sauvegarder dans localStorage
-                localStorage.setItem('currentUser', JSON.stringify(userData));
+                console.log('👤 Utilisateur connecté:', userData);
                 
-                // Rediriger vers dashboard (à créer plus tard)
+                // Rediriger vers le dashboard (à créer)
                 // window.location.href = 'dashboard.html';
-                console.log('Utilisateur connecté:', userData);
             } else {
-                alert('❌ Utilisateur non trouvé dans la base de données');
+                // L'utilisateur existe dans Auth mais pas dans Firestore
+                alert('❌ Profil utilisateur non trouvé');
                 auth.signOut();
             }
         })
         .catch((error) => {
-            let message = 'Erreur de connexion';
-            if (error.code === 'auth/user-not-found') {
-                message = '❌ Aucun compte trouvé avec cet email';
-            } else if (error.code === 'auth/wrong-password') {
-                message = '❌ Mot de passe incorrect';
-            } else if (error.code === 'auth/invalid-email') {
-                message = '❌ Email invalide';
+            // Gestion des erreurs
+            let message = '❌ Erreur de connexion';
+            
+            switch(error.code) {
+                case 'auth/user-not-found':
+                    message = '❌ Aucun compte trouvé avec cet email';
+                    break;
+                case 'auth/wrong-password':
+                    message = '❌ Mot de passe incorrect';
+                    break;
+                case 'auth/invalid-email':
+                    message = '❌ Format d\'email invalide';
+                    break;
+                case 'auth/user-disabled':
+                    message = '❌ Ce compte a été désactivé';
+                    break;
+                case 'auth/too-many-requests':
+                    message = '❌ Trop de tentatives. Réessayez plus tard';
+                    break;
+                default:
+                    message = '❌ ' + error.message;
             }
+            
             alert(message);
-            console.error(error);
+            console.error('Erreur login:', error);
+        })
+        .finally(() => {
+            // Réactiver le bouton
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Se connecter';
         });
 }
 
-// ========== VÉRIFIER SI DÉJÀ CONNECTÉ ==========
+// ========== VÉRIFIER L'ÉTAT DE L'AUTHENTIFICATION ==========
 auth.onAuthStateChanged((user) => {
     if (user) {
-        console.log('Utilisateur déjà connecté:', user.email);
-        // Rediriger automatiquement vers le dashboard si déjà connecté
-        // if (window.location.pathname.includes('index.html')) {
-        //     window.location.href = 'dashboard.html';
-        // }
+        console.log('✅ Utilisateur connecté:', user.email);
+        
+        // Mettre à jour le localStorage
+        db.collection('users').doc(user.uid).get()
+            .then((doc) => {
+                if (doc.exists) {
+                    localStorage.setItem('currentUser', JSON.stringify({
+                        uid: user.uid,
+                        ...doc.data()
+                    }));
+                }
+            })
+            .catch((error) => {
+                console.error('Erreur mise à jour localStorage:', error);
+            });
+    } else {
+        console.log('👋 Aucun utilisateur connecté');
+        localStorage.removeItem('currentUser');
     }
 });
+
+// ========== FONCTIONS UTILITAIRES ==========
+
+// Fonction pour récupérer l'utilisateur courant
+function getCurrentUser() {
+    const userStr = localStorage.getItem('currentUser');
+    return userStr ? JSON.parse(userStr) : null;
+}
+
+// Fonction pour vérifier le rôle
+function checkRole(requiredRole) {
+    const user = getCurrentUser();
+    return user && user.role === requiredRole;
+}
+
+// Fonction de déconnexion
+function logout() {
+    auth.signOut()
+        .then(() => {
+            localStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+        })
+        .catch((error) => {
+            console.error('Erreur déconnexion:', error);
+        });
+}
+
+console.log('🍗 Chicken Way - Script chargé avec succès');
