@@ -1,5 +1,5 @@
 // ============================================
-// CHICKEN WAY - SCRIPT COMPLET FINAL
+// CHICKEN WAY - TOUS EN ATTENTE + SUPPRESSION
 // ============================================
 
 let currentUser = null;
@@ -49,7 +49,9 @@ function handleLogin(event) {
     var email = document.getElementById('loginEmail').value.trim();
     var password = document.getElementById('loginPassword').value;
     var btn = document.getElementById('loginBtn');
+    
     if (!email || !password) { alert('❌ Remplissez tous les champs'); return false; }
+    
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connexion...';
     
@@ -60,11 +62,13 @@ function handleLogin(event) {
         .then(function(doc) {
             if (doc.exists) {
                 var userData = doc.data();
-                if (userData.authorized === 'no') {
-                    alert('⏳ Votre compte est en attente de validation par l\'administrateur.');
+                
+                if (userData.authorized !== 'yes') {
+                    alert('⏳ Votre compte n\'a pas encore été autorisé par l\'administrateur.');
                     auth.signOut();
                     return;
                 }
+                
                 currentUserData = { uid: doc.id, ...userData };
                 localStorage.setItem('currentUser', JSON.stringify(currentUserData));
                 alert('✅ Bienvenue ' + currentUserData.prenom + ' !');
@@ -85,7 +89,7 @@ function handleLogin(event) {
     return false;
 }
 
-// REGISTER - PREMIER USER = ADMIN AUTO
+// REGISTER
 function handleRegister(event) {
     event.preventDefault();
     var nom = document.getElementById('regNom').value.trim();
@@ -105,35 +109,23 @@ function handleRegister(event) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Création...';
     
-    // Vérifier si premier utilisateur
-    db.collection('users').get()
-        .then(function(snapshot) {
-            var isFirstUser = snapshot.empty;
-            var finalRole = isFirstUser ? 'admin' : role;
-            var authorized = isFirstUser ? 'yes' : 'no';
-            
-            return auth.createUserWithEmailAndPassword(email, password)
-                .then(function(userCredential) {
-                    return db.collection('users').doc(userCredential.user.uid).set({
-                        nom: nom, prenom: prenom, username: username,
-                        email: email, telephone: telephone,
-                        role: finalRole, authorized: authorized,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                })
-                .then(function() {
-                    if (isFirstUser) {
-                        alert('✅ Compte Admin créé ! Vous pouvez vous connecter.');
-                    } else {
-                        alert('✅ Compte créé ! En attente de validation par l\'administrateur.');
-                    }
-                    document.getElementById('registerForm').reset();
-                    showLogin();
-                });
+    auth.createUserWithEmailAndPassword(email, password)
+        .then(function(userCredential) {
+            return db.collection('users').doc(userCredential.user.uid).set({
+                nom: nom, prenom: prenom, username: username,
+                email: email, telephone: telephone, role: role,
+                authorized: 'no',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        })
+        .then(function() {
+            alert('✅ Compte créé !\n\n⏳ En attente de validation par l\'administrateur.');
+            document.getElementById('registerForm').reset();
+            showLogin();
         })
         .catch(function(error) {
             var msg = 'Erreur';
-            if (error.code === 'auth/email-already-in-use') msg = '❌ Email déjà utilisé';
+            if (error.code === 'auth/email-already-in-use') msg = '❌ Cet email est déjà utilisé';
             else msg = '❌ ' + error.message;
             alert(msg);
         })
@@ -200,7 +192,9 @@ function navigateTo(page) {
     }
 }
 
-// OPTIONS - GESTION AUTORISATIONS
+// ==========================================
+// OPTIONS - AUTORISER / SUPPRIMER
+// ==========================================
 function loadOptionsPage() {
     var content = document.getElementById('dynamicContent');
     if (!currentUserData || currentUserData.role !== 'admin') {
@@ -215,10 +209,10 @@ function loadOptionsPage() {
             <div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span class="stat-label">Total</span><span class="stat-value" id="totalUsers">0</span></div></div>
         </div>
         <div class="content-card">
-            <div class="card-header"><h3><i class="fas fa-users-cog"></i> Gestion des autorisations</h3><button class="btn-add" onclick="rafraichirOptions()"><i class="fas fa-sync-alt"></i> Actualiser</button></div>
+            <div class="card-header"><h3><i class="fas fa-users-cog"></i> Gestion des utilisateurs</h3><button class="btn-add" onclick="rafraichirOptions()"><i class="fas fa-sync-alt"></i> Actualiser</button></div>
             <div class="table-container">
                 <table class="data-table">
-                    <thead><tr><th>Username</th><th>Nom complet</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Date</th><th>Action</th></tr></thead>
+                    <thead><tr><th>Username</th><th>Nom complet</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Date</th><th>Actions</th></tr></thead>
                     <tbody id="usersTableBody"><tr><td colspan="7" style="text-align:center;">Chargement...</td></tr></tbody>
                 </table>
             </div>
@@ -236,60 +230,129 @@ function loadUsersList() {
             
             if (snapshot.empty) {
                 tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">Aucun utilisateur</td></tr>';
+                document.getElementById('pendingCount').textContent = '0';
+                document.getElementById('authorizedCount').textContent = '0';
+                document.getElementById('totalUsers').textContent = '0';
                 return;
             }
             
             snapshot.forEach(function(doc) {
                 var user = doc.data();
+                var userId = doc.id;
+                
                 if (user.authorized === 'no') pending++;
                 else authorized++;
                 
-                var statusBadge = user.authorized === 'yes' ? '<span class="status-success">✅ Autorisé</span>' : '<span class="status-warning">⏳ En attente</span>';
-                var dateStr = user.createdAt ? new Date(user.createdAt.seconds * 1000).toLocaleDateString('fr-FR') : 'N/A';
-                var actionBtn = '';
+                var statusBadge = user.authorized === 'yes' ? 
+                    '<span class="status-success">✅ Autorisé</span>' : 
+                    '<span class="status-warning">⏳ En attente</span>';
+                
+                var dateStr = user.createdAt ? 
+                    new Date(user.createdAt.seconds * 1000).toLocaleDateString('fr-FR') : 'N/A';
+                
+                // Boutons d'action
+                var actionBtns = '';
                 
                 if (user.authorized === 'no') {
-                    actionBtn = `
-                        <button class="btn-add" style="padding:6px 12px;font-size:0.75rem;" onclick="autoriserUser('${doc.id}')">
-                            <i class="fas fa-check"></i> Autoriser
+                    actionBtns = `
+                        <button class="btn-add" style="padding:6px 10px;font-size:0.7rem;margin-right:5px;" onclick="autoriserUser('${userId}')" title="Autoriser">
+                            <i class="fas fa-check"></i> 
+                        </button>
+                        <button class="btn-delete" style="padding:6px 10px;font-size:0.7rem;" onclick="supprimerUser('${userId}')" title="Supprimer">
+                            <i class="fas fa-trash"></i> 
                         </button>
                     `;
                 } else {
-                    actionBtn = `
-                        <button class="btn-delete" onclick="desactiverUser('${doc.id}')" title="Désactiver">
-                            <i class="fas fa-ban"></i>
+                    actionBtns = `
+                        <button class="btn-edit" style="padding:6px 10px;font-size:0.7rem;margin-right:5px;color:#d97706;" onclick="desactiverUser('${userId}')" title="Désactiver">
+                            <i class="fas fa-ban"></i> 
+                        </button>
+                        <button class="btn-delete" style="padding:6px 10px;font-size:0.7rem;" onclick="supprimerUser('${userId}')" title="Supprimer">
+                            <i class="fas fa-trash"></i> 
                         </button>
                     `;
                 }
                 
                 var row = document.createElement('tr');
-                row.innerHTML = `<td>@${user.username}</td><td>${user.prenom} ${user.nom}</td><td>${user.email}</td><td>${user.role}</td><td>${statusBadge}</td><td>${dateStr}</td><td>${actionBtn}</td>`;
+                row.innerHTML = `
+                    <td><strong>@${user.username}</strong></td>
+                    <td>${user.prenom} ${user.nom}</td>
+                    <td>${user.email}</td>
+                    <td><span style="text-transform:capitalize;">${user.role}</span></td>
+                    <td>${statusBadge}</td>
+                    <td>${dateStr}</td>
+                    <td>${actionBtns}</td>
+                `;
                 tbody.appendChild(row);
             });
             
             document.getElementById('pendingCount').textContent = pending;
             document.getElementById('authorizedCount').textContent = authorized;
             document.getElementById('totalUsers').textContent = snapshot.size;
+        })
+        .catch(function(error) {
+            console.error('❌ Erreur:', error);
+            document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#ef4444;">Erreur de chargement</td></tr>';
         });
 }
 
+// AUTORISER
 function autoriserUser(uid) {
-    if (confirm('Autoriser cet utilisateur ?')) {
-        db.collection('users').doc(uid).update({ authorized: 'yes', updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
-            .then(function() { alert('✅ Utilisateur autorisé !'); loadUsersList(); })
-            .catch(function(e) { alert('❌ Erreur: ' + e.message); });
+    if (confirm('✅ Autoriser cet utilisateur à se connecter ?')) {
+        db.collection('users').doc(uid).update({ 
+            authorized: 'yes', 
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+        })
+        .then(function() { 
+            alert('✅ Utilisateur autorisé avec succès !'); 
+            loadUsersList(); 
+        })
+        .catch(function(e) { 
+            alert('❌ Erreur: ' + e.message); 
+        });
     }
 }
 
+// DÉSACTIVER
 function desactiverUser(uid) {
-    if (confirm('Désactiver cet utilisateur ?')) {
-        db.collection('users').doc(uid).update({ authorized: 'no', updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
-            .then(function() { alert('✅ Utilisateur désactivé !'); loadUsersList(); })
-            .catch(function(e) { alert('❌ Erreur: ' + e.message); });
+    if (confirm('⏳ Désactiver cet utilisateur ? Il ne pourra plus se connecter.')) {
+        db.collection('users').doc(uid).update({ 
+            authorized: 'no', 
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp() 
+        })
+        .then(function() { 
+            alert('✅ Utilisateur désactivé !'); 
+            loadUsersList(); 
+        })
+        .catch(function(e) { 
+            alert('❌ Erreur: ' + e.message); 
+        });
     }
 }
 
-function rafraichirOptions() { loadUsersList(); }
+// SUPPRIMER
+function supprimerUser(uid) {
+    if (confirm('⚠️ ATTENTION !\n\nVoulez-vous vraiment SUPPRIMER cet utilisateur ?\n\nCette action est irréversible !')) {
+        
+        // Supprimer de Firestore d'abord
+        db.collection('users').doc(uid).delete()
+            .then(function() {
+                alert('✅ Utilisateur supprimé de la base de données.');
+                loadUsersList();
+                
+                // Note: Pour supprimer aussi de Firebase Auth, il faut une Cloud Function
+                // car le client ne peut pas supprimer d'autres utilisateurs
+                console.log('⚠️ Pour supprimer complètement, utilisez la console Firebase Auth');
+            })
+            .catch(function(e) { 
+                alert('❌ Erreur: ' + e.message); 
+            });
+    }
+}
+
+function rafraichirOptions() { 
+    loadUsersList(); 
+}
 
 // STATS
 function loadDashboardStats() {
