@@ -170,21 +170,6 @@
                     <li class="nav-item" onclick="navigateTo('fournisseurs')">
                         <i class="fas fa-truck"></i> Fournisseurs
                     </li>
-                    <li class="nav-item" onclick="navigateTo('stock')">
-                        <i class="fas fa-boxes"></i> Stock
-                    </li>
-                    <li class="nav-item" onclick="navigateTo('employes')">
-                        <i class="fas fa-user-tie"></i> Employés
-                    </li>
-                    <li class="nav-item" onclick="navigateTo('tables')">
-                        <i class="fas fa-chair"></i> Tables
-                    </li>
-                    <li class="nav-item" onclick="navigateTo('reservations')">
-                        <i class="fas fa-calendar-check"></i> Réservations
-                    </li>
-                    <li class="nav-item" onclick="navigateTo('livraisons')">
-                        <i class="fas fa-motorcycle"></i> Livraisons
-                    </li>
                     <li class="nav-item" onclick="navigateTo('ventes')">
                         <i class="fas fa-shopping-cart"></i> Ventes
                     </li>
@@ -194,20 +179,11 @@
                     <li class="nav-item" onclick="navigateTo('depenses')">
                         <i class="fas fa-money-bill-wave"></i> Dépenses
                     </li>
-                    <li class="nav-item" onclick="navigateTo('factures')">
-                        <i class="fas fa-file-invoice"></i> Factures
-                    </li>
-                    <li class="nav-item" onclick="navigateTo('promotions')">
-                        <i class="fas fa-tags"></i> Promotions
-                    </li>
-                    <li class="nav-item" onclick="navigateTo('menu')">
-                        <i class="fas fa-book-open"></i> Menu
-                    </li>
                     <li class="nav-item" onclick="navigateTo('statistiques')">
                         <i class="fas fa-chart-bar"></i> Statistiques
                     </li>
-                    <li class="nav-item" onclick="navigateTo('parametres')">
-                        <i class="fas fa-cog"></i> Paramètres
+                    <li class="nav-item" onclick="navigateTo('options')">
+                        <i class="fas fa-cog"></i> Options
                     </li>
                 </ul>
             </nav>
@@ -232,9 +208,22 @@
             </div>
             
             <div id="dynamicContent">
-                <!-- Contenu chargé dynamiquement -->
+                <!-- Contenu dynamique -->
             </div>
         </main>
+    </div>
+
+    <!-- MODAL DÉTAILS -->
+    <div id="detailModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Détails</h3>
+                <span class="modal-close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Contenu dynamique -->
+            </div>
+        </div>
     </div>
 
     <!-- FIREBASE SDK -->
