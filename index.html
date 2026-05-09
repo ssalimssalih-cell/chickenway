@@ -16,7 +16,7 @@
 </head>
 <body>
     
-    <!-- PAGE LOGIN/REGISTER -->
+    <!-- ==================== PAGE LOGIN/REGISTER ==================== -->
     <div id="authPage" class="login-wrapper">
         
         <!-- LOGIN -->
@@ -32,9 +32,7 @@
             </div>
             
             <div class="login-form">
-                <h2 style="color: white; margin-bottom: 20px; text-align: center;">
-                    <i class="fas fa-sign-in-alt"></i> Connexion
-                </h2>
+                <h2><i class="fas fa-sign-in-alt"></i> Connexion</h2>
                 
                 <form id="loginForm" onsubmit="return handleLogin(event)">
                     <div class="input-group">
@@ -54,9 +52,7 @@
                 
                 <p class="register-link">
                     Pas encore de compte ? 
-                    <strong onclick="showRegister()" style="cursor: pointer;">
-                        Créer un compte
-                    </strong>
+                    <strong onclick="showRegister()">Créer un compte</strong>
                 </p>
             </div>
         </div>
@@ -74,9 +70,7 @@
             </div>
             
             <div class="register-form">
-                <h2 style="color: white; margin-bottom: 20px; text-align: center;">
-                    <i class="fas fa-user-plus"></i> Inscription
-                </h2>
+                <h2><i class="fas fa-user-plus"></i> Inscription</h2>
                 
                 <form id="registerForm" onsubmit="return handleRegister(event)">
                     <div style="display: flex; gap: 10px;">
@@ -107,7 +101,7 @@
                     
                     <div class="input-group">
                         <i class="fas fa-user-tag"></i>
-                        <select id="regRole" class="role-select" required style="width: 100%;">
+                        <select id="regRole" class="role-select" required>
                             <option value="">Sélectionnez un rôle</option>
                             <option value="admin">Admin</option>
                             <option value="caissier">Caissier</option>
@@ -127,15 +121,13 @@
                 
                 <p class="register-link">
                     Déjà un compte ? 
-                    <strong onclick="showLogin()" style="cursor: pointer;">
-                        Se connecter
-                    </strong>
+                    <strong onclick="showLogin()">Se connecter</strong>
                 </p>
             </div>
         </div>
     </div>
 
-    <!-- DASHBOARD -->
+    <!-- ==================== DASHBOARD ==================== -->
     <div id="dashboardPage" class="dashboard hidden">
         
         <aside class="sidebar">
@@ -190,13 +182,13 @@
                     <i class="fas fa-user-circle"></i>
                     <span>Chargement...</span>
                 </div>
-                <button class="logout-item nav-item" onclick="handleLogout()" style="width: 100%; border: none; margin-top: 10px;">
+                <button class="logout-item nav-item" onclick="handleLogout()" style="width: 100%; border: none; margin-top: 10px; background: none; text-align: left;">
                     <i class="fas fa-sign-out-alt"></i> Déconnexion
                 </button>
             </div>
         </aside>
         
-        <main class="main-content">
+        <main class="main-content" id="mainContent">
             <div class="page-header">
                 <div class="header-title">
                     <i class="fas fa-th-large"></i>
@@ -205,7 +197,7 @@
             </div>
             
             <div id="dynamicContent">
-                <!-- Contenu dynamique -->
+                <!-- Contenu dynamique chargé par JavaScript -->
             </div>
         </main>
     </div>
@@ -215,10 +207,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     
-    <!-- CONFIG -->
+    <!-- SCRIPTS -->
     <script src="firebase-config.js"></script>
-    
-    <!-- SCRIPT -->
     <script src="script.js"></script>
 </body>
 </html>
