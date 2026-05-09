@@ -2,29 +2,28 @@ let currentUser = null;
 let currentUserData = null;
 
 window.addEventListener('DOMContentLoaded', function() {
-    console.log('Chicken Way - Started');
+    console.log('Chicken Way Started');
     
     document.getElementById('dashboardPage').classList.add('hidden');
     
     auth.onAuthStateChanged(function(user) {
         if (user) {
-            console.log('Checking authorization for:', user.email);
+            console.log('User connected:', user.email);
             currentUser = user;
             
             db.collection('users').doc(user.uid).get()
                 .then(function(doc) {
                     if (!doc.exists) {
-                        alert('Account error. Please contact admin.');
+                        alert('Account error');
                         auth.signOut();
                         showAuthPage();
                         return;
                     }
                     
                     var userData = doc.data();
-                    console.log('Authorized status:', userData.authorized);
                     
                     if (userData.authorized !== 'yes') {
-                        console.log('NOT AUTHORIZED - Staying on login page');
+                        console.log('Not authorized');
                         auth.signOut();
                         showAuthPage();
                         setTimeout(function() {
@@ -33,18 +32,18 @@ window.addEventListener('DOMContentLoaded', function() {
                         return;
                     }
                     
-                    console.log('AUTHORIZED - Loading dashboard');
+                    console.log('Authorized');
                     currentUserData = { uid: doc.id, ...userData };
                     localStorage.setItem('currentUser', JSON.stringify(currentUserData));
                     showDashboard();
                 })
                 .catch(function(error) {
-                    console.error('Error checking authorization:', error);
+                    console.error('Error:', error);
                     auth.signOut();
                     showAuthPage();
                 });
         } else {
-            console.log('No user - Showing login page');
+            console.log('No user');
             currentUser = null;
             currentUserData = null;
             localStorage.removeItem('currentUser');
@@ -99,13 +98,12 @@ function handleLogin(event) {
     }
     
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
     hideLoginError();
     
     auth.signInWithEmailAndPassword(email, password)
         .then(function(userCredential) {
             var user = userCredential.user;
-            console.log('Auth OK, checking Firestore...');
             
             return db.collection('users').doc(user.uid).get()
                 .then(function(doc) {
@@ -117,7 +115,7 @@ function handleLogin(event) {
                     
                     if (userData.authorized !== 'yes') {
                         auth.signOut();
-                        showLoginError('Your account is pending admin approval. You will be able to login once an administrator authorizes your account.');
+                        showLoginError('Your account is pending admin approval.');
                         btn.disabled = false;
                         btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
                         return;
@@ -132,15 +130,13 @@ function handleLogin(event) {
             console.error('Error:', error.code);
             
             if (error.message === 'NO_DOCUMENT') {
-                showLoginError('Account error. Contact admin.');
+                showLoginError('Account error');
             } else if (error.code === 'auth/user-not-found') {
-                showLoginError('No account found with this email.');
+                showLoginError('Email not found');
             } else if (error.code === 'auth/wrong-password') {
-                showLoginError('Incorrect password.');
+                showLoginError('Wrong password');
             } else if (error.code === 'auth/too-many-requests') {
-                showLoginError('Too many attempts. Try again later.');
-            } else if (error.code === 'auth/invalid-email') {
-                showLoginError('Invalid email format.');
+                showLoginError('Too many attempts');
             } else {
                 showLoginError(error.message);
             }
@@ -163,13 +159,22 @@ function showLoginError(message) {
     if (!errorEl) {
         errorEl = document.createElement('div');
         errorEl.id = 'loginError';
-        errorEl.style.cssText = 'background:#fee2e2;color:#991b1b;padding:15px;border-radius:12px;margin-bottom:20px;font-size:0.9rem;font-weight:500;text-align:center;border:2px solid #fecaca;line-height:1.5;';
+        errorEl.style.background = '#fee2e2';
+        errorEl.style.color = '#991b1b';
+        errorEl.style.padding = '15px';
+        errorEl.style.borderRadius = '12px';
+        errorEl.style.marginBottom = '20px';
+        errorEl.style.fontSize = '0.9rem';
+        errorEl.style.fontWeight = '500';
+        errorEl.style.textAlign = 'center';
+        errorEl.style.border = '2px solid #fecaca';
+        errorEl.style.lineHeight = '1.5';
         
         var form = document.getElementById('loginForm');
         form.parentNode.insertBefore(errorEl, form);
     }
     
-    errorEl.innerHTML = '❌ ' + message;
+    errorEl.innerHTML = 'X ' + message;
     errorEl.style.display = 'block';
 }
 
@@ -198,7 +203,7 @@ function handleRegister(event) {
     }
     
     if (password.length < 6) {
-        alert('Password: minimum 6 characters');
+        alert('Password minimum 6 characters');
         return false;
     }
     
@@ -221,7 +226,7 @@ function handleRegister(event) {
             });
         })
         .then(function() {
-            alert('Account created! Waiting for admin authorization.');
+            alert('Account created! Waiting for admin approval.');
             document.getElementById('registerForm').reset();
             showLogin();
         })
@@ -293,7 +298,7 @@ function navigateTo(page) {
     
     var titles = {
         'dashboard': 'Dashboard',
-        'pos': 'Point of Sale',
+        'pos': 'POS',
         'categories': 'Categories',
         'products': 'Products',
         'clients': 'Clients',
@@ -326,12 +331,12 @@ function navigateTo(page) {
     var content = document.getElementById('dynamicContent');
     
     if (page === 'dashboard') {
-        content.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-bag"></i></div><div class="stat-info"><span class="stat-label">Orders</span><span class="stat-value" id="todayOrders">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-euro-sign"></i></div><div class="stat-info"><span class="stat-label">Revenue</span><span class="stat-value" id="todayRevenue">0.00</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-utensils"></i></div><div class="stat-info"><span class="stat-label">Products</span><span class="stat-value" id="productsCount">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-info"><span class="stat-label">Clients</span><span class="stat-value" id="clientsCount">0</span></div></div></div><div class="content-card"><div class="card-header"><h3><i class="fas fa-clock"></i> Recent Orders</h3></div><table class="data-table"><thead><tr><th>N°</th><th>Client</th><th>Total</th><th>Date</th></tr></thead><tbody id="recentOrdersTable"><tr><td colspan="4" style="text-align:center;">No orders</td></tr></tbody></table></div>';
+        content.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-bag"></i></div><div class="stat-info"><span class="stat-label">Orders</span><span class="stat-value" id="todayOrders">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-euro-sign"></i></div><div class="stat-info"><span class="stat-label">Revenue</span><span class="stat-value" id="todayRevenue">0.00</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-utensils"></i></div><div class="stat-info"><span class="stat-label">Products</span><span class="stat-value" id="productsCount">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-info"><span class="stat-label">Clients</span><span class="stat-value" id="clientsCount">0</span></div></div></div><div class="content-card"><div class="card-header"><h3>Recent Orders</h3></div><table class="data-table"><thead><tr><th>N</th><th>Client</th><th>Total</th><th>Date</th></tr></thead><tbody id="recentOrdersTable"><tr><td colspan="4">No orders</td></tr></tbody></table></div>';
         loadDashboardStats();
     } else if (page === 'options') {
         loadOptionsPage();
     } else {
-        content.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas ' + (icons[page] || 'fa-file') + '"></i> ' + (titles[page] || 'Page') + '</h3></div><div style="text-align:center;padding:60px;color:#94a3b8;"><i class="fas ' + (icons[page] || 'fa-tools') + '" style="font-size:4rem;margin-bottom:20px;display:block;"></i><p style="font-size:1.3rem;font-weight:600;">' + (titles[page] || 'Page') + '</p><p>Under development</p></div></div>';
+        content.innerHTML = '<div class="content-card"><div class="card-header"><h3>' + titles[page] + '</h3></div><div style="text-align:center;padding:60px;"><p>' + titles[page] + ' - Under development</p></div></div>';
     }
 }
 
@@ -349,10 +354,10 @@ function loadDashboardStats() {
 function loadOptionsPage() {
     var content = document.getElementById('dynamicContent');
     if (!currentUserData || currentUserData.role !== 'admin') {
-        content.innerHTML = '<div class="content-card"><div style="text-align:center;padding:60px;color:#ef4444;"><i class="fas fa-lock" style="font-size:4rem;margin-bottom:20px;"></i><p style="font-size:1.3rem;font-weight:600;">Access Denied</p></div></div>';
+        content.innerHTML = '<div class="content-card"><div style="text-align:center;padding:60px;"><p>Access Denied</p></div></div>';
         return;
     }
-    content.innerHTML = '<div class="stats-grid" style="margin-bottom:20px;"><div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-clock" style="color:#d97706;"></i></div><div class="stat-info"><span class="stat-label">Pending</span><span class="stat-value" id="pendingCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div><div class="stat-info"><span class="stat-label">Authorized</span><span class="stat-value" id="authorizedCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span class="stat-label">Total</span><span class="stat-value" id="totalUsers">0</span></div></div></div><div class="content-card"><div class="card-header"><h3><i class="fas fa-users-cog"></i> User Management</h3><button class="btn-add" onclick="refreshUsers()"><i class="fas fa-sync-alt"></i> Refresh</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div></div>';
+    content.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-info"><span class="stat-label">Pending</span><span class="stat-value" id="pendingCount">0</span></div></div><div class="stat-card"><div class="stat-info"><span class="stat-label">Authorized</span><span class="stat-value" id="authorizedCount">0</span></div></div><div class="stat-card"><div class="stat-info"><span class="stat-label">Total</span><span class="stat-value" id="totalUsers">0</span></div></div></div><div class="content-card"><div class="card-header"><h3>User Management</h3><button class="btn-add" onclick="refreshUsers()">Refresh</button></div><table class="data-table"><thead><tr><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>';
     loadUsersList();
 }
 
@@ -364,11 +369,11 @@ function loadUsersList() {
         snapshot.forEach(function(doc){
             var u=doc.data(), id=doc.id;
             if(u.authorized==='no')pending++;else authorized++;
-            var badge=u.authorized==='yes'?'<span class="status-success">Authorized</span>':'<span class="status-warning">Pending</span>';
-            var d=u.createdAt?new Date(u.createdAt.seconds*1000).toLocaleDateString('fr-FR'):'N/A';
-            var btn=u.authorized==='no'?'<button class="btn-add" style="padding:6px 10px;font-size:0.7rem;margin-right:5px;" onclick="authorizeUser(\''+id+'\')"><i class="fas fa-check"></i> Authorize</button><button class="btn-delete" style="padding:6px 10px;font-size:0.7rem;" onclick="deleteUser(\''+id+'\')"><i class="fas fa-trash"></i> Delete</button>':'<button class="btn-edit" style="padding:6px 10px;font-size:0.7rem;margin-right:5px;color:#d97706;" onclick="deauthorizeUser(\''+id+'\')"><i class="fas fa-ban"></i> Deauthorize</button><button class="btn-delete" style="padding:6px 10px;font-size:0.7rem;" onclick="deleteUser(\''+id+'\')"><i class="fas fa-trash"></i> Delete</button>';
+            var badge=u.authorized==='yes'?'Authorized':'Pending';
+            var d=u.createdAt?new Date(u.createdAt.seconds*1000).toLocaleDateString():'N/A';
+            var btn=u.authorized==='no'?'<button onclick="authorizeUser(\''+id+'\')">Authorize</button> <button onclick="deleteUser(\''+id+'\')">Delete</button>':'<button onclick="deauthorizeUser(\''+id+'\')">Deauthorize</button> <button onclick="deleteUser(\''+id+'\')">Delete</button>';
             var r=document.createElement('tr');
-            r.innerHTML='<td><strong>@'+u.username+'</strong></td><td>'+u.prenom+' '+u.nom+'</td><td>'+u.email+'</td><td>'+u.role+'</td><td>'+badge+'</td><td>'+d+'</td><td>'+btn+'</td>';
+            r.innerHTML='<td>@'+u.username+'</td><td>'+u.prenom+' '+u.nom+'</td><td>'+u.email+'</td><td>'+u.role+'</td><td>'+badge+'</td><td>'+d+'</td><td>'+btn+'</td>';
             tbody.appendChild(r);
         });
         document.getElementById('pendingCount').textContent=pending;
@@ -377,9 +382,22 @@ function loadUsersList() {
     });
 }
 
-function authorizeUser(uid){if(confirm('Authorize?')){db.collection('users').doc(uid).update({authorized:'yes',updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).then(function(){alert('Done!');loadUsersList();});}}
-function deauthorizeUser(uid){if(confirm('Deauthorize?')){db.collection('users').doc(uid).update({authorized:'no',updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).then(function(){alert('Done!');loadUsersList();});}}
-function deleteUser(uid){if(confirm('DELETE?')){db.collection('users').doc(uid).delete().then(function(){alert('Deleted!');loadUsersList();});}}
-function refreshUsers(){loadUsersList();}
+function authorizeUser(uid){
+    if(confirm('Authorize this user?')){
+        db.collection('users').doc(uid).update({authorized:'yes',updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).then(function(){loadUsersList();});
+    }
+}
 
-console.log('Ready');
+function deauthorizeUser(uid){
+    if(confirm('Deauthorize this user?')){
+        db.collection('users').doc(uid).update({authorized:'no',updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).then(function(){loadUsersList();});
+    }
+}
+
+function deleteUser(uid){
+    if(confirm('Delete this user permanently?')){
+        db.collection('users').doc(uid).delete().then(function(){loadUsersList();});
+    }
+}
+
+function refreshUsers(){loadUsersList();}
