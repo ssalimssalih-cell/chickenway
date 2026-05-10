@@ -260,20 +260,42 @@ function closeModal() {
 
 // ==================== UPLOAD IMAGE ====================
 async function uploadImage(file, path) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function(resolve) {
         if (!file) { resolve(null); return; }
-        var storageRef = firebase.storage().ref(path + '/' + Date.now() + '_' + file.name);
-        var uploadTask = storageRef.put(file);
-        uploadTask.on('state_changed',
-            null,
-            function(error) { reject(error); },
-            function() {
-                uploadTask.snapshot.ref.getDownloadURL().then(function(url) {
-                    resolve(url);
-                });
-            }
-        );
+        
+        // Essayer Firebase Storage d'abord
+        try {
+            var storageRef = firebase.storage().ref(path + '/' + Date.now() + '_' + file.name);
+            var uploadTask = storageRef.put(file);
+            
+            uploadTask.on('state_changed',
+                null,
+                function(error) {
+                    console.log('Storage failed, using base64 fallback');
+                    convertToBase64(file, resolve);
+                },
+                function() {
+                    uploadTask.snapshot.ref.getDownloadURL().then(function(url) {
+                        resolve(url);
+                    }).catch(function() {
+                        convertToBase64(file, resolve);
+                    });
+                }
+            );
+        } catch(e) {
+            console.log('Storage not available, using base64');
+            convertToBase64(file, resolve);
+        }
     });
+}
+
+// Fallback: convertir l'image en base64
+function convertToBase64(file, callback) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        callback(e.target.result);
+    };
+    reader.readAsDataURL(file);
 }
 
 function previewImage(input, previewId) {
