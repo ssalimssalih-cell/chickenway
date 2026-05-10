@@ -259,34 +259,63 @@ function closeModal() {
 }
 
 // ==================== UPLOAD IMAGE ====================
+// ==================== UPLOAD IMAGE (FALLBACK INCLUS) ====================
 async function uploadImage(file, path) {
     return new Promise(function(resolve) {
-        if (!file) { resolve(null); return; }
+        if (!file) { 
+            resolve(null); 
+            return; 
+        }
         
-        // Essayer Firebase Storage d'abord
+        // Vérifier si Firebase Storage est accessible
         try {
             var storageRef = firebase.storage().ref(path + '/' + Date.now() + '_' + file.name);
             var uploadTask = storageRef.put(file);
             
+            // Timeout de 10 secondes - si pas de réponse, fallback base64
+            var timeout = setTimeout(function() {
+                console.log('Storage timeout - using base64');
+                uploadTask.cancel();
+                convertToBase64(file, resolve);
+            }, 10000);
+            
             uploadTask.on('state_changed',
                 null,
                 function(error) {
-                    console.log('Storage failed, using base64 fallback');
+                    clearTimeout(timeout);
+                    console.log('Storage upload failed, using base64 fallback:', error.code);
                     convertToBase64(file, resolve);
                 },
                 function() {
+                    clearTimeout(timeout);
                     uploadTask.snapshot.ref.getDownloadURL().then(function(url) {
+                        console.log('Upload success:', url);
                         resolve(url);
-                    }).catch(function() {
+                    }).catch(function(error) {
+                        console.log('Get URL failed, using base64:', error);
                         convertToBase64(file, resolve);
                     });
                 }
             );
         } catch(e) {
-            console.log('Storage not available, using base64');
+            console.log('Storage error, using base64:', e);
             convertToBase64(file, resolve);
         }
     });
+}
+
+// Convertir l'image en base64 pour stockage dans Firestore
+function convertToBase64(file, callback) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        console.log('Image converted to base64');
+        callback(e.target.result);
+    };
+    reader.onerror = function(e) {
+        console.error('Base64 conversion failed');
+        callback(null);
+    };
+    reader.readAsDataURL(file);
 }
 
 // Fallback: convertir l'image en base64
