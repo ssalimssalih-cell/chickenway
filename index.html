@@ -50,23 +50,19 @@
     </div>
 
     <div id="dashboardPage" class="dashboard hidden">
-        <aside class="sidebar" id="sidebarMenu">
+        <aside class="sidebar">
             <div class="sidebar-header"><div class="sidebar-logo"><img src="logo.png" alt="Logo" class="sidebar-logo-img"></div><h2>Chicken <span>Way</span></h2><p class="sidebar-subtitle" id="sidebarRole">Management</p></div>
             <nav class="sidebar-nav"><ul id="navMenu"></ul></nav>
             <div class="sidebar-footer"><div class="user-info" id="sidebarUserInfo"><i class="fas fa-user-circle"></i><span>...</span></div><button class="logout-item nav-item" onclick="handleLogout()" style="width:100%;border:none;margin-top:10px;background:none;text-align:left;cursor:pointer;"><i class="fas fa-sign-out-alt"></i> Deconnexion</button></div>
         </aside>
-        <main class="main-content" id="mainContent">
-            <div class="page-header"><div class="header-title"><i class="fas fa-th-large"></i><h2 id="pageTitle">Dashboard</h2></div></div>
-            <div id="dynamicContent"></div>
-        </main>
+        <main class="main-content"><div class="page-header"><div class="header-title"><i class="fas fa-th-large"></i><h2 id="pageTitle">Dashboard</h2></div></div><div id="dynamicContent"></div></main>
     </div>
 
     <div id="clientPage" class="dashboard hidden">
         <aside class="sidebar"><div class="sidebar-header"><div class="sidebar-logo"><img src="logo.png" alt="Logo" class="sidebar-logo-img"></div><h2>Chicken <span>Way</span></h2><p class="sidebar-subtitle">Espace Client</p></div><nav class="sidebar-nav"><ul><li class="nav-item active" onclick="clientNavigate('commander')"><i class="fas fa-shopping-basket"></i> Commander</li><li class="nav-item" onclick="clientNavigate('historique')"><i class="fas fa-history"></i> Historique</li><li class="nav-item" onclick="clientNavigate('parametres')"><i class="fas fa-cog"></i> Parametres</li></ul></nav><div class="sidebar-footer"><div class="user-info" id="clientSidebarInfo"><i class="fas fa-user-circle"></i><span>...</span></div><button class="logout-item nav-item" onclick="handleLogout()" style="width:100%;border:none;margin-top:10px;background:none;text-align:left;cursor:pointer;"><i class="fas fa-sign-out-alt"></i> Deconnexion</button></div></aside>
-        <main class="main-content" id="clientMainContent"><div class="page-header"><div class="header-title"><i class="fas fa-shopping-basket"></i><h2 id="clientPageTitle">Commander</h2></div></div><div id="clientDynamicContent"></div></main>
+        <main class="main-content"><div class="page-header"><div class="header-title"><i class="fas fa-shopping-basket"></i><h2 id="clientPageTitle">Commander</h2></div></div><div id="clientDynamicContent"></div></main>
     </div>
 
-    <!-- MODAL -->
     <div id="modalOverlay" class="modal hidden" onclick="closeModal()">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header"><h3 id="modalTitle">Formulaire</h3><span class="modal-close" onclick="closeModal()">&times;</span></div>
