@@ -58,7 +58,9 @@
 
     <!-- PAGE DASHBOARD ADMIN/CAISSIER -->
     <div id="dashboardPage" class="dashboard hidden">
-        <aside class="sidebar">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo"><img src="logo.png" alt="Logo" class="sidebar-logo-img"></div>
                 <h2>Chicken <span>Way</span></h2>
@@ -82,7 +84,9 @@
 
     <!-- PAGE CLIENT -->
     <div id="clientPage" class="dashboard hidden">
-        <aside class="sidebar">
+        <button class="mobile-menu-btn" onclick="toggleClientSidebar()"><i class="fas fa-bars"></i></button>
+        <div class="sidebar-overlay" id="clientSidebarOverlay" onclick="toggleClientSidebar()"></div>
+        <aside class="sidebar" id="clientSidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo"><img src="logo.png" alt="Logo" class="sidebar-logo-img"></div>
                 <h2>Chicken <span>Way</span></h2>
@@ -128,32 +132,6 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script src="script.js"></script>
-    
-    <script>
-        // Fallback: show auth page immediately if script fails
-        setTimeout(function() {
-            var authPage = document.getElementById('authPage');
-            var loginContainer = document.getElementById('loginContainer');
-            var registerContainer = document.getElementById('registerContainer');
-            
-            if (authPage && loginContainer && registerContainer) {
-                // Si après 2 secondes, rien n'est visible, forcer l'affichage
-                if (authPage.classList.contains('hidden') || 
-                    (loginContainer.classList.contains('hidden') && registerContainer.classList.contains('hidden'))) {
-                    console.log('Fallback: Forcing auth page display');
-                    authPage.classList.remove('hidden');
-                    loginContainer.classList.remove('hidden');
-                    registerContainer.classList.add('hidden');
-                }
-            }
-        }, 2000);
-    </script>
-</body>
-</html>    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    <script src="firebase-config.js"></script>
-    <!-- Attend que tout soit chargé avant d'exécuter le script principal -->
-    <script src="script.js" defer></script>
-</body>
-</html>
+
 </body>
 </html>
