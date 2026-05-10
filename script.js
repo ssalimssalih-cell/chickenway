@@ -4,15 +4,29 @@ var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
 
-// Attendre que le DOM soit chargé
-document.addEventListener('DOMContentLoaded', function() {
+// Attendre que TOUT soit chargé
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
+
+function initApp() {
     console.log('Chicken Way Started - Version Pro');
     
-    // Cacher les pages dashboard/client au début
+    // Vérifier que tous les éléments existent
+    var authPage = document.getElementById('authPage');
     var dashboardPage = document.getElementById('dashboardPage');
     var clientPage = document.getElementById('clientPage');
-    if (dashboardPage) dashboardPage.classList.add('hidden');
-    if (clientPage) clientPage.classList.add('hidden');
+    
+    if (!authPage || !dashboardPage || !clientPage) {
+        console.error('Elements manquants dans le DOM');
+        return;
+    }
+    
+    // Cacher les pages dashboard/client au début
+    dashboardPage.classList.add('hidden');
+    clientPage.classList.add('hidden');
     
     // Vérifier l'état de l'authentification
     auth.onAuthStateChanged(function(user) {
@@ -52,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showAuthPage();
         }
     });
-});
+}
 
 // Fonctions d'affichage des pages
 function showAuthPage() {
@@ -100,6 +114,7 @@ function showClientPage() {
 function showLogin() { 
     var loginContainer = document.getElementById('loginContainer');
     var registerContainer = document.getElementById('registerContainer');
+    
     if (loginContainer) loginContainer.classList.remove('hidden');
     if (registerContainer) registerContainer.classList.add('hidden');
     hideLoginError(); 
@@ -108,6 +123,7 @@ function showLogin() {
 function showRegister() { 
     var loginContainer = document.getElementById('loginContainer');
     var registerContainer = document.getElementById('registerContainer');
+    
     if (loginContainer) loginContainer.classList.add('hidden');
     if (registerContainer) registerContainer.classList.remove('hidden');
     hideLoginError(); 
