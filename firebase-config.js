@@ -7,7 +7,6 @@ if (typeof firebaseConfig === 'undefined') {
         messagingSenderId: "734739564037",
         appId: "1:734739564037:web:649d31ff5d5b561ae93e6c"
     };
-    
     firebase.initializeApp(firebaseConfig);
     var auth = firebase.auth();
     var db = firebase.firestore();
