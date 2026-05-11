@@ -1,11 +1,15 @@
 // ==================== AUTH ====================
+
 function handleLogin(event) {
     event.preventDefault();
     var email = document.getElementById('loginEmail').value.trim();
     var password = document.getElementById('loginPassword').value;
     var btn = document.getElementById('loginBtn');
     
-    if (!email || !password) { showLoginError('Remplissez tous les champs'); return false; }
+    if (!email || !password) { 
+        showLoginError('Remplissez tous les champs'); 
+        return false; 
+    }
     
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Connexion...';
@@ -13,11 +17,15 @@ function handleLogin(event) {
     
     auth.signInWithEmailAndPassword(email, password).then(function(userCredential) {
         return db.collection('users').doc(userCredential.user.uid).get().then(function(doc) {
-            if (!doc.exists) { auth.signOut(); showLoginError('Compte introuvable'); return; }
+            if (!doc.exists) { 
+                auth.signOut(); 
+                showLoginError('Compte introuvable'); 
+                return; 
+            }
             var userData = doc.data();
             if (userData.authorized !== 'yes') { 
                 auth.signOut(); 
-                showLoginError('Compte en attente de validation par l\'administrateur.'); 
+                showLoginError('Votre compte est en attente de validation par l\'administrateur.'); 
                 return; 
             }
             window.currentUserData = { uid: doc.id, userData: userData };
@@ -26,9 +34,12 @@ function handleLogin(event) {
             else showDashboard();
         });
     }).catch(function(error) {
-        var msg = error.code === 'auth/user-not-found' ? 'Email non trouve' : 
-                  error.code === 'auth/wrong-password' ? 'Mot de passe incorrect' : 
-                  error.code === 'auth/invalid-email' ? 'Email invalide' : error.message;
+        var msg;
+        if (error.code === 'auth/user-not-found') msg = 'Email non trouve';
+        else if (error.code === 'auth/wrong-password') msg = 'Mot de passe incorrect';
+        else if (error.code === 'auth/invalid-email') msg = 'Email invalide';
+        else if (error.code === 'auth/too-many-requests') msg = 'Trop de tentatives. Reessayez plus tard.';
+        else msg = error.message;
         showLoginError(msg);
     }).finally(function() {
         btn.disabled = false;
@@ -70,7 +81,10 @@ function handleRegister(event) {
         alert('Tous les champs sont obligatoires');
         return false;
     }
-    if (password.length < 6) { alert('Mot de passe: 6 caracteres minimum'); return false; }
+    if (password.length < 6) { 
+        alert('Mot de passe: 6 caracteres minimum'); 
+        return false; 
+    }
     
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creation...';
@@ -84,18 +98,17 @@ function handleRegister(event) {
             telephone: telephone,
             role: role,
             authorized: 'no',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            createdBy: 'self'
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
     }).then(function() {
-        alert('Compte cree avec succes !\n\nVotre compte est en attente de validation par l\'administrateur.\nVous recevrez un email de confirmation.');
+        alert('Compte cree avec succes !\n\nVotre compte est en attente de validation par l\'administrateur.');
         document.getElementById('registerForm').reset();
         showLogin();
     }).catch(function(e) {
         if (e.code === 'auth/email-already-in-use') {
             alert('Cet email est deja utilise.');
         } else if (e.code === 'auth/weak-password') {
-            alert('Mot de passe trop faible.');
+            alert('Mot de passe trop faible (6 caracteres minimum).');
         } else {
             alert('Erreur: ' + e.message);
         }
@@ -127,4 +140,4 @@ function showRegister() {
     hideLoginError(); 
 }
 
-console.log('Auth JS chargé');
+console.log('Auth JS OK');
