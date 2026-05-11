@@ -1,4 +1,3 @@
-// Protection anti-doublon
 if (typeof firebaseConfig === 'undefined') {
     const firebaseConfig = {
         apiKey: "AIzaSyDBtroF6W2tgAmJeGwtSCjNGeYcG77IfsU",
