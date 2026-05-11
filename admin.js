@@ -275,4 +275,134 @@ function loadClientsPage(content) {
 
 function openClientForm(data) {
     data = data || {};
-    var html = '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="cliNom" value="'+(data.nom||'')+'" required></div><div class="form-group"><label>Prenom *</label><input type="text" id="cliPrenom" value="'+(data.prenom||'')+'" required></div></div><div class="form-row"><div class="form-group"><label>Tel</label><input type="text" id="cliTel" value="'+(data.telephone||'')+'"></div><div class="form-group"><label>CA</label><input type="number" id="cliCA" value="'+(data.ca||0)+'" step="0.01"></div></div><div class="form-row"><div class="form-group"><label>Points</label><input type="number" id="cliPoints" value="'+(data.points||0)+'"></div><div class="form-group"><label>Description</label><textarea id="cliDesc
+    var html = '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="cliNom" value="'+(data.nom||'')+'" required></div><div class="form-group"><label>Prenom *</label><input type="text" id="cliPrenom" value="'+(data.prenom||'')+'" required></div></div><div class="form-row"><div class="form-group"><label>Tel</label><input type="text" id="cliTel" value="'+(data.telephone||'')+'"></div><div class="form-group"><label>CA</label><input type="number" id="cliCA" value="'+(data.ca||0)+'" step="0.01"></div></div><div class="form-row"><div class="form-group"><label>Points</label><input type="number" id="cliPoints" value="'+(data.points||0)+'"></div><div class="form-group"><label>Description</label><textarea id="cliDesc">'+(data.description||'')+'</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveClient()">Enregistrer</button>';
+    currentCollection = 'clients';
+    openModal(editingId ? 'Modifier Client' : 'Nouveau Client', html);
+}
+
+function saveClient() {
+    var nom = document.getElementById('cliNom').value, prenom = document.getElementById('cliPrenom').value;
+    if (!nom || !prenom) { alert('Nom et Prenom obligatoires'); return; }
+    saveDocument('clients', { nom:nom, prenom:prenom, telephone:document.getElementById('cliTel').value, ca:parseFloat(document.getElementById('cliCA').value)||0, points:parseInt(document.getElementById('cliPoints').value)||0, description:document.getElementById('cliDesc').value }, function() { closeModal(); refreshCurrentPage(); });
+}
+
+// ==================== FOURNISSEURS ====================
+function loadFournisseursPage(content) {
+    content.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-truck"></i> Fournisseurs</h3><button class="btn-add" onclick="openFournisseurForm()"><i class="fas fa-plus"></i> Ajouter</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Nom</th><th>Prenom</th><th>Tel</th><th>Actions</th></tr></thead><tbody id="fournisseursTable"></tbody></table></div></div>';
+    db.collection('fournisseurs').orderBy('createdAt','desc').get().then(function(snap) {
+        var tbody = document.getElementById('fournisseursTable'); tbody.innerHTML = '';
+        if (snap.empty) { tbody.innerHTML = '<tr><td colspan="4">Aucun</td></tr>'; return; }
+        snap.forEach(function(doc) { var d=doc.data(); tbody.innerHTML += '<tr><td><strong>'+d.nom+'</strong></td><td>'+d.prenom+'</td><td>'+(d.telephone||'-')+'</td><td><button class="btn-edit" onclick="editDocument(\'fournisseurs\',\''+doc.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'fournisseurs\',\''+doc.id+'\')"><i class="fas fa-trash"></i></button></td></tr>'; });
+    });
+}
+
+function openFournisseurForm(data) {
+    data = data || {};
+    var html = '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="fourNom" value="'+(data.nom||'')+'" required></div><div class="form-group"><label>Prenom *</label><input type="text" id="fourPrenom" value="'+(data.prenom||'')+'" required></div></div><div class="form-row"><div class="form-group"><label>Tel</label><input type="text" id="fourTel" value="'+(data.telephone||'')+'"></div><div class="form-group"><label>Description</label><textarea id="fourDesc">'+(data.description||'')+'</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveFournisseur()">Enregistrer</button>';
+    currentCollection = 'fournisseurs';
+    openModal(editingId ? 'Modifier Fournisseur' : 'Nouveau Fournisseur', html);
+}
+
+function saveFournisseur() {
+    var nom = document.getElementById('fourNom').value, prenom = document.getElementById('fourPrenom').value;
+    if (!nom || !prenom) { alert('Nom et Prenom obligatoires'); return; }
+    saveDocument('fournisseurs', { nom:nom, prenom:prenom, telephone:document.getElementById('fourTel').value, description:document.getElementById('fourDesc').value }, function() { closeModal(); refreshCurrentPage(); });
+}
+
+// ==================== DEPENSES ====================
+function loadDepensesPage(content) {
+    content.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-money-bill-wave"></i> Depenses</h3><button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Ajouter</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Date</th><th>Description</th><th>Montant</th><th>Actions</th></tr></thead><tbody id="depensesTable"></tbody></table></div></div>';
+    db.collection('depenses').orderBy('createdAt','desc').get().then(function(snap) {
+        var tbody = document.getElementById('depensesTable'); tbody.innerHTML = '';
+        if (snap.empty) { tbody.innerHTML = '<tr><td colspan="4">Aucune</td></tr>'; return; }
+        snap.forEach(function(doc) { var d=doc.data(); tbody.innerHTML += '<tr><td>'+(d.date||'-')+'</td><td>'+(d.description||'-')+'</td><td><strong style="color:#ef4444;">'+(d.montant||0).toFixed(2)+' MAD</strong></td><td><button class="btn-edit" onclick="editDocument(\'depenses\',\''+doc.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'depenses\',\''+doc.id+'\')"><i class="fas fa-trash"></i></button></td></tr>'; });
+    });
+}
+
+function openDepenseForm(data) {
+    data = data || {};
+    var html = '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="'+(data.date||new Date().toISOString().split('T')[0])+'"></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="'+(data.montant||0)+'" step="0.01" required></div></div><div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">'+(data.description||'')+'</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>';
+    currentCollection = 'depenses';
+    openModal(editingId ? 'Modifier Depense' : 'Nouvelle Depense', html);
+}
+
+function saveDepense() {
+    var montant = parseFloat(document.getElementById('depMontant').value)||0;
+    if (!montant) { alert('Montant obligatoire'); return; }
+    saveDocument('depenses', { date:document.getElementById('depDate').value, montant:montant, description:document.getElementById('depDesc').value }, function() { closeModal(); refreshCurrentPage(); });
+}
+
+function openEditForm(collectionName, data) {
+    if (collectionName==='categories') openCategoryForm(data);
+    else if (collectionName==='products') openProductForm(data);
+    else if (collectionName==='clients') openClientForm(data);
+    else if (collectionName==='fournisseurs') openFournisseurForm(data);
+    else if (collectionName==='depenses') openDepenseForm(data);
+}
+
+// ==================== OPTIONS (GESTION UTILISATEURS) ====================
+function loadOptionsPage(content) {
+    if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') { content.innerHTML = '<div class="content-card"><p>Acces refuse</p></div>'; return; }
+    content.innerHTML = 
+        '<div class="stats-grid" style="margin-bottom:20px;">' +
+        '<div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-clock" style="color:#d97706;"></i></div><div class="stat-info"><span class="stat-label">En attente</span><span class="stat-value" id="pendingCount">0</span></div></div>' +
+        '<div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div><div class="stat-info"><span class="stat-label">Autorises</span><span class="stat-value" id="authorizedCount">0</span></div></div>' +
+        '<div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span class="stat-label">Total</span><span class="stat-value" id="totalUsers">0</span></div></div>' +
+        '</div>' +
+        '<div class="content-card"><div class="card-header"><h3><i class="fas fa-user-shield"></i> Tous les utilisateurs</h3><button class="btn-add" onclick="loadUsersList()"><i class="fas fa-sync"></i> Actualiser</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Role</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div></div>';
+    loadUsersList();
+}
+
+function loadUsersList() {
+    db.collection('users').orderBy('createdAt','desc').get().then(function(snapshot) {
+        var pending = 0, authorized = 0;
+        var tbody = document.getElementById('usersTableBody');
+        tbody.innerHTML = '';
+        if (snapshot.empty) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">Aucun utilisateur</td></tr>'; }
+        snapshot.forEach(function(doc) {
+            var u = doc.data(), id = doc.id;
+            if (u.authorized === 'no') pending++; else authorized++;
+            var badge = u.authorized === 'yes' ? '<span class="status-success">Autorise</span>' : '<span class="status-warning">En attente</span>';
+            var actions = '';
+            if (u.authorized === 'no') {
+                actions = '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:5px;" onclick="approveUser(\''+id+'\')"><i class="fas fa-check"></i> Accepter</button>' +
+                          '<button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="rejectUser(\''+id+'\')"><i class="fas fa-times"></i> Refuser</button>';
+            } else {
+                actions = '<button style="padding:4px 8px;font-size:0.7rem;margin-right:5px;color:#d97706;border:none;cursor:pointer;background:#fef3c7;border-radius:6px;" onclick="blockUser(\''+id+'\')"><i class="fas fa-ban"></i> Bloquer</button>' +
+                          '<button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="deleteUserPermanently(\''+id+'\')"><i class="fas fa-trash"></i> Supprimer</button>';
+            }
+            tbody.innerHTML += '<tr><td>@'+u.username+'</td><td>'+u.prenom+' '+u.nom+'</td><td>'+u.email+'</td><td><span style="text-transform:capitalize;">'+u.role+'</span></td><td>'+badge+'</td><td>'+actions+'</td></tr>';
+        });
+        var pc = document.getElementById('pendingCount'); if (pc) pc.textContent = pending;
+        var ac = document.getElementById('authorizedCount'); if (ac) ac.textContent = authorized;
+        var tu = document.getElementById('totalUsers'); if (tu) tu.textContent = snapshot.size;
+    }).catch(function(err) {
+        console.error('Erreur chargement users:', err);
+    });
+}
+
+function blockUser(uid) {
+    if (confirm('Bloquer cet utilisateur ? Il ne pourra plus se connecter.')) {
+        db.collection('users').doc(uid).update({
+            authorized: 'no',
+            blockedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            blockedBy: window.currentUserData ? window.currentUserData.userData.email : 'admin'
+        }).then(function() {
+            alert('Utilisateur bloque.');
+            loadUsersList();
+            if (typeof loadPendingRegistrations === 'function') loadPendingRegistrations();
+        }).catch(function(err) { alert('Erreur: '+err.message); });
+    }
+}
+
+function deleteUserPermanently(uid) {
+    if (confirm('SUPPRIMER definitivement cet utilisateur ? Cette action est irreversible.')) {
+        db.collection('users').doc(uid).delete().then(function() {
+            alert('Utilisateur supprime definitivement.');
+            loadUsersList();
+            if (typeof loadPendingRegistrations === 'function') loadPendingRegistrations();
+        }).catch(function(err) { alert('Erreur: '+err.message); });
+    }
+}
+
+console.log('Admin JS chargé');
