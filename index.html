@@ -12,7 +12,6 @@
     
     <!-- PAGE AUTHENTIFICATION -->
     <div id="authPage" class="login-wrapper">
-        <!-- LOGIN CONTAINER -->
         <div id="loginContainer" class="login-container">
             <div class="login-brand">
                 <div class="brand-icon"><img src="logo.png" alt="Logo" class="brand-logo"></div>
@@ -30,7 +29,6 @@
             </div>
         </div>
         
-        <!-- REGISTER CONTAINER -->
         <div id="registerContainer" class="register-container hidden">
             <div class="register-brand">
                 <div class="brand-icon"><img src="logo.png" alt="Logo" class="brand-logo"></div>
@@ -56,30 +54,16 @@
         </div>
     </div>
 
-    <!-- PAGE DASHBOARD ADMIN/CAISSIER -->
+    <!-- PAGE DASHBOARD -->
     <div id="dashboardPage" class="dashboard hidden">
         <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
         <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo"><img src="logo.png" alt="Logo" class="sidebar-logo-img"></div>
-                <h2>Chicken <span>Way</span></h2>
-                <p class="sidebar-subtitle" id="sidebarRole">Management</p>
-            </div>
+            <div class="sidebar-header"><div class="sidebar-logo"><img src="logo.png" alt="Logo" class="sidebar-logo-img"></div><h2>Chicken <span>Way</span></h2><p class="sidebar-subtitle" id="sidebarRole">Management</p></div>
             <nav class="sidebar-nav"><ul id="navMenu"></ul></nav>
-            <div class="sidebar-footer">
-                <div class="user-info" id="sidebarUserInfo"><i class="fas fa-user-circle"></i><span>...</span></div>
-                <button class="logout-item nav-item" onclick="handleLogout()" style="width:100%;border:none;margin-top:10px;background:none;text-align:left;cursor:pointer;">
-                    <i class="fas fa-sign-out-alt"></i> Deconnexion
-                </button>
-            </div>
+            <div class="sidebar-footer"><div class="user-info" id="sidebarUserInfo"><i class="fas fa-user-circle"></i><span>...</span></div><button class="logout-item nav-item" onclick="handleLogout()" style="width:100%;border:none;margin-top:10px;background:none;text-align:left;cursor:pointer;"><i class="fas fa-sign-out-alt"></i> Deconnexion</button></div>
         </aside>
-        <main class="main-content">
-            <div class="page-header">
-                <div class="header-title"><i class="fas fa-th-large"></i><h2 id="pageTitle">Dashboard</h2></div>
-            </div>
-            <div id="dynamicContent"></div>
-        </main>
+        <main class="main-content"><div class="page-header"><div class="header-title"><i class="fas fa-th-large"></i><h2 id="pageTitle">Dashboard</h2></div></div><div id="dynamicContent"></div></main>
     </div>
 
     <!-- PAGE CLIENT -->
@@ -87,50 +71,28 @@
         <button class="mobile-menu-btn" onclick="toggleClientSidebar()"><i class="fas fa-bars"></i></button>
         <div class="sidebar-overlay" id="clientSidebarOverlay" onclick="toggleClientSidebar()"></div>
         <aside class="sidebar" id="clientSidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo"><img src="logo.png" alt="Logo" class="sidebar-logo-img"></div>
-                <h2>Chicken <span>Way</span></h2>
-                <p class="sidebar-subtitle">Espace Client</p>
-            </div>
-            <nav class="sidebar-nav">
-                <ul>
-                    <li class="nav-item active" onclick="clientNavigate('commander')"><i class="fas fa-shopping-basket"></i> Commander</li>
-                    <li class="nav-item" onclick="clientNavigate('historique')"><i class="fas fa-history"></i> Historique</li>
-                    <li class="nav-item" onclick="clientNavigate('parametres')"><i class="fas fa-cog"></i> Parametres</li>
-                </ul>
-            </nav>
-            <div class="sidebar-footer">
-                <div class="user-info" id="clientSidebarInfo"><i class="fas fa-user-circle"></i><span>...</span></div>
-                <button class="logout-item nav-item" onclick="handleLogout()" style="width:100%;border:none;margin-top:10px;background:none;text-align:left;cursor:pointer;">
-                    <i class="fas fa-sign-out-alt"></i> Deconnexion
-                </button>
-            </div>
+            <div class="sidebar-header"><div class="sidebar-logo"><img src="logo.png" alt="Logo" class="sidebar-logo-img"></div><h2>Chicken <span>Way</span></h2><p class="sidebar-subtitle">Espace Client</p></div>
+            <nav class="sidebar-nav"><ul><li class="nav-item active" onclick="clientNavigate('commander')"><i class="fas fa-shopping-basket"></i> Commander</li><li class="nav-item" onclick="clientNavigate('historique')"><i class="fas fa-history"></i> Historique</li><li class="nav-item" onclick="clientNavigate('parametres')"><i class="fas fa-cog"></i> Parametres</li></ul></nav>
+            <div class="sidebar-footer"><div class="user-info" id="clientSidebarInfo"><i class="fas fa-user-circle"></i><span>...</span></div><button class="logout-item nav-item" onclick="handleLogout()" style="width:100%;border:none;margin-top:10px;background:none;text-align:left;cursor:pointer;"><i class="fas fa-sign-out-alt"></i> Deconnexion</button></div>
         </aside>
-        <main class="main-content">
-            <div class="page-header">
-                <div class="header-title"><i class="fas fa-shopping-basket"></i><h2 id="clientPageTitle">Commander</h2></div>
-            </div>
-            <div id="clientDynamicContent"></div>
-        </main>
+        <main class="main-content"><div class="page-header"><div class="header-title"><i class="fas fa-shopping-basket"></i><h2 id="clientPageTitle">Commander</h2></div></div><div id="clientDynamicContent"></div></main>
     </div>
 
     <!-- MODAL -->
-    <div id="modalOverlay" class="modal hidden" onclick="closeModal()">
-        <div class="modal-content" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h3 id="modalTitle">Formulaire</h3>
-                <span class="modal-close" onclick="closeModal()">&times;</span>
-            </div>
-            <div class="modal-body" id="modalBody"></div>
-        </div>
-    </div>
+    <div id="modalOverlay" class="modal hidden" onclick="closeModal()"><div class="modal-content" onclick="event.stopPropagation()"><div class="modal-header"><h3 id="modalTitle">Formulaire</h3><span class="modal-close" onclick="closeModal()">&times;</span></div><div class="modal-body" id="modalBody"></div></div></div>
 
-    <!-- Firebase Scripts -->
+    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+    
+    <!-- Fichiers JS -->
     <script src="firebase-config.js"></script>
+    <script src="auth.js"></script>
+    <script src="admin.js"></script>
+    <script src="caissier.js"></script>
+    <script src="client.js"></script>
     <script src="script.js"></script>
 
 </body>
