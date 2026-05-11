@@ -5,12 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chicken Way</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     
-    <!-- PAGE AUTHENTIFICATION -->
     <div id="authPage" class="login-wrapper">
         <div id="loginContainer" class="login-container">
             <div class="login-brand">
@@ -28,7 +27,6 @@
                 <p class="register-link">Pas encore de compte ? <strong onclick="showRegister()">Creer un compte</strong></p>
             </div>
         </div>
-        
         <div id="registerContainer" class="register-container hidden">
             <div class="register-brand">
                 <div class="brand-icon"><img src="logo.png" alt="Logo" class="brand-logo"></div>
@@ -54,7 +52,6 @@
         </div>
     </div>
 
-    <!-- PAGE DASHBOARD -->
     <div id="dashboardPage" class="dashboard hidden">
         <button class="mobile-menu-btn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
         <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
@@ -66,7 +63,6 @@
         <main class="main-content"><div class="page-header"><div class="header-title"><i class="fas fa-th-large"></i><h2 id="pageTitle">Dashboard</h2></div></div><div id="dynamicContent"></div></main>
     </div>
 
-    <!-- PAGE CLIENT -->
     <div id="clientPage" class="dashboard hidden">
         <button class="mobile-menu-btn" onclick="toggleClientSidebar()"><i class="fas fa-bars"></i></button>
         <div class="sidebar-overlay" id="clientSidebarOverlay" onclick="toggleClientSidebar()"></div>
@@ -78,21 +74,20 @@
         <main class="main-content"><div class="page-header"><div class="header-title"><i class="fas fa-shopping-basket"></i><h2 id="clientPageTitle">Commander</h2></div></div><div id="clientDynamicContent"></div></main>
     </div>
 
-    <!-- MODAL -->
     <div id="modalOverlay" class="modal hidden" onclick="closeModal()"><div class="modal-content" onclick="event.stopPropagation()"><div class="modal-header"><h3 id="modalTitle">Formulaire</h3><span class="modal-close" onclick="closeModal()">&times;</span></div><div class="modal-body" id="modalBody"></div></div></div>
 
-    <!-- Firebase -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
     
-    <!-- Fichiers JS -->
+    <!-- Fichiers JS dans l'ordre -->
     <script src="firebase-config.js"></script>
     <script src="auth.js"></script>
+    <script src="client.js"></script>
     <script src="admin.js"></script>
     <script src="caissier.js"></script>
-    <script src="client.js"></script>
     <script src="script.js"></script>
 
 </body>
