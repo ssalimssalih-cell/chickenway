@@ -7,6 +7,8 @@ var posCurrentClient = null;
 var posCurrentTable = '';
 var posPaymentMethod = 'espece';
 var posAmountGiven = 0;
+var posDiscount = 0;
+var posAllClients = [];
 
 async function loadPosPage(content) {
     posResetCart();
@@ -21,16 +23,23 @@ async function loadPosPage(content) {
             var d = doc.data();
             if (d.disponible !== false) { posProductsList.push({id: doc.id, nom: d.nom, prixVente: d.prixVente||0, prixPromo: d.prixPromo||0, prixAchat: d.prixAchat||0, stock: d.stock, categorie: d.categorie||'', imageBase64: d.imageBase64||''}); }
         });
+        // Charger tous les clients
+        var clientSnap = await db.collection('clients').orderBy('nom').get();
+        posAllClients = [];
+        clientSnap.forEach(function(doc) { posAllClients.push({id: doc.id, nom: doc.data().nom, prenom: doc.data().prenom, telephone: doc.data().telephone}); });
     } catch(e) { console.error('Erreur chargement POS:', e); }
     renderPOS();
 }
 
-function posResetCart() { posCart = []; posStep = 1; posSelectedCategory = 'all'; posCurrentClient = null; posCurrentTable = ''; posPaymentMethod = 'espece'; posAmountGiven = 0; }
+function posResetCart() { posCart = []; posStep = 1; posSelectedCategory = 'all'; posCurrentClient = null; posCurrentTable = ''; posPaymentMethod = 'espece'; posAmountGiven = 0; posDiscount = 0; }
 
 function renderPOS() {
     var content = document.getElementById('dynamicContent');
     if (!content) return;
-    var total = posCalculateTotal();
+    var subtotal = posCalculateTotal();
+    var discountAmount = subtotal * (posDiscount / 100);
+    var total = subtotal - discountAmount;
+    
     var html = '<div class="pos-container"><div class="pos-products-panel"><div class="pos-categories-bar"><button class="pos-cat-btn ' + (posSelectedCategory==='all'?'active':'') + '" onclick="posFilterCategory(\'all\')"><i class="fas fa-th-large"></i> Tous</button>';
     for (var i = 0; i < posCategoriesList.length; i++) {
         var cat = posCategoriesList[i];
@@ -59,19 +68,72 @@ function renderPOS() {
         }
     }
     html += '</div></div><div class="pos-cart-panel">';
+    
     if (posStep===1) {
         html += '<div class="pos-cart-header"><h3><i class="fas fa-shopping-cart"></i> Panier <span id="posCartCount" class="pos-cart-badge">'+posCart.length+'</span></h3><button class="pos-clear-btn" onclick="posResetCart()"><i class="fas fa-trash-alt"></i> Vider</button></div><div class="pos-cart-items">';
         if (posCart.length===0) { html += '<div class="pos-cart-empty"><i class="fas fa-shopping-basket"></i><p>Panier vide</p><span>Cliquez sur les produits</span></div>'; }
-        else { for (var k = 0; k < posCart.length; k++) { var it = posCart[k]; html += '<div class="pos-cart-item"><div class="pos-cart-item-info"><span class="pos-cart-item-name">'+it.nom+'</span><span class="pos-cart-item-price">'+it.prixUnitaire.toFixed(2)+' MAD/u</span></div><div class="pos-cart-item-actions"><button class="pos-qty-btn" onclick="posUpdateQty('+k+',-1)"><i class="fas fa-minus"></i></button><span class="pos-qty-value">'+it.quantite+'</span><button class="pos-qty-btn" onclick="posUpdateQty('+k+',1)"><i class="fas fa-plus"></i></button><button class="pos-remove-btn" onclick="posRemoveItem('+k+')"><i class="fas fa-times"></i></button></div><span class="pos-cart-item-total">'+(it.prixUnitaire*it.quantite).toFixed(2)+' MAD</span></div>'; } }
-        html += '</div><div class="pos-cart-footer"><div class="pos-cart-total-row"><span>Total</span><span>'+total.toFixed(2)+' MAD</span></div><button class="pos-validate-btn" onclick="posGoToStep2()" '+(posCart.length===0?'disabled':'')+'><i class="fas fa-check-circle"></i> Valider</button></div>';
+        else {
+            for (var k = 0; k < posCart.length; k++) { 
+                var it = posCart[k]; 
+                html += '<div class="pos-cart-item"><div class="pos-cart-item-info"><span class="pos-cart-item-name">'+it.nom+'</span><span class="pos-cart-item-price">'+it.prixUnitaire.toFixed(2)+' MAD/u</span></div><div class="pos-cart-item-actions"><button class="pos-qty-btn" onclick="posUpdateQty('+k+',-1)"><i class="fas fa-minus"></i></button><span class="pos-qty-value">'+it.quantite+'</span><button class="pos-qty-btn" onclick="posUpdateQty('+k+',1)"><i class="fas fa-plus"></i></button><button class="pos-remove-btn" onclick="posRemoveItem('+k+')"><i class="fas fa-times"></i></button></div><span class="pos-cart-item-total">'+(it.prixUnitaire*it.quantite).toFixed(2)+' MAD</span></div>'; 
+            }
+        }
+        html += '</div>';
+        
+        // Remise
+        html += '<div style="padding:10px 0;border-top:1px solid #f1f5f9;display:flex;align-items:center;gap:10px;"><label style="font-size:0.85rem;font-weight:600;">Remise (%):</label><input type="number" id="posDiscount" value="'+posDiscount+'" min="0" max="100" onchange="posUpdateDiscount(this.value)" style="width:80px;padding:8px;border:2px solid #e2e8f0;border-radius:8px;text-align:center;"></div>';
+        
+        html += '<div class="pos-cart-footer">';
+        if (posDiscount > 0) {
+            html += '<div class="pos-cart-total-row" style="font-size:0.9rem;"><span>Sous-total</span><span>'+subtotal.toFixed(2)+' MAD</span></div>';
+            html += '<div class="pos-cart-total-row" style="font-size:0.9rem;color:#ef4444;"><span>Remise ('+posDiscount+'%)</span><span>-'+discountAmount.toFixed(2)+' MAD</span></div>';
+        }
+        html += '<div class="pos-cart-total-row"><span>Total</span><span id="posTotal">'+total.toFixed(2)+' MAD</span></div>';
+        html += '<button class="pos-validate-btn" onclick="posGoToStep2()" '+(posCart.length===0?'disabled':'')+'><i class="fas fa-check-circle"></i> Valider</button></div>';
+        
     } else if (posStep===2) {
-        html += '<div class="pos-cart-header"><h3><i class="fas fa-credit-card"></i> Paiement</h3><button class="pos-back-btn" onclick="posGoToStep1()"><i class="fas fa-arrow-left"></i> Retour</button></div><div class="pos-payment-form"><div class="pos-payment-section"><label>Client</label><div class="pos-client-search"><input type="text" id="posClientSearch" placeholder="Rechercher..." onkeyup="posSearchClients(this.value)" autocomplete="off"><div id="posClientResults" class="pos-client-dropdown"></div></div><div class="pos-or-divider">— OU —</div><label>Table</label><input type="text" id="posTableNum" placeholder="Ex: Table 5" value="'+posCurrentTable+'" onchange="posSetTable(this.value)"></div><div class="pos-payment-section"><div class="pos-summary-box"><div class="pos-summary-row"><span>Articles</span><span>'+posCart.length+'</span></div><div class="pos-summary-total"><span>Total</span><span>'+total.toFixed(2)+' MAD</span></div></div></div><div class="pos-payment-section"><label>Paiement</label><div class="pos-payment-methods"><button class="pos-payment-btn '+(posPaymentMethod==='espece'?'active':'')+'" onclick="posSetPaymentMethod(\'espece\')"><i class="fas fa-money-bill-wave"></i> Especes</button><button class="pos-payment-btn '+(posPaymentMethod==='credit'?'active':'')+'" onclick="posSetPaymentMethod(\'credit\')"><i class="fas fa-credit-card"></i> Credit</button></div></div>';
+        html += '<div class="pos-cart-header"><h3><i class="fas fa-credit-card"></i> Paiement</h3><button class="pos-back-btn" onclick="posGoToStep1()"><i class="fas fa-arrow-left"></i> Retour</button></div><div class="pos-payment-form">';
+        
+        // Client - dropdown avec tous les clients
+        html += '<div class="pos-payment-section"><label>Client</label><select id="posClientSelect" onchange="posSelectClientFromList(this.value)" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:0.9rem;font-family:Inter,sans-serif;"><option value="">— Aucun —</option>';
+        for (var c = 0; c < posAllClients.length; c++) {
+            var cl = posAllClients[c];
+            html += '<option value="'+cl.id+'">'+cl.nom+' '+cl.prenom+(cl.telephone?' ('+cl.telephone+')':'')+'</option>';
+        }
+        html += '</select></div>';
+        html += '<div class="pos-or-divider">— OU —</div>';
+        html += '<div class="pos-payment-section"><label>Table</label><input type="text" id="posTableNum" placeholder="Ex: Table 5" value="'+posCurrentTable+'" onchange="posSetTable(this.value)"></div>';
+        
+        html += '<div class="pos-payment-section"><div class="pos-summary-box">';
+        html += '<div class="pos-summary-row"><span>Articles</span><span>'+posCart.length+'</span></div>';
+        if (posDiscount > 0) { html += '<div class="pos-summary-row"><span>Remise</span><span style="color:#ef4444;">-'+discountAmount.toFixed(2)+' MAD</span></div>'; }
+        html += '<div class="pos-summary-total"><span>Total</span><span>'+total.toFixed(2)+' MAD</span></div></div></div>';
+        
+        html += '<div class="pos-payment-section"><label>Paiement</label><div class="pos-payment-methods"><button class="pos-payment-btn '+(posPaymentMethod==='espece'?'active':'')+'" onclick="posSetPaymentMethod(\'espece\')"><i class="fas fa-money-bill-wave"></i> Especes</button><button class="pos-payment-btn '+(posPaymentMethod==='credit'?'active':'')+'" onclick="posSetPaymentMethod(\'credit\')"><i class="fas fa-credit-card"></i> Credit</button></div></div>';
         if (posPaymentMethod==='espece') { html += '<div class="pos-payment-section"><label>Montant donne</label><input type="number" id="posAmountGiven" placeholder="0.00" value="'+(posAmountGiven>0?posAmountGiven:'')+'" onkeyup="posCalculateChange()"><div id="posChangeDisplay"></div></div>'; }
         html += '<button class="pos-finalize-btn" onclick="posFinalizeSale()"><i class="fas fa-check-circle"></i> Finaliser</button></div>';
     }
     html += '</div></div>';
     content.innerHTML = html;
     if (posStep===2) setTimeout(posCalculateChange, 200);
+}
+
+function posUpdateDiscount(val) {
+    posDiscount = parseFloat(val) || 0;
+    if (posDiscount < 0) posDiscount = 0;
+    if (posDiscount > 100) posDiscount = 100;
+    renderPOS();
+}
+
+function posSelectClientFromList(clientId) {
+    if (!clientId) { posCurrentClient = null; return; }
+    var client = posAllClients.find(function(c) { return c.id === clientId; });
+    if (client) {
+        posCurrentClient = {id: client.id, name: client.nom + ' ' + client.prenom};
+        posCurrentTable = '';
+        var tableInput = document.getElementById('posTableNum');
+        if (tableInput) tableInput.value = '';
+    }
 }
 
 function posFilterCategory(c) { posSelectedCategory = c; renderPOS(); }
@@ -97,49 +159,37 @@ function posRemoveItem(i) { posCart.splice(i,1); renderPOS(); }
 function posCalculateTotal() { var t=0; for(var i=0;i<posCart.length;i++)t+=posCart[i].prixUnitaire*posCart[i].quantite; return t; }
 function posGoToStep2() { if(posCart.length===0){alert('Panier vide');return;} posStep=2; renderPOS(); }
 function posGoToStep1() { posStep=1; renderPOS(); }
-
-async function posSearchClients(q) {
-    var d = document.getElementById('posClientResults'); if(!d)return;
-    if(!q||q.length<1){d.innerHTML='';d.style.display='none';posCurrentClient=null;return;}
-    try {
-        var s = await db.collection('clients').orderBy('nom').startAt(q.toUpperCase()).endAt(q.toUpperCase()+'\uf8ff').limit(10).get();
-        var cl=[]; var seen={};
-        s.forEach(function(dc){if(!seen[dc.id]){cl.push({id:dc.id,nom:dc.data().nom,prenom:dc.data().prenom,telephone:dc.data().telephone});seen[dc.id]=true;}});
-        if(cl.length===0){d.innerHTML='<div class="pos-client-item" style="color:#94a3b8;">Aucun</div>';}
-        else{d.innerHTML='';cl.forEach(function(c){d.innerHTML+='<div class="pos-client-item" onclick="posSelectClient(\''+c.id+'\',\''+c.nom.replace(/'/g,"\\'")+' '+c.prenom.replace(/'/g,"\\'")+'\')"><i class="fas fa-user"></i> <strong>'+c.nom+' '+c.prenom+'</strong>'+(c.telephone?' <span class="pos-client-phone">('+c.telephone+')</span>':'')+'</div>';});}
-        d.style.display='block';
-    } catch(e) {}
-}
-
-function posSelectClient(id, name) { posCurrentClient={id:id,name:name}; posCurrentTable=''; document.getElementById('posClientSearch').value=name; document.getElementById('posTableNum').value=''; document.getElementById('posClientResults').style.display='none'; }
-function posSetTable(v) { posCurrentTable=v; if(v){posCurrentClient=null;document.getElementById('posClientSearch').value='';} }
+function posSetTable(v) { posCurrentTable=v; if(v){posCurrentClient=null;document.getElementById('posClientSelect').value='';} }
 function posSetPaymentMethod(m) { posPaymentMethod=m; posAmountGiven=0; renderPOS(); }
 
 function posCalculateChange() {
     var ai=document.getElementById('posAmountGiven'), cd=document.getElementById('posChangeDisplay');
     if(!ai||!cd)return;
-    var t=posCalculateTotal(); posAmountGiven=parseFloat(ai.value)||0; var c=posAmountGiven-t;
+    var subtotal=posCalculateTotal();
+    var t=subtotal-(subtotal*(posDiscount/100));
+    posAmountGiven=parseFloat(ai.value)||0; var c=posAmountGiven-t;
     if(posAmountGiven>0){cd.innerHTML=c>=0?'<div class="pos-change-positive"><span>Rendu</span><span>'+c.toFixed(2)+' MAD</span></div>':'<div class="pos-change-negative"><span>Manquant</span><span>'+Math.abs(c).toFixed(2)+' MAD</span></div>';}
     else{cd.innerHTML='';}
 }
 
 async function posFinalizeSale() {
-    var t=posCalculateTotal();
+    var subtotal=posCalculateTotal();
+    var t=subtotal-(subtotal*(posDiscount/100));
     if(!posCurrentClient&&!posCurrentTable){alert('Selectionnez un client ou une table');return;}
     if(posPaymentMethod==='espece'){posAmountGiven=parseFloat(document.getElementById('posAmountGiven').value)||0;if(posAmountGiven<t){alert('Montant insuffisant');return;}}
     try {
-        var sd={items:posCart.slice(),total:t,clientId:posCurrentClient?posCurrentClient.id:null,clientName:posCurrentClient?posCurrentClient.name:null,table:posCurrentTable||null,paymentMethod:posPaymentMethod,amountGiven:posPaymentMethod==='espece'?posAmountGiven:t,change:posPaymentMethod==='espece'?(posAmountGiven-t):0,createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:window.currentUserData?window.currentUserData.userData.prenom+' '+window.currentUserData.userData.nom:'Inconnu',paid:posPaymentMethod!=='credit',remainingAmount:posPaymentMethod==='credit'?t:0};
+        var sd={items:posCart.slice(),subtotal:subtotal,discount:posDiscount,total:t,clientId:posCurrentClient?posCurrentClient.id:null,clientName:posCurrentClient?posCurrentClient.name:null,table:posCurrentTable||null,paymentMethod:posPaymentMethod,amountGiven:posPaymentMethod==='espece'?posAmountGiven:t,change:posPaymentMethod==='espece'?(posAmountGiven-t):0,createdAt:firebase.firestore.FieldValue.serverTimestamp(),createdBy:window.currentUserData?window.currentUserData.userData.prenom+' '+window.currentUserData.userData.nom:'Inconnu',paid:posPaymentMethod!=='credit',remainingAmount:posPaymentMethod==='credit'?t:0};
         if(posPaymentMethod==='credit') await db.collection('credits').add(sd); else await db.collection('ventes').add(sd);
-        for(var i=0;i<posCart.length;i++){
-            var it=posCart[i];
-            try{var pr=await db.collection('products').doc(it.id).get();if(pr.exists){var pd=pr.data();await db.collection('products').doc(it.id).update({stock:Math.max(0,(pd.stock||0)-it.quantite),vendues:(pd.vendues||0)+it.quantite,ca:(pd.ca||0)+(it.prixUnitaire*it.quantite),profit:(pd.profit||0)+((it.prixUnitaire-(it.prixAchat||0))*it.quantite),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});}}catch(e){}
-        }
+        for(var i=0;i<posCart.length;i++){var it=posCart[i];try{var pr=await db.collection('products').doc(it.id).get();if(pr.exists){var pd=pr.data();await db.collection('products').doc(it.id).update({stock:Math.max(0,(pd.stock||0)-it.quantite),vendues:(pd.vendues||0)+it.quantite,ca:(pd.ca||0)+(it.prixUnitaire*it.quantite),profit:(pd.profit||0)+((it.prixUnitaire-(it.prixAchat||0))*it.quantite),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});}}catch(e){}}
         if(posCurrentClient&&posCurrentClient.id){try{var cr=await db.collection('clients').doc(posCurrentClient.id).get();if(cr.exists){await db.collection('clients').doc(posCurrentClient.id).update({ca:(cr.data().ca||0)+t,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});}}catch(e){}}
-        var msg='Vente enregistree !';
+        var msg='Vente enregistree ! Total: '+t.toFixed(2)+' MAD';
         if(posPaymentMethod==='espece'&&posAmountGiven>t) msg+='\nRendu: '+(posAmountGiven-t).toFixed(2)+' MAD';
         else if(posPaymentMethod==='credit') msg+='\nCredit enregistre.';
         alert(msg); posResetCart(); renderPOS();
     } catch(e) { console.error(e); alert('Erreur: '+e.message); }
 }
+
+// Supprimer l'ancienne fonction posSearchClients qui n'est plus utilisée
+function posSearchClients(query) { /* Gardée pour compatibilité, non utilisée */ }
 
 console.log('Caissier JS OK');
