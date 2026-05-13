@@ -33,21 +33,21 @@ function navigateTo(page) {
     var items = document.querySelectorAll('#navMenu .nav-item'); items.forEach(function(item) { item.classList.remove('active'); });
     var pages = ['dashboard','pos','commandes','categories','products','clients','fournisseurs','ventes','credits','depenses','statistiques','options'];
     var index = pages.indexOf(page); if (index >= 0 && items[index]) items[index].classList.add('active');
-    var titles = {dashboard:'Dashboard',pos:'POS',commandes:'Commandes en ligne',categories:'Categories',products:'Produits',clients:'Clients',fournisseurs:'Fournisseurs',ventes:'Ventes',credits:'Credits',depenses:'Depenses',statistiques:'Stats',options:'Options'};
-    var icons = {dashboard:'fa-th-large',pos:'fa-cash-register',commandes:'fa-shopping-basket',categories:'fa-layer-group',products:'fa-utensils',clients:'fa-users',fournisseurs:'fa-truck',ventes:'fa-shopping-cart',credits:'fa-credit-card',depenses:'fa-money-bill-wave',statistiques:'fa-chart-bar',options:'fa-cog'};
+    var titles = {dashboard:'Dashboard',pos:'POS',commandes:'Commandes en ligne',categories:'Categories',products:'Produits',clients:'Clients',fournisseurs:'Fournisseurs',ventes:'Ventes',credits:'Credits',depenses:'Depenses',options:'Options'};
+    var icons = {dashboard:'fa-th-large',pos:'fa-cash-register',commandes:'fa-shopping-basket',categories:'fa-layer-group',products:'fa-utensils',clients:'fa-users',fournisseurs:'fa-truck',ventes:'fa-shopping-cart',credits:'fa-credit-card',depenses:'fa-money-bill-wave',options:'fa-cog'};
     document.getElementById('pageTitle').textContent = titles[page] || ''; var hi = document.querySelector('.header-title i'); if (hi && icons[page]) hi.className = 'fas ' + icons[page];
     var content = document.getElementById('dynamicContent'); if (!content) return;
-    if (page==='pos'&&typeof loadPosPage==='function') loadPosPage(content);
-    else if (page==='commandes'&&typeof loadCommandesPage==='function') loadCommandesPage(content);
-    else if (page==='categories'&&typeof loadCategoriesPage==='function') loadCategoriesPage(content);
-    else if (page==='products'&&typeof loadProductsPage==='function') loadProductsPage(content);
-    else if (page==='clients'&&typeof loadAllClientsPage==='function') loadAllClientsPage(content);
-    else if (page==='fournisseurs'&&typeof loadFournisseursPage==='function') loadFournisseursPage(content);
-    else if (page==='ventes'&&typeof loadVentesPage==='function') loadVentesPage(content);
-    else if (page==='credits'&&typeof loadCreditsPage==='function') loadCreditsPage(content);
-    else if (page==='depenses'&&typeof loadDepensesPage==='function') loadDepensesPage(content);
-    else if (page==='options'&&typeof loadOptionsPage==='function') loadOptionsPage(content);
-    else if (page==='dashboard'&&typeof loadDashboardPage==='function') loadDashboardPage(content);
+    if (page==='pos') loadPosPage(content);
+    else if (page==='commandes') loadCommandesPage(content);
+    else if (page==='categories') loadCategoriesPage(content);
+    else if (page==='products') loadProductsPage(content);
+    else if (page==='clients') loadClientsPage(content);
+    else if (page==='fournisseurs') loadFournisseursPage(content);
+    else if (page==='ventes') loadVentesPage(content);
+    else if (page==='credits') loadCreditsPage(content);
+    else if (page==='depenses') loadDepensesPage(content);
+    else if (page==='options') loadOptionsPage(content);
+    else if (page==='dashboard') loadDashboardPage(content);
     else content.innerHTML = '<div class="content-card"><h3>' + (titles[page]||'') + '</h3><p style="text-align:center;padding:40px;">En developpement</p></div>';
 }
 function updateSidebarUserInfo() { var el = document.getElementById('sidebarUserInfo'); if (el && window.currentUserData) { el.innerHTML = '<i class="fas fa-user-circle"></i> ' + window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom + ' <small style="color:#f39c12;">(' + window.currentUserData.userData.role + ')</small>'; } }
