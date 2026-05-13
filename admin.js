@@ -45,18 +45,15 @@ function sortTableData(tableName, field, loadFn) {
     if (!sortOrders[tableName]) sortOrders[tableName] = {};
     if (!sortOrders[tableName][field]) sortOrders[tableName][field] = 'asc';
     else sortOrders[tableName][field] = sortOrders[tableName][field] === 'asc' ? 'desc' : 'asc';
-    // Réinitialiser les autres champs de tri pour cette table
     Object.keys(sortOrders[tableName]).forEach(function(k) {
         if (k !== field) sortOrders[tableName][k] = null;
     });
     loadFn();
 }
-
 function getSortIcon(tableName, field) {
     if (!sortOrders[tableName] || !sortOrders[tableName][field]) return '<i class="fas fa-sort" style="font-size:0.5rem;margin-left:2px;opacity:0.3;cursor:pointer;"></i>';
     return sortOrders[tableName][field] === 'asc' ? '<i class="fas fa-sort-up" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>' : '<i class="fas fa-sort-down" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>';
 }
-
 function applySort(tableName, data, defaultField) {
     if (!sortOrders[tableName]) sortOrders[tableName] = {};
     var activeField = Object.keys(sortOrders[tableName]).find(function(k) { return sortOrders[tableName][k]; });
@@ -72,7 +69,6 @@ function applySort(tableName, data, defaultField) {
         else return va < vb ? 1 : (va > vb ? -1 : 0);
     });
 }
-
 function makeSortableHeader(tableName, field, label, loadFn) {
     return '<th onclick="sortTableData(\'' + tableName + '\',\'' + field + '\', ' + loadFn + ')" style="cursor:pointer;white-space:nowrap;">' + label + ' ' + getSortIcon(tableName, field) + '</th>';
 }
@@ -91,14 +87,14 @@ async function loadProducts() { var tb = document.querySelector('#productsTable 
 async function openProductForm(data) { data = data || {}; var co = ''; try { var cs = await db.collection('categories').get(); cs.forEach(function(d) { var sel = data.categorie === d.data().nom ? 'selected' : ''; co += '<option value="' + d.data().nom + '" ' + sel + '>' + d.data().nom + '</option>'; }); } catch (e) { } var ip = data.imageBase64 ? '<img src="' + data.imageBase64 + '" style="max-width:100px;">' : ''; var dy = data.disponible !== false ? 'selected' : '', dn = data.disponible === false ? 'selected' : ''; var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="prodImage" onchange="previewImage(this,\'prodPreview\')"><div id="prodPreview">' + ip + '</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="prodNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Catégorie</label><select id="prodCat"><option value="">-</option>' + co + '</select></div></div><div class="form-row"><div class="form-group"><label>Prix Achat</label><input type="number" id="prodPA" value="' + (data.prixAchat || 0) + '" step="0.01"></div><div class="form-group"><label>Prix Vente</label><input type="number" id="prodPV" value="' + (data.prixVente || 0) + '" step="0.01"></div></div><div class="form-row"><div class="form-group"><label>Prix Promo</label><input type="number" id="prodPromo" value="' + (data.prixPromo || 0) + '" step="0.01"></div><div class="form-group"><label>Stock</label><input type="number" id="prodStock" value="' + (data.stock || 0) + '"></div></div><div class="form-row"><div class="form-group"><label>Temps Prep</label><input type="text" id="prodTemps" value="' + (data.tempsPrep || '') + '" placeholder="15 min"></div><div class="form-group"><label>Disponible</label><select id="prodDispo"><option value="1" ' + dy + '>Oui</option><option value="0" ' + dn + '>Non</option></select></div></div><div class="form-row"><div class="form-group"><label>Description</label><textarea id="prodDesc">' + (data.description || '') + '</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveProduct()">Enregistrer</button>'; currentCollection = 'products'; openModal(editingId ? 'Modifier Produit' : 'Nouveau Produit', h); }
 function saveProduct() { var n = document.getElementById('prodNom').value; if (!n) { alert('Nom obligatoire'); return; } var f = document.getElementById('prodImage').files[0]; var sf = function(img) { var d = { nom: n, categorie: document.getElementById('prodCat').value, prixAchat: parseFloat(document.getElementById('prodPA').value) || 0, prixVente: parseFloat(document.getElementById('prodPV').value) || 0, prixPromo: parseFloat(document.getElementById('prodPromo').value) || 0, stock: parseInt(document.getElementById('prodStock').value) || 0, vendues: 0, ca: 0, tempsPrep: document.getElementById('prodTemps').value, disponible: document.getElementById('prodDispo').value === '1', description: document.getElementById('prodDesc').value }; if (img) d.imageBase64 = img; saveDocument('products', d, function() { closeModal(); refreshCurrentPage(); }); }; if (f) fileToBase64(f, sf); else sf(null); }
 
-// ==================== CLIENTS (TRI CORRIGÉ + RECHERCHE) ====================
+// ==================== CLIENTS (TRI + RECHERCHE + DATE CRÉATION AUTO) ====================
 function clientSearch(query) {
     clientSearchQuery = query.toLowerCase().trim();
     loadClients();
 }
 
 function loadClientsPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher (nom, prénom, email, tél)..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div></div>';
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher (nom, prénom, email, tél)..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+makeSortableHeader('clients','createdAt','Date créé','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div></div>';
     loadClients();
 }
 
@@ -121,10 +117,11 @@ async function loadClients() {
         
         data = applySort('clients', data, 'nom');
         tb.innerHTML = '';
-        if (data.length === 0) { tb.innerHTML = '<tr><td colspan="18" style="text-align:center;padding:30px;">' + (clientSearchQuery ? 'Aucun client trouvé pour "' + clientSearchQuery + '"' : 'Aucun client') + '</td></tr>'; return; }
+        if (data.length === 0) { tb.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:30px;">' + (clientSearchQuery ? 'Aucun client trouvé pour "' + clientSearchQuery + '"' : 'Aucun client') + '</td></tr>'; return; }
         
         for (var i = 0; i < data.length; i++) {
             var d = data[i];
+            var dateCreated = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleDateString('fr-FR') + ' ' + new Date(d.createdAt.seconds * 1000).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '-';
             var row = '<tr>';
             row += '<td><small>' + (d.id || '').substring(0, 6) + '</small></td>';
             row += '<td><strong>' + (d.nom || '') + '</strong></td>';
@@ -143,15 +140,44 @@ async function loadClients() {
             row += '<td><small>' + (d.allergies ? d.allergies.join(', ') : '-') + '</small></td>';
             row += '<td><small>' + (d.aime ? d.aime.join(', ') : '-') + '</small></td>';
             row += '<td><small>' + (d.deteste ? d.deteste.join(', ') : '-') + '</small></td>';
+            row += '<td><small>' + dateCreated + '</small></td>';
             row += '<td><button class="btn-edit" onclick="editClient(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteClient(\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td>';
             row += '</tr>';
             tb.innerHTML += row;
         }
-    } catch (e) { console.error(e); tb.innerHTML = '<tr><td colspan="18">Erreur</td></tr>'; }
+    } catch (e) { console.error(e); tb.innerHTML = '<tr><td colspan="19">Erreur</td></tr>'; }
 }
 
 function openClientForm(data) { data = data || {}; var h = ''; h += '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="cliNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Prénom *</label><input type="text" id="cliPrenom" value="' + (data.prenom || '') + '" required></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Username</label><input type="text" id="cliUsername" value="' + (data.username || '') + '"></div><div class="form-group"><label>Genre</label><select id="cliGenre"><option value="">-</option><option value="M" ' + (data.genre === 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (data.genre === 'F' ? 'selected' : '') + '>F</option></select></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Adresse</label><input type="text" id="cliAdresse" value="' + (data.adresse || '') + '"></div><div class="form-group"><label>Email</label><input type="email" id="cliEmail" value="' + (data.email || '') + '"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Téléphone</label><input type="text" id="cliTel" value="' + (data.telephone || '') + '"></div><div class="form-group"><label>WhatsApp</label><input type="text" id="cliWhatsapp" value="' + (data.whatsapp || '') + '"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Facebook</label><input type="text" id="cliFacebook" value="' + (data.facebook || '') + '"></div><div class="form-group"><label>Instagram</label><input type="text" id="cliInstagram" value="' + (data.instagram || '') + '"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="cliCA" value="' + (data.ca || 0) + '" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="cliProfit" value="' + (data.profit || 0) + '" step="0.01"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Points Fidélité</label><input type="number" id="cliPoints" value="' + (data.pointsFidelite || 0) + '"></div><div class="form-group"><label>Description</label><textarea id="cliDesc">' + (data.description || '') + '</textarea></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Allergies (virgules)</label><input type="text" id="cliAllergies" value="' + (data.allergies ? data.allergies.join(', ') : '') + '" placeholder="gluten, lactose"></div><div class="form-group"><label>Aime (virgules)</label><input type="text" id="cliAime" value="' + (data.aime ? data.aime.join(', ') : '') + '" placeholder="poulet, poisson"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Déteste (virgules)</label><input type="text" id="cliDeteste" value="' + (data.deteste ? data.deteste.join(', ') : '') + '" placeholder="oignon, tomate"></div></div>'; h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveClient()">Enregistrer</button>'; currentCollection = 'clients'; openModal(editingId ? 'Modifier Client' : 'Nouveau Client', h); }
-function saveClient() { var n = document.getElementById('cliNom').value, p = document.getElementById('cliPrenom').value; if (!n || !p) { alert('Nom et Prénom obligatoires'); return; } var d = { nom: n, prenom: p, username: document.getElementById('cliUsername').value, genre: document.getElementById('cliGenre').value, adresse: document.getElementById('cliAdresse').value, email: document.getElementById('cliEmail').value, telephone: document.getElementById('cliTel').value, whatsapp: document.getElementById('cliWhatsapp').value, facebook: document.getElementById('cliFacebook').value, instagram: document.getElementById('cliInstagram').value, ca: parseFloat(document.getElementById('cliCA').value) || 0, profit: parseFloat(document.getElementById('cliProfit').value) || 0, pointsFidelite: parseInt(document.getElementById('cliPoints').value) || 0, allergies: document.getElementById('cliAllergies').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), aime: document.getElementById('cliAime').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), deteste: document.getElementById('cliDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), description: document.getElementById('cliDesc').value }; if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp(); saveDocument('clients', d, function() { closeModal(); loadClients(); }); }
+
+function saveClient() {
+    var n = document.getElementById('cliNom').value, p = document.getElementById('cliPrenom').value;
+    if (!n || !p) { alert('Nom et Prénom obligatoires'); return; }
+    var d = {
+        nom: n,
+        prenom: p,
+        username: document.getElementById('cliUsername').value,
+        genre: document.getElementById('cliGenre').value,
+        adresse: document.getElementById('cliAdresse').value,
+        email: document.getElementById('cliEmail').value,
+        telephone: document.getElementById('cliTel').value,
+        whatsapp: document.getElementById('cliWhatsapp').value,
+        facebook: document.getElementById('cliFacebook').value,
+        instagram: document.getElementById('cliInstagram').value,
+        ca: parseFloat(document.getElementById('cliCA').value) || 0,
+        profit: parseFloat(document.getElementById('cliProfit').value) || 0,
+        pointsFidelite: parseInt(document.getElementById('cliPoints').value) || 0,
+        allergies: document.getElementById('cliAllergies').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        aime: document.getElementById('cliAime').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        deteste: document.getElementById('cliDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        description: document.getElementById('cliDesc').value
+    };
+    if (!editingId) {
+        d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    }
+    saveDocument('clients', d, function() { closeModal(); loadClients(); });
+}
+
 function editClient(id) { db.collection('clients').doc(id).get().then(function(doc) { if (doc.exists) { editingId = id; currentCollection = 'clients'; openClientForm(doc.data()); } }); }
 function deleteClient(id) { if (confirm('Supprimer ce client ?')) { db.collection('clients').doc(id).delete().then(function() { alert('Supprimé'); loadClients(); }); } }
 
