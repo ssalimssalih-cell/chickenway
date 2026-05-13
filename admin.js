@@ -45,9 +45,7 @@ function sortTableData(tableName, field, loadFn) {
     if (!sortOrders[tableName]) sortOrders[tableName] = {};
     if (!sortOrders[tableName][field]) sortOrders[tableName][field] = 'asc';
     else sortOrders[tableName][field] = sortOrders[tableName][field] === 'asc' ? 'desc' : 'asc';
-    Object.keys(sortOrders[tableName]).forEach(function(k) {
-        if (k !== field) sortOrders[tableName][k] = null;
-    });
+    Object.keys(sortOrders[tableName]).forEach(function(k) { if (k !== field) sortOrders[tableName][k] = null; });
     loadFn();
 }
 function getSortIcon(tableName, field) {
@@ -88,10 +86,7 @@ async function openProductForm(data) { data = data || {}; var co = ''; try { var
 function saveProduct() { var n = document.getElementById('prodNom').value; if (!n) { alert('Nom obligatoire'); return; } var f = document.getElementById('prodImage').files[0]; var sf = function(img) { var d = { nom: n, categorie: document.getElementById('prodCat').value, prixAchat: parseFloat(document.getElementById('prodPA').value) || 0, prixVente: parseFloat(document.getElementById('prodPV').value) || 0, prixPromo: parseFloat(document.getElementById('prodPromo').value) || 0, stock: parseInt(document.getElementById('prodStock').value) || 0, vendues: 0, ca: 0, tempsPrep: document.getElementById('prodTemps').value, disponible: document.getElementById('prodDispo').value === '1', description: document.getElementById('prodDesc').value }; if (img) d.imageBase64 = img; saveDocument('products', d, function() { closeModal(); refreshCurrentPage(); }); }; if (f) fileToBase64(f, sf); else sf(null); }
 
 // ==================== CLIENTS (TRI + RECHERCHE + DATE CRÉATION AUTO) ====================
-function clientSearch(query) {
-    clientSearchQuery = query.toLowerCase().trim();
-    loadClients();
-}
+function clientSearch(query) { clientSearchQuery = query.toLowerCase().trim(); loadClients(); }
 
 function loadClientsPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher (nom, prénom, email, tél)..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+makeSortableHeader('clients','createdAt','Date créé','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div></div>';
@@ -103,22 +98,10 @@ async function loadClients() {
     try {
         var sn = await db.collection('clients').get();
         var data = []; sn.forEach(function(d) { var dd = d.data(); dd.id = d.id; data.push(dd); });
-        
-        // Filtre recherche
-        if (clientSearchQuery) {
-            data = data.filter(function(d) {
-                return (d.nom || '').toLowerCase().indexOf(clientSearchQuery) !== -1 ||
-                       (d.prenom || '').toLowerCase().indexOf(clientSearchQuery) !== -1 ||
-                       (d.username || '').toLowerCase().indexOf(clientSearchQuery) !== -1 ||
-                       (d.email || '').toLowerCase().indexOf(clientSearchQuery) !== -1 ||
-                       (d.telephone || '').toLowerCase().indexOf(clientSearchQuery) !== -1;
-            });
-        }
-        
+        if (clientSearchQuery) { data = data.filter(function(d) { return (d.nom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.prenom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.username||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.email||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.telephone||'').toLowerCase().indexOf(clientSearchQuery)!==-1; }); }
         data = applySort('clients', data, 'nom');
         tb.innerHTML = '';
         if (data.length === 0) { tb.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:30px;">' + (clientSearchQuery ? 'Aucun client trouvé pour "' + clientSearchQuery + '"' : 'Aucun client') + '</td></tr>'; return; }
-        
         for (var i = 0; i < data.length; i++) {
             var d = data[i];
             var dateCreated = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleDateString('fr-FR') + ' ' + new Date(d.createdAt.seconds * 1000).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '-';
@@ -153,31 +136,10 @@ function openClientForm(data) { data = data || {}; var h = ''; h += '<div class=
 function saveClient() {
     var n = document.getElementById('cliNom').value, p = document.getElementById('cliPrenom').value;
     if (!n || !p) { alert('Nom et Prénom obligatoires'); return; }
-    var d = {
-        nom: n,
-        prenom: p,
-        username: document.getElementById('cliUsername').value,
-        genre: document.getElementById('cliGenre').value,
-        adresse: document.getElementById('cliAdresse').value,
-        email: document.getElementById('cliEmail').value,
-        telephone: document.getElementById('cliTel').value,
-        whatsapp: document.getElementById('cliWhatsapp').value,
-        facebook: document.getElementById('cliFacebook').value,
-        instagram: document.getElementById('cliInstagram').value,
-        ca: parseFloat(document.getElementById('cliCA').value) || 0,
-        profit: parseFloat(document.getElementById('cliProfit').value) || 0,
-        pointsFidelite: parseInt(document.getElementById('cliPoints').value) || 0,
-        allergies: document.getElementById('cliAllergies').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
-        aime: document.getElementById('cliAime').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
-        deteste: document.getElementById('cliDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
-        description: document.getElementById('cliDesc').value
-    };
-    if (!editingId) {
-        d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-    }
+    var d = { nom: n, prenom: p, username: document.getElementById('cliUsername').value, genre: document.getElementById('cliGenre').value, adresse: document.getElementById('cliAdresse').value, email: document.getElementById('cliEmail').value, telephone: document.getElementById('cliTel').value, whatsapp: document.getElementById('cliWhatsapp').value, facebook: document.getElementById('cliFacebook').value, instagram: document.getElementById('cliInstagram').value, ca: parseFloat(document.getElementById('cliCA').value) || 0, profit: parseFloat(document.getElementById('cliProfit').value) || 0, pointsFidelite: parseInt(document.getElementById('cliPoints').value) || 0, allergies: document.getElementById('cliAllergies').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), aime: document.getElementById('cliAime').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), deteste: document.getElementById('cliDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), description: document.getElementById('cliDesc').value };
+    if (!editingId) { d.createdAt = firebase.firestore.FieldValue.serverTimestamp(); }
     saveDocument('clients', d, function() { closeModal(); loadClients(); });
 }
-
 function editClient(id) { db.collection('clients').doc(id).get().then(function(doc) { if (doc.exists) { editingId = id; currentCollection = 'clients'; openClientForm(doc.data()); } }); }
 function deleteClient(id) { if (confirm('Supprimer ce client ?')) { db.collection('clients').doc(id).delete().then(function() { alert('Supprimé'); loadClients(); }); } }
 
@@ -193,15 +155,65 @@ async function loadDepenses() { var tb = document.querySelector('#depensesTable 
 function openDepenseForm(data) { data = data || {}; var h = '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="' + (data.date || new Date().toISOString().split('T')[0]) + '"></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="' + (data.montant || 0) + '" step="0.01" required></div></div><div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">' + (data.description || '') + '</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>'; currentCollection = 'depenses'; openModal(editingId ? 'Modifier' : 'Nouvelle', h); }
 function saveDepense() { var m = parseFloat(document.getElementById('depMontant').value) || 0; if (!m) { alert('Montant obligatoire'); return; } var d = { date: document.getElementById('depDate').value, montant: m, description: document.getElementById('depDesc').value }; saveDocument('depenses', d, function() { closeModal(); refreshCurrentPage(); }); }
 
-// ==================== COMMANDES EN LIGNE ====================
+// ==================== COMMANDES EN LIGNE (AVEC OPTIONS DÉTAILLÉES) ====================
 function loadCommandesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><button class="btn-add" onclick="loadCommandes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="commandesTableContainer">Chargement...</div></div>'; loadCommandes(); }
-function loadCommandes() { var cont = document.getElementById('commandesTableContainer'); if (!cont) return; db.collection('commandes').orderBy('createdAt', 'desc').limit(50).get().then(function(sn) { if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; } var h = '<div class="table-container"><table class="data-table"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>'; sn.forEach(function(dc) { var d = dc.data(); var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; var arts = d.items ? d.items.map(function(it) { return it.quantite + 'x ' + it.nom; }).join(', ') : ''; var sc = d.statut === 'valide' ? '#16a34a' : '#d97706'; var sl = d.statut === 'valide' ? '✅ Validée' : '⏳ En attente'; var act = d.statut === 'en_attente' ? '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:5px;" onclick="validateCommande(\'' + dc.id + '\')"><i class="fas fa-check"></i> Valider</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="cancelCommande(\'' + dc.id + '\')"><i class="fas fa-times"></i> Annuler</button>' : ''; h += '<tr><td>' + dt + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td><small>' + arts + '</small></td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>'; }); h += '</tbody></table></div>'; cont.innerHTML = h; }); }
+function loadCommandes() {
+    var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
+    db.collection('commandes').orderBy('createdAt', 'desc').limit(50).get().then(function(sn) {
+        if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; }
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.7rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles & Options</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
+        sn.forEach(function(dc) {
+            var d = dc.data();
+            var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
+            var arts = d.items ? d.items.map(function(it) {
+                var opts = [];
+                if (it.sauces && it.sauces.length > 0) opts.push('🥫' + it.sauces.join(','));
+                if (it.interdits && it.interdits.length > 0) opts.push('🚫' + it.interdits.join(','));
+                if (it.epice && it.epice !== 'Normal') opts.push('🌶️' + it.epice);
+                if (it.sel && it.sel !== 'Normal') opts.push('🧂' + it.sel);
+                return '<strong>' + it.quantite + 'x</strong> ' + it.nom + (opts.length > 0 ? ' <small style="color:#64748b;">(' + opts.join(' ') + ')</small>' : '');
+            }).join('<br>') : '';
+            var sc = d.statut === 'valide' ? '#16a34a' : '#d97706';
+            var sl = d.statut === 'valide' ? '✅ Validée' : '⏳ En attente';
+            var act = d.statut === 'en_attente' ? '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:5px;" onclick="validateCommande(\'' + dc.id + '\')"><i class="fas fa-check"></i> Valider</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="cancelCommande(\'' + dc.id + '\')"><i class="fas fa-times"></i> Annuler</button>' : '<small>Validée</small>';
+            h += '<tr><td>' + dt + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>';
+        });
+        h += '</tbody></table></div>'; cont.innerHTML = h;
+    });
+}
 async function validateCommande(cid) { if (!confirm('Valider ?')) return; var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) return; var cmd = dc.data(); var fcs = await db.collection('ventes').get(); var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0'); await db.collection('ventes').add({ factureNum: fn, items: cmd.items, total: cmd.total, clientId: cmd.clientId, clientName: cmd.clientName, paymentMethod: 'espece', paid: true, remainingAmount: 0, vendeur: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin', createdAt: firebase.firestore.FieldValue.serverTimestamp() }); await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp() }); alert('✅ Validée'); loadCommandes(); }
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
-// ==================== VENTES ====================
+// ==================== VENTES (AVEC OPTIONS DÉTAILLÉES) ====================
 function loadVentesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><button class="btn-add" onclick="loadVentes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="ventesTableContainer">Chargement...</div></div>'; loadVentes(); }
-function loadVentes() { var cont = document.getElementById('ventesTableContainer'); if (!cont) return; var isAdmin = window.currentUserData && window.currentUserData.userData.role === 'admin'; db.collection('ventes').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) { if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; } var tv = 0; var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client/Table</th><th>Articles</th>' + (isAdmin ? '<th>Achat</th><th>Profit</th>' : '') + '<th>Total</th><th>Remise</th><th>Vendeur</th><th>Paiement</th><th>Payé</th><th>Actions</th></tr></thead><tbody>'; sn.forEach(function(dc) { var d = dc.data(); var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; var cl = d.clientName || d.table || '-'; var arts = d.items ? d.items.map(function(it) { return it.nom; }).join(', ') : '-'; var achat = d.items ? d.items.reduce(function(s, it) { return s + (it.prixAchat || 0) * it.quantite; }, 0) : 0; var profit = d.items ? d.items.reduce(function(s, it) { return s + ((it.prixVente - (it.prixAchat || 0)) * it.quantite); }, 0) : 0; tv += d.total || 0; h += '<tr><td><strong>' + (d.factureNum || dc.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td><small>' + arts + '</small></td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + d.total.toFixed(2) + '</strong></td><td>' + (d.discount || 0) + '%</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td>' + (d.paid ? '<span class="status-success">Oui</span>' : '<span class="status-danger">Non</span>') + '</td><td><button class="btn-edit" onclick="printFacture(\'' + dc.id + '\')"><i class="fas fa-print"></i></button></td></tr>'; }); h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>'; cont.innerHTML = h; }); }
+function loadVentes() {
+    var cont = document.getElementById('ventesTableContainer'); if (!cont) return;
+    var isAdmin = window.currentUserData && window.currentUserData.userData.role === 'admin';
+    db.collection('ventes').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) {
+        if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
+        var tv = 0;
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client/Table</th><th>Articles & Options</th>' + (isAdmin ? '<th>Achat</th><th>Profit</th>' : '') + '<th>Total</th><th>Remise</th><th>Vendeur</th><th>Paiement</th><th>Payé</th><th>Actions</th></tr></thead><tbody>';
+        sn.forEach(function(dc) {
+            var d = dc.data();
+            var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
+            var cl = d.clientName || d.table || '-';
+            var arts = d.items ? d.items.map(function(it) {
+                var opts = [];
+                if (it.sauces && it.sauces.length > 0) opts.push('🥫' + it.sauces.join(','));
+                if (it.interdits && it.interdits.length > 0) opts.push('🚫' + it.interdits.join(','));
+                if (it.epice && it.epice !== 'Normal') opts.push('🌶️' + it.epice);
+                if (it.sel && it.sel !== 'Normal') opts.push('🧂' + it.sel);
+                return '<strong>' + it.quantite + 'x</strong> ' + it.nom + (opts.length > 0 ? ' <small style="color:#64748b;">(' + opts.join(' ') + ')</small>' : '');
+            }).join('<br>') : '-';
+            var achat = d.items ? d.items.reduce(function(s, it) { return s + (it.prixAchat || 0) * it.quantite; }, 0) : 0;
+            var profit = d.items ? d.items.reduce(function(s, it) { return s + ((it.prixVente - (it.prixAchat || 0)) * it.quantite); }, 0) : 0;
+            tv += d.total || 0;
+            h += '<tr><td><strong>' + (d.factureNum || dc.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + arts + '</td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discount || 0) + '%</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td>' + (d.paid ? '<span class="status-success">Oui</span>' : '<span class="status-danger">Non</span>') + '</td><td><button class="btn-edit" onclick="printFacture(\'' + dc.id + '\')"><i class="fas fa-print"></i></button></td></tr>';
+        });
+        h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
+        cont.innerHTML = h;
+    });
+}
 function printFacture(did) { db.collection('ventes').doc(did).get().then(function(dc) { if (dc.exists) imprimerFacture(dc.data(), dc.id); else { db.collection('credits').doc(did).get().then(function(cd) { if (cd.exists) imprimerFacture(cd.data(), cd.id); }); } }); }
 function imprimerFacture(d, id) { var ih = ''; if (d.items) { d.items.forEach(function(it) { var o = ''; if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(','); if (it.permis && it.permis.length > 0) o += ' ✅' + it.permis.join(','); if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice; ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + it.prixVente.toFixed(2) + '</td><td>' + (it.prixVente * it.quantite).toFixed(2) + '</td></tr>'; }); } var w = window.open('', '_blank', 'width=400,height=600'); w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discount > 0 ? '<p>Remise: ' + d.discount + '%</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>'); w.document.close(); setTimeout(function() { w.print(); }, 500); }
 
