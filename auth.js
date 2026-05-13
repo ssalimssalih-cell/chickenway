@@ -17,7 +17,7 @@ function handleLogin(event) {
     }).catch(function(e) { showLoginError(e.message); }).finally(function() { btn.disabled = false; btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Se connecter'; });
     return false;
 }
-function showLoginError(msg) { var el = document.getElementById('loginError'); if (!el) { el = document.createElement('div'); el.id = 'loginError'; el.style.cssText = 'background:#fee2e2;color:#991b1b;padding:15px;border-radius:12px;margin-bottom:20px;font-size:0.9rem;text-align:center;border:2px solid #fecaca;'; var lf = document.getElementById('loginForm'); if (lf) lf.parentNode.insertBefore(el, lf); } el.innerHTML = msg; el.style.display = 'block'; }
+function showLoginError(msg) { var el = document.getElementById('loginError'); if (!el) { el = document.createElement('div'); el.id = 'loginError'; el.style.cssText = 'background:#fee2e2;color:#991b1b;padding:15px;border-radius:12px;margin-bottom:20px;font-size:0.9rem;text-align:center;'; var lf = document.getElementById('loginForm'); if (lf) lf.parentNode.insertBefore(el, lf); } el.innerHTML = msg; el.style.display = 'block'; }
 function hideLoginError() { var e = document.getElementById('loginError'); if (e) e.style.display = 'none'; }
 function handleRegister(event) {
     event.preventDefault();
