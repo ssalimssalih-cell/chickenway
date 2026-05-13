@@ -87,59 +87,10 @@ function saveProduct() { var n = document.getElementById('prodNom').value; if (!
 
 // ==================== CLIENTS (TRI + RECHERCHE + DATE CRÉATION AUTO) ====================
 function clientSearch(query) { clientSearchQuery = query.toLowerCase().trim(); loadClients(); }
-
-function loadClientsPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher (nom, prénom, email, tél)..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+makeSortableHeader('clients','createdAt','Date créé','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div></div>';
-    loadClients();
-}
-
-async function loadClients() {
-    var tb = document.querySelector('#clientsTable tbody'); if (!tb) return;
-    try {
-        var sn = await db.collection('clients').get();
-        var data = []; sn.forEach(function(d) { var dd = d.data(); dd.id = d.id; data.push(dd); });
-        if (clientSearchQuery) { data = data.filter(function(d) { return (d.nom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.prenom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.username||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.email||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.telephone||'').toLowerCase().indexOf(clientSearchQuery)!==-1; }); }
-        data = applySort('clients', data, 'nom');
-        tb.innerHTML = '';
-        if (data.length === 0) { tb.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:30px;">' + (clientSearchQuery ? 'Aucun client trouvé pour "' + clientSearchQuery + '"' : 'Aucun client') + '</td></tr>'; return; }
-        for (var i = 0; i < data.length; i++) {
-            var d = data[i];
-            var dateCreated = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleDateString('fr-FR') + ' ' + new Date(d.createdAt.seconds * 1000).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '-';
-            var row = '<tr>';
-            row += '<td><small>' + (d.id || '').substring(0, 6) + '</small></td>';
-            row += '<td><strong>' + (d.nom || '') + '</strong></td>';
-            row += '<td>' + (d.prenom || '') + '</td>';
-            row += '<td>@' + (d.username || '') + '</td>';
-            row += '<td>' + (d.genre || '-') + '</td>';
-            row += '<td><small>' + (d.adresse || '-') + '</small></td>';
-            row += '<td><small>' + (d.email || '-') + '</small></td>';
-            row += '<td>' + (d.telephone || '-') + '</td>';
-            row += '<td>' + (d.whatsapp || '-') + '</td>';
-            row += '<td>' + (d.facebook || '-') + '</td>';
-            row += '<td>' + (d.instagram || '-') + '</td>';
-            row += '<td style="color:#16a34a;font-weight:600;">' + (d.ca || 0).toFixed(2) + '</td>';
-            row += '<td style="color:#16a34a;">' + (d.profit || 0).toFixed(2) + '</td>';
-            row += '<td style="color:#f39c12;font-weight:600;">' + (d.pointsFidelite || 0) + '</td>';
-            row += '<td><small>' + (d.allergies ? d.allergies.join(', ') : '-') + '</small></td>';
-            row += '<td><small>' + (d.aime ? d.aime.join(', ') : '-') + '</small></td>';
-            row += '<td><small>' + (d.deteste ? d.deteste.join(', ') : '-') + '</small></td>';
-            row += '<td><small>' + dateCreated + '</small></td>';
-            row += '<td><button class="btn-edit" onclick="editClient(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteClient(\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td>';
-            row += '</tr>';
-            tb.innerHTML += row;
-        }
-    } catch (e) { console.error(e); tb.innerHTML = '<tr><td colspan="19">Erreur</td></tr>'; }
-}
-
+function loadClientsPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher (nom, prénom, email, tél)..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+makeSortableHeader('clients','createdAt','Date créé','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div></div>'; loadClients(); }
+async function loadClients() { var tb = document.querySelector('#clientsTable tbody'); if (!tb) return; try { var sn = await db.collection('clients').get(); var data = []; sn.forEach(function(d) { var dd = d.data(); dd.id = d.id; data.push(dd); }); if (clientSearchQuery) { data = data.filter(function(d) { return (d.nom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.prenom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.username||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.email||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.telephone||'').toLowerCase().indexOf(clientSearchQuery)!==-1; }); } data = applySort('clients', data, 'nom'); tb.innerHTML = ''; if (data.length === 0) { tb.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:30px;">' + (clientSearchQuery ? 'Aucun client trouvé pour "' + clientSearchQuery + '"' : 'Aucun client') + '</td></tr>'; return; } for (var i = 0; i < data.length; i++) { var d = data[i]; var dateCreated = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleDateString('fr-FR') + ' ' + new Date(d.createdAt.seconds * 1000).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '-'; var row = '<tr>'; row += '<td><small>' + (d.id || '').substring(0, 6) + '</small></td>'; row += '<td><strong>' + (d.nom || '') + '</strong></td>'; row += '<td>' + (d.prenom || '') + '</td>'; row += '<td>@' + (d.username || '') + '</td>'; row += '<td>' + (d.genre || '-') + '</td>'; row += '<td><small>' + (d.adresse || '-') + '</small></td>'; row += '<td><small>' + (d.email || '-') + '</small></td>'; row += '<td>' + (d.telephone || '-') + '</td>'; row += '<td>' + (d.whatsapp || '-') + '</td>'; row += '<td>' + (d.facebook || '-') + '</td>'; row += '<td>' + (d.instagram || '-') + '</td>'; row += '<td style="color:#16a34a;font-weight:600;">' + (d.ca || 0).toFixed(2) + '</td>'; row += '<td style="color:#16a34a;">' + (d.profit || 0).toFixed(2) + '</td>'; row += '<td style="color:#f39c12;font-weight:600;">' + (d.pointsFidelite || 0) + '</td>'; row += '<td><small>' + (d.allergies ? d.allergies.join(', ') : '-') + '</small></td>'; row += '<td><small>' + (d.aime ? d.aime.join(', ') : '-') + '</small></td>'; row += '<td><small>' + (d.deteste ? d.deteste.join(', ') : '-') + '</small></td>'; row += '<td><small>' + dateCreated + '</small></td>'; row += '<td><button class="btn-edit" onclick="editClient(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteClient(\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td>'; row += '</tr>'; tb.innerHTML += row; } } catch (e) { console.error(e); tb.innerHTML = '<tr><td colspan="19">Erreur</td></tr>'; } }
 function openClientForm(data) { data = data || {}; var h = ''; h += '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="cliNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Prénom *</label><input type="text" id="cliPrenom" value="' + (data.prenom || '') + '" required></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Username</label><input type="text" id="cliUsername" value="' + (data.username || '') + '"></div><div class="form-group"><label>Genre</label><select id="cliGenre"><option value="">-</option><option value="M" ' + (data.genre === 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (data.genre === 'F' ? 'selected' : '') + '>F</option></select></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Adresse</label><input type="text" id="cliAdresse" value="' + (data.adresse || '') + '"></div><div class="form-group"><label>Email</label><input type="email" id="cliEmail" value="' + (data.email || '') + '"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Téléphone</label><input type="text" id="cliTel" value="' + (data.telephone || '') + '"></div><div class="form-group"><label>WhatsApp</label><input type="text" id="cliWhatsapp" value="' + (data.whatsapp || '') + '"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Facebook</label><input type="text" id="cliFacebook" value="' + (data.facebook || '') + '"></div><div class="form-group"><label>Instagram</label><input type="text" id="cliInstagram" value="' + (data.instagram || '') + '"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="cliCA" value="' + (data.ca || 0) + '" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="cliProfit" value="' + (data.profit || 0) + '" step="0.01"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Points Fidélité</label><input type="number" id="cliPoints" value="' + (data.pointsFidelite || 0) + '"></div><div class="form-group"><label>Description</label><textarea id="cliDesc">' + (data.description || '') + '</textarea></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Allergies (virgules)</label><input type="text" id="cliAllergies" value="' + (data.allergies ? data.allergies.join(', ') : '') + '" placeholder="gluten, lactose"></div><div class="form-group"><label>Aime (virgules)</label><input type="text" id="cliAime" value="' + (data.aime ? data.aime.join(', ') : '') + '" placeholder="poulet, poisson"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Déteste (virgules)</label><input type="text" id="cliDeteste" value="' + (data.deteste ? data.deteste.join(', ') : '') + '" placeholder="oignon, tomate"></div></div>'; h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveClient()">Enregistrer</button>'; currentCollection = 'clients'; openModal(editingId ? 'Modifier Client' : 'Nouveau Client', h); }
-
-function saveClient() {
-    var n = document.getElementById('cliNom').value, p = document.getElementById('cliPrenom').value;
-    if (!n || !p) { alert('Nom et Prénom obligatoires'); return; }
-    var d = { nom: n, prenom: p, username: document.getElementById('cliUsername').value, genre: document.getElementById('cliGenre').value, adresse: document.getElementById('cliAdresse').value, email: document.getElementById('cliEmail').value, telephone: document.getElementById('cliTel').value, whatsapp: document.getElementById('cliWhatsapp').value, facebook: document.getElementById('cliFacebook').value, instagram: document.getElementById('cliInstagram').value, ca: parseFloat(document.getElementById('cliCA').value) || 0, profit: parseFloat(document.getElementById('cliProfit').value) || 0, pointsFidelite: parseInt(document.getElementById('cliPoints').value) || 0, allergies: document.getElementById('cliAllergies').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), aime: document.getElementById('cliAime').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), deteste: document.getElementById('cliDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), description: document.getElementById('cliDesc').value };
-    if (!editingId) { d.createdAt = firebase.firestore.FieldValue.serverTimestamp(); }
-    saveDocument('clients', d, function() { closeModal(); loadClients(); });
-}
+function saveClient() { var n = document.getElementById('cliNom').value, p = document.getElementById('cliPrenom').value; if (!n || !p) { alert('Nom et Prénom obligatoires'); return; } var d = { nom: n, prenom: p, username: document.getElementById('cliUsername').value, genre: document.getElementById('cliGenre').value, adresse: document.getElementById('cliAdresse').value, email: document.getElementById('cliEmail').value, telephone: document.getElementById('cliTel').value, whatsapp: document.getElementById('cliWhatsapp').value, facebook: document.getElementById('cliFacebook').value, instagram: document.getElementById('cliInstagram').value, ca: parseFloat(document.getElementById('cliCA').value) || 0, profit: parseFloat(document.getElementById('cliProfit').value) || 0, pointsFidelite: parseInt(document.getElementById('cliPoints').value) || 0, allergies: document.getElementById('cliAllergies').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), aime: document.getElementById('cliAime').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), deteste: document.getElementById('cliDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean), description: document.getElementById('cliDesc').value }; if (!editingId) { d.createdAt = firebase.firestore.FieldValue.serverTimestamp(); } saveDocument('clients', d, function() { closeModal(); loadClients(); }); }
 function editClient(id) { db.collection('clients').doc(id).get().then(function(doc) { if (doc.exists) { editingId = id; currentCollection = 'clients'; openClientForm(doc.data()); } }); }
 function deleteClient(id) { if (confirm('Supprimer ce client ?')) { db.collection('clients').doc(id).delete().then(function() { alert('Supprimé'); loadClients(); }); } }
 
@@ -155,28 +106,29 @@ async function loadDepenses() { var tb = document.querySelector('#depensesTable 
 function openDepenseForm(data) { data = data || {}; var h = '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="' + (data.date || new Date().toISOString().split('T')[0]) + '"></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="' + (data.montant || 0) + '" step="0.01" required></div></div><div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">' + (data.description || '') + '</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>'; currentCollection = 'depenses'; openModal(editingId ? 'Modifier' : 'Nouvelle', h); }
 function saveDepense() { var m = parseFloat(document.getElementById('depMontant').value) || 0; if (!m) { alert('Montant obligatoire'); return; } var d = { date: document.getElementById('depDate').value, montant: m, description: document.getElementById('depDesc').value }; saveDocument('depenses', d, function() { closeModal(); refreshCurrentPage(); }); }
 
-// ==================== COMMANDES EN LIGNE (AVEC OPTIONS DÉTAILLÉES) ====================
+// ==================== COMMANDES EN LIGNE (AVEC COLONNE OPTIONS DÉTAILLÉE) ====================
 function loadCommandesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><button class="btn-add" onclick="loadCommandes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="commandesTableContainer">Chargement...</div></div>'; loadCommandes(); }
 function loadCommandes() {
     var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
     db.collection('commandes').orderBy('createdAt', 'desc').limit(50).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; }
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.7rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles & Options</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options (Sauces, Interdits, Épices, Sel)</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
         sn.forEach(function(dc) {
             var d = dc.data();
             var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
-            var arts = d.items ? d.items.map(function(it) {
+            var articlesSimples = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '';
+            var optionsDetail = d.items ? d.items.map(function(it) {
                 var opts = [];
-                if (it.sauces && it.sauces.length > 0) opts.push('🥫' + it.sauces.join(','));
-                if (it.interdits && it.interdits.length > 0) opts.push('🚫' + it.interdits.join(','));
-                if (it.epice && it.epice !== 'Normal') opts.push('🌶️' + it.epice);
-                if (it.sel && it.sel !== 'Normal') opts.push('🧂' + it.sel);
-                return '<strong>' + it.quantite + 'x</strong> ' + it.nom + (opts.length > 0 ? ' <small style="color:#64748b;">(' + opts.join(' ') + ')</small>' : '');
-            }).join('<br>') : '';
+                if (it.sauces && it.sauces.length > 0) opts.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
+                if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
+                if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
+                if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
+                return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
+            }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
             var sc = d.statut === 'valide' ? '#16a34a' : '#d97706';
             var sl = d.statut === 'valide' ? '✅ Validée' : '⏳ En attente';
             var act = d.statut === 'en_attente' ? '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:5px;" onclick="validateCommande(\'' + dc.id + '\')"><i class="fas fa-check"></i> Valider</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="cancelCommande(\'' + dc.id + '\')"><i class="fas fa-times"></i> Annuler</button>' : '<small>Validée</small>';
-            h += '<tr><td>' + dt + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>';
+            h += '<tr><td>' + dt + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + articlesSimples + '</td><td>' + optionsDetail + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>';
         });
         h += '</tbody></table></div>'; cont.innerHTML = h;
     });
@@ -184,7 +136,7 @@ function loadCommandes() {
 async function validateCommande(cid) { if (!confirm('Valider ?')) return; var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) return; var cmd = dc.data(); var fcs = await db.collection('ventes').get(); var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0'); await db.collection('ventes').add({ factureNum: fn, items: cmd.items, total: cmd.total, clientId: cmd.clientId, clientName: cmd.clientName, paymentMethod: 'espece', paid: true, remainingAmount: 0, vendeur: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin', createdAt: firebase.firestore.FieldValue.serverTimestamp() }); await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp() }); alert('✅ Validée'); loadCommandes(); }
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
-// ==================== VENTES (AVEC OPTIONS DÉTAILLÉES) ====================
+// ==================== VENTES (AVEC COLONNE OPTIONS DÉTAILLÉE) ====================
 function loadVentesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><button class="btn-add" onclick="loadVentes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="ventesTableContainer">Chargement...</div></div>'; loadVentes(); }
 function loadVentes() {
     var cont = document.getElementById('ventesTableContainer'); if (!cont) return;
@@ -192,23 +144,24 @@ function loadVentes() {
     db.collection('ventes').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
         var tv = 0;
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client/Table</th><th>Articles & Options</th>' + (isAdmin ? '<th>Achat</th><th>Profit</th>' : '') + '<th>Total</th><th>Remise</th><th>Vendeur</th><th>Paiement</th><th>Payé</th><th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.6rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client/Table</th><th>Articles</th><th>Options (Sauces, Interdits, Épices, Sel)</th>' + (isAdmin ? '<th>Achat</th><th>Profit</th>' : '') + '<th>Total</th><th>Remise</th><th>Vendeur</th><th>Paiement</th><th>Payé</th><th>Actions</th></tr></thead><tbody>';
         sn.forEach(function(dc) {
             var d = dc.data();
             var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
             var cl = d.clientName || d.table || '-';
-            var arts = d.items ? d.items.map(function(it) {
+            var articlesSimples = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '-';
+            var optionsDetail = d.items ? d.items.map(function(it) {
                 var opts = [];
-                if (it.sauces && it.sauces.length > 0) opts.push('🥫' + it.sauces.join(','));
-                if (it.interdits && it.interdits.length > 0) opts.push('🚫' + it.interdits.join(','));
-                if (it.epice && it.epice !== 'Normal') opts.push('🌶️' + it.epice);
-                if (it.sel && it.sel !== 'Normal') opts.push('🧂' + it.sel);
-                return '<strong>' + it.quantite + 'x</strong> ' + it.nom + (opts.length > 0 ? ' <small style="color:#64748b;">(' + opts.join(' ') + ')</small>' : '');
-            }).join('<br>') : '-';
+                if (it.sauces && it.sauces.length > 0) opts.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
+                if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
+                if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
+                if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
+                return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
+            }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
             var achat = d.items ? d.items.reduce(function(s, it) { return s + (it.prixAchat || 0) * it.quantite; }, 0) : 0;
             var profit = d.items ? d.items.reduce(function(s, it) { return s + ((it.prixVente - (it.prixAchat || 0)) * it.quantite); }, 0) : 0;
             tv += d.total || 0;
-            h += '<tr><td><strong>' + (d.factureNum || dc.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + arts + '</td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discount || 0) + '%</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td>' + (d.paid ? '<span class="status-success">Oui</span>' : '<span class="status-danger">Non</span>') + '</td><td><button class="btn-edit" onclick="printFacture(\'' + dc.id + '\')"><i class="fas fa-print"></i></button></td></tr>';
+            h += '<tr><td><strong>' + (d.factureNum || dc.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + articlesSimples + '</td><td>' + optionsDetail + '</td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discount || 0) + '%</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td>' + (d.paid ? '<span class="status-success">Oui</span>' : '<span class="status-danger">Non</span>') + '</td><td><button class="btn-edit" onclick="printFacture(\'' + dc.id + '\')"><i class="fas fa-print"></i></button></td></tr>';
         });
         h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
         cont.innerHTML = h;
