@@ -84,20 +84,22 @@ async function loadDepenses() { var tb = document.querySelector('#depensesTable 
 function openDepenseForm(data) { data = data || {}; var h = '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="' + (data.date || new Date().toISOString().split('T')[0]) + '"></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="' + (data.montant || 0) + '" step="0.01" required></div></div><div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">' + (data.description || '') + '</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>'; currentCollection = 'depenses'; openModal(editingId ? 'Modifier' : 'Nouvelle', h); }
 function saveDepense() { var m = parseFloat(document.getElementById('depMontant').value) || 0; if (!m) { alert('Montant obligatoire'); return; } var d = { date: document.getElementById('depDate').value, montant: m, description: document.getElementById('depDesc').value }; saveDocument('depenses', d, function() { closeModal(); refreshCurrentPage(); }); }
 
-// ==================== COMMANDES EN LIGNE ====================
+// ==================== COMMANDES EN LIGNE (FILTRAGE CÔTÉ CLIENT) ====================
 function commandeSearch(query) { commandeSearchQuery = query.toLowerCase().trim(); loadCommandes(); }
 function loadCommandesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:280px;min-width:180px;margin-bottom:0;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="commandeSearchInput" placeholder="Rechercher (client, email, tel)..." onkeyup="commandeSearch(this.value)" style="border:none;padding:10px;font-size:0.8rem;"></div><button class="btn-add" onclick="loadCommandes()"><i class="fas fa-sync"></i> Actualiser</button></div></div><div id="commandesTableContainer">Chargement...</div></div>'; loadCommandes(); }
 function loadCommandes() {
     var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
-    var commandesQuery = db.collection('commandes').orderBy('createdAt', 'desc').limit(50);
-    // Si caissier, filtrer par son nom (commandes validées par lui)
-    if (window.currentUserData && window.currentUserData.userData.role === 'caissier') {
-        var caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
-        commandesQuery = commandesQuery.where('validatedBy', '==', caissierName);
-    }
-    commandesQuery.get().then(function(sn) {
+    var isAdmin = window.currentUserData && window.currentUserData.userData.role === 'admin';
+    var caissierName = '';
+    if (!isAdmin && window.currentUserData) { caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom; }
+    
+    db.collection('commandes').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; }
         var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; data.push(d); });
+        
+        // FILTRAGE CÔTÉ CLIENT pour le caissier
+        if (caissierName) { data = data.filter(function(d) { return d.validatedBy === caissierName; }); }
+        
         if (commandeSearchQuery) { data = data.filter(function(d) { return (d.clientName||'').toLowerCase().indexOf(commandeSearchQuery)!==-1 || (d.clientEmail||'').toLowerCase().indexOf(commandeSearchQuery)!==-1 || (d.clientTelephone||'').toLowerCase().indexOf(commandeSearchQuery)!==-1; }); }
         data = applySort('commandes', data, 'createdAt');
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun résultat</p>'; return; }
@@ -117,21 +119,22 @@ async function validateCommande(cid) { if (!confirm('Valider cette commande ?'))
 async function payCommande(cid) { if (!confirm('Payer cette commande ? Redirection vers POS...')) return; var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) return; var cmd = dc.data(); localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total })); navigateTo('pos'); }
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
-// ==================== VENTES ====================
+// ==================== VENTES (FILTRAGE CÔTÉ CLIENT) ====================
 function venteSearch(query) { venteSearchQuery = query.toLowerCase().trim(); loadVentes(); }
 function loadVentesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:280px;min-width:180px;margin-bottom:0;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="venteSearchInput" placeholder="Rechercher (client, facture, produit)..." onkeyup="venteSearch(this.value)" style="border:none;padding:10px;font-size:0.8rem;"></div><button class="btn-add" onclick="loadVentes()"><i class="fas fa-sync"></i> Actualiser</button></div></div><div id="ventesTableContainer">Chargement...</div></div>'; loadVentes(); }
 function loadVentes() {
     var cont = document.getElementById('ventesTableContainer'); if (!cont) return;
     var isAdmin = window.currentUserData && window.currentUserData.userData.role === 'admin';
-    var ventesQuery = db.collection('ventes').orderBy('createdAt', 'desc').limit(100);
-    // Si caissier, filtrer par son nom
-    if (window.currentUserData && window.currentUserData.userData.role === 'caissier') {
-        var caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
-        ventesQuery = ventesQuery.where('vendeur', '==', caissierName);
-    }
-    ventesQuery.get().then(function(sn) {
+    var caissierName = '';
+    if (!isAdmin && window.currentUserData) { caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom; }
+    
+    db.collection('ventes').orderBy('createdAt', 'desc').limit(200).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
         var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.articlesDisplay = d.items ? d.items.map(function(it) { return it.nom; }).join(', ') : '-'; d.achatTotal = 0; d.profitTotal = 0; if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; d.achatTotal += pa * q; d.profitTotal += (pvr - pa) * q; }); } d.statutLabel = d.statutPaiement || (d.paid ? 'payé' : 'impayé'); d.totalValue = d.total || 0; d.discountValue = d.discountMAD || 0; d.vendeurValue = d.vendeur || '-'; d.paymentValue = d.paymentMethod || '-'; data.push(d); });
+        
+        // FILTRAGE CÔTÉ CLIENT pour le caissier
+        if (caissierName) { data = data.filter(function(d) { return d.vendeurValue === caissierName; }); }
+        
         if (venteSearchQuery) { data = data.filter(function(d) { return (d.clientDisplay||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.factureNum||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.articlesDisplay||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.vendeurValue||'').toLowerCase().indexOf(venteSearchQuery)!==-1; }); }
         data = applySort('ventes', data, 'createdAt');
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun résultat</p>'; return; }
@@ -143,13 +146,8 @@ function loadVentes() {
             tv += d.totalValue;
             var statutColor = d.statutLabel === 'payé' ? '#16a34a' : d.statutLabel === 'crédit' ? '#f39c12' : d.statutLabel === 'partiel' ? '#d97706' : '#ef4444';
             var actions = '<button class="btn-edit" onclick="printFacture(\'' + d.id + '\')"><i class="fas fa-print"></i></button> ';
-            if (isAdmin) {
-                actions += '<button class="btn-edit" onclick="editVente(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> ';
-                actions += '<button class="btn-delete" onclick="deleteVente(\'' + d.id + '\')"><i class="fas fa-trash"></i></button> ';
-            }
-            if (!d.paid) {
-                actions += '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;" onclick="payerVente(\'' + d.id + '\')"><i class="fas fa-check"></i> Payer</button>';
-            }
+            if (isAdmin) { actions += '<button class="btn-edit" onclick="editVente(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteVente(\'' + d.id + '\')"><i class="fas fa-trash"></i></button> '; }
+            if (!d.paid) { actions += '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;" onclick="payerVente(\'' + d.id + '\')"><i class="fas fa-check"></i> Payer</button>'; }
             h += '<tr><td><strong>' + (d.factureNum || d.id.substring(0, 8)) + '</strong></td><td>' + d.dateStr + '</td><td>' + d.clientDisplay + '</td><td>' + arts + '</td><td>' + opts + '</td>' + (isAdmin ? '<td>' + d.achatTotal.toFixed(2) + '</td><td style="color:#16a34a;">' + d.profitTotal.toFixed(2) + '</td>' : '') + '<td><strong>' + d.totalValue.toFixed(2) + '</strong></td><td>' + d.discountValue.toFixed(2) + ' MAD</td><td>' + d.vendeurValue + '</td><td>' + d.paymentValue + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + d.statutLabel + '</span></td><td>' + actions + '</td></tr>';
         });
         h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
@@ -198,20 +196,22 @@ async function payerVente(did) { if (!confirm('Payer cette vente ? Redirection v
 function printFacture(did) { db.collection('ventes').doc(did).get().then(function(dc) { if (dc.exists) imprimerFacture(dc.data(), dc.id); else { db.collection('credits').doc(did).get().then(function(cd) { if (cd.exists) imprimerFacture(cd.data(), cd.id); }); } }); }
 function imprimerFacture(d, id) { var ih = ''; if (d.items) { d.items.forEach(function(it) { var o = ''; if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(','); if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice; ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + (it.prixVente || 0).toFixed(2) + '</td><td>' + ((it.prixVente || 0) * it.quantite).toFixed(2) + '</td></tr>'; }); } var w = window.open('', '_blank', 'width=400,height=600'); w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discountMAD > 0 ? '<p>Remise: ' + d.discountMAD.toFixed(2) + ' MAD</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>'); w.document.close(); setTimeout(function() { w.print(); }, 500); }
 
-// ==================== CREDITS ====================
+// ==================== CREDITS (FILTRAGE CÔTÉ CLIENT) ====================
 function creditSearch(query) { creditSearchQuery = query.toLowerCase().trim(); loadCredits(); }
 function loadCreditsPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-credit-card"></i> Crédits</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:280px;min-width:180px;margin-bottom:0;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="creditSearchInput" placeholder="Rechercher (client, facture)..." onkeyup="creditSearch(this.value)" style="border:none;padding:10px;font-size:0.8rem;"></div><button class="btn-add" onclick="loadCredits()"><i class="fas fa-sync"></i> Actualiser</button></div></div><div id="creditsTableContainer">Chargement...</div></div>'; loadCredits(); }
 function loadCredits() {
     var cont = document.getElementById('creditsTableContainer'); if (!cont) return;
-    var creditsQuery = db.collection('credits').orderBy('createdAt', 'desc').limit(100);
-    // Si caissier, filtrer par son nom
-    if (window.currentUserData && window.currentUserData.userData.role === 'caissier') {
-        var caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
-        creditsQuery = creditsQuery.where('vendeur', '==', caissierName);
-    }
-    creditsQuery.get().then(function(sn) {
+    var isAdmin = window.currentUserData && window.currentUserData.userData.role === 'admin';
+    var caissierName = '';
+    if (!isAdmin && window.currentUserData) { caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom; }
+    
+    db.collection('credits').orderBy('createdAt', 'desc').limit(200).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun crédit</p>'; return; }
         var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.reste = d.remainingAmount || d.total || 0; d.totalValue = d.total || 0; d.paidValue = d.amountGiven || 0; d.vendeurValue = d.vendeur || '-'; d.factureValue = d.factureNum || d.id.substring(0, 8); data.push(d); });
+        
+        // FILTRAGE CÔTÉ CLIENT pour le caissier
+        if (caissierName) { data = data.filter(function(d) { return d.vendeurValue === caissierName; }); }
+        
         if (creditSearchQuery) { data = data.filter(function(d) { return (d.clientDisplay||'').toLowerCase().indexOf(creditSearchQuery)!==-1 || (d.factureValue||'').toLowerCase().indexOf(creditSearchQuery)!==-1; }); }
         data = applySort('credits', data, 'createdAt');
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun résultat</p>'; return; }
