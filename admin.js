@@ -106,7 +106,7 @@ async function loadDepenses() { var tb = document.querySelector('#depensesTable 
 function openDepenseForm(data) { data = data || {}; var h = '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="' + (data.date || new Date().toISOString().split('T')[0]) + '"></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="' + (data.montant || 0) + '" step="0.01" required></div></div><div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">' + (data.description || '') + '</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>'; currentCollection = 'depenses'; openModal(editingId ? 'Modifier' : 'Nouvelle', h); }
 function saveDepense() { var m = parseFloat(document.getElementById('depMontant').value) || 0; if (!m) { alert('Montant obligatoire'); return; } var d = { date: document.getElementById('depDate').value, montant: m, description: document.getElementById('depDesc').value }; saveDocument('depenses', d, function() { closeModal(); refreshCurrentPage(); }); }
 
-// ==================== COMMANDES EN LIGNE (AVEC COLONNE OPTIONS DÉTAILLÉE) ====================
+// ==================== COMMANDES EN LIGNE ====================
 function loadCommandesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><button class="btn-add" onclick="loadCommandes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="commandesTableContainer">Chargement...</div></div>'; loadCommandes(); }
 function loadCommandes() {
     var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
@@ -133,10 +133,50 @@ function loadCommandes() {
         h += '</tbody></table></div>'; cont.innerHTML = h;
     });
 }
-async function validateCommande(cid) { if (!confirm('Valider ?')) return; var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) return; var cmd = dc.data(); var fcs = await db.collection('ventes').get(); var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0'); await db.collection('ventes').add({ factureNum: fn, items: cmd.items, total: cmd.total, clientId: cmd.clientId, clientName: cmd.clientName, paymentMethod: 'espece', paid: true, remainingAmount: 0, vendeur: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin', createdAt: firebase.firestore.FieldValue.serverTimestamp() }); await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp() }); alert('✅ Validée'); loadCommandes(); }
+async function validateCommande(cid) {
+    if (!confirm('Valider ?')) return;
+    var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) return;
+    var cmd = dc.data();
+    var fcs = await db.collection('ventes').get();
+    var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0');
+    // Calcul du profit avec prise en compte du prix promo
+    var profitCommande = 0;
+    if (cmd.items) {
+        cmd.items.forEach(function(it) {
+            var pa = it.prixAchat || 0;
+            var pvNormal = it.prixVente || it.prixUnitaire || 0;
+            var pPromo = it.prixPromo || 0;
+            var pvReel = (pPromo > 0) ? pPromo : pvNormal;
+            profitCommande += (pvReel - pa) * it.quantite;
+        });
+    }
+    await db.collection('ventes').add({
+        factureNum: fn, items: cmd.items, total: cmd.total, subtotal: cmd.total, discount: 0,
+        clientId: cmd.clientId, clientName: cmd.clientName,
+        paymentMethod: 'espece', paid: true, remainingAmount: 0,
+        vendeur: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Mettre à jour CA et Profit du client
+    if (cmd.clientId) {
+        try {
+            var clientRef = await db.collection('clients').doc(cmd.clientId).get();
+            if (clientRef.exists) {
+                var cd = clientRef.data();
+                await db.collection('clients').doc(cmd.clientId).update({
+                    ca: (cd.ca || 0) + cmd.total,
+                    profit: (cd.profit || 0) + profitCommande,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        } catch(e) { console.error('Erreur update client:', e); }
+    }
+    await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    alert('✅ Validée'); loadCommandes();
+}
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
-// ==================== VENTES (AVEC COLONNE OPTIONS DÉTAILLÉE) ====================
+// ==================== VENTES (PROFIT CORRIGÉ : PRIX PROMO - PRIX ACHAT) ====================
 function loadVentesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><button class="btn-add" onclick="loadVentes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="ventesTableContainer">Chargement...</div></div>'; loadVentes(); }
 function loadVentes() {
     var cont = document.getElementById('ventesTableContainer'); if (!cont) return;
@@ -158,17 +198,30 @@ function loadVentes() {
                 if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
                 return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
             }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
-            var achat = d.items ? d.items.reduce(function(s, it) { return s + (it.prixAchat || 0) * it.quantite; }, 0) : 0;
-            var profit = d.items ? d.items.reduce(function(s, it) { return s + ((it.prixVente - (it.prixAchat || 0)) * it.quantite); }, 0) : 0;
+            // Calcul du profit : Prix Promo (sinon Prix Vente) - Prix Achat
+            var achatTotal = 0;
+            var profitTotal = 0;
+            if (d.items) {
+                d.items.forEach(function(it) {
+                    var prixAchat = it.prixAchat || 0;
+                    var prixVenteNormal = it.prixVente || 0;
+                    var prixPromo = it.prixPromo || 0;
+                    // Si promo > 0, on utilise le prix promo comme prix de vente réel
+                    var prixVenteReel = (prixPromo > 0) ? prixPromo : prixVenteNormal;
+                    var qte = it.quantite || 1;
+                    achatTotal += prixAchat * qte;
+                    profitTotal += (prixVenteReel - prixAchat) * qte;
+                });
+            }
             tv += d.total || 0;
-            h += '<tr><td><strong>' + (d.factureNum || dc.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + articlesSimples + '</td><td>' + optionsDetail + '</td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discount || 0) + '%</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td>' + (d.paid ? '<span class="status-success">Oui</span>' : '<span class="status-danger">Non</span>') + '</td><td><button class="btn-edit" onclick="printFacture(\'' + dc.id + '\')"><i class="fas fa-print"></i></button></td></tr>';
+            h += '<tr><td><strong>' + (d.factureNum || dc.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + articlesSimples + '</td><td>' + optionsDetail + '</td>' + (isAdmin ? '<td>' + achatTotal.toFixed(2) + '</td><td style="color:#16a34a;">' + profitTotal.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discount || 0) + '%</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td>' + (d.paid ? '<span class="status-success">Oui</span>' : '<span class="status-danger">Non</span>') + '</td><td><button class="btn-edit" onclick="printFacture(\'' + dc.id + '\')"><i class="fas fa-print"></i></button></td></tr>';
         });
         h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
         cont.innerHTML = h;
     });
 }
 function printFacture(did) { db.collection('ventes').doc(did).get().then(function(dc) { if (dc.exists) imprimerFacture(dc.data(), dc.id); else { db.collection('credits').doc(did).get().then(function(cd) { if (cd.exists) imprimerFacture(cd.data(), cd.id); }); } }); }
-function imprimerFacture(d, id) { var ih = ''; if (d.items) { d.items.forEach(function(it) { var o = ''; if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(','); if (it.permis && it.permis.length > 0) o += ' ✅' + it.permis.join(','); if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice; ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + it.prixVente.toFixed(2) + '</td><td>' + (it.prixVente * it.quantite).toFixed(2) + '</td></tr>'; }); } var w = window.open('', '_blank', 'width=400,height=600'); w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discount > 0 ? '<p>Remise: ' + d.discount + '%</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>'); w.document.close(); setTimeout(function() { w.print(); }, 500); }
+function imprimerFacture(d, id) { var ih = ''; if (d.items) { d.items.forEach(function(it) { var o = ''; if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(','); if (it.permis && it.permis.length > 0) o += ' ✅' + it.permis.join(','); if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice; ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + (it.prixVente || 0).toFixed(2) + '</td><td>' + ((it.prixVente || 0) * it.quantite).toFixed(2) + '</td></tr>'; }); } var w = window.open('', '_blank', 'width=400,height=600'); w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discount > 0 ? '<p>Remise: ' + d.discount + '%</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>'); w.document.close(); setTimeout(function() { w.print(); }, 500); }
 
 // ==================== CREDITS ====================
 function loadCreditsPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-credit-card"></i> Crédits</h3><button class="btn-add" onclick="loadCredits()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="creditsTableContainer">Chargement...</div></div>'; loadCredits(); }
