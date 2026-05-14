@@ -89,7 +89,13 @@ function commandeSearch(query) { commandeSearchQuery = query.toLowerCase().trim(
 function loadCommandesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:280px;min-width:180px;margin-bottom:0;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="commandeSearchInput" placeholder="Rechercher (client, email, tel)..." onkeyup="commandeSearch(this.value)" style="border:none;padding:10px;font-size:0.8rem;"></div><button class="btn-add" onclick="loadCommandes()"><i class="fas fa-sync"></i> Actualiser</button></div></div><div id="commandesTableContainer">Chargement...</div></div>'; loadCommandes(); }
 function loadCommandes() {
     var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
-    db.collection('commandes').orderBy('createdAt', 'desc').limit(50).get().then(function(sn) {
+    var commandesQuery = db.collection('commandes').orderBy('createdAt', 'desc').limit(50);
+    // Si caissier, filtrer par son nom (commandes validées par lui)
+    if (window.currentUserData && window.currentUserData.userData.role === 'caissier') {
+        var caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
+        commandesQuery = commandesQuery.where('validatedBy', '==', caissierName);
+    }
+    commandesQuery.get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; }
         var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; data.push(d); });
         if (commandeSearchQuery) { data = data.filter(function(d) { return (d.clientName||'').toLowerCase().indexOf(commandeSearchQuery)!==-1 || (d.clientEmail||'').toLowerCase().indexOf(commandeSearchQuery)!==-1 || (d.clientTelephone||'').toLowerCase().indexOf(commandeSearchQuery)!==-1; }); }
@@ -107,7 +113,7 @@ function loadCommandes() {
         h += '</tbody></table></div>'; cont.innerHTML = h;
     });
 }
-async function validateCommande(cid) { if (!confirm('Valider cette commande ?')) return; await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp() }); alert('✅ Validée !'); loadCommandes(); }
+async function validateCommande(cid) { if (!confirm('Valider cette commande ?')) return; await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin' }); alert('✅ Validée !'); loadCommandes(); }
 async function payCommande(cid) { if (!confirm('Payer cette commande ? Redirection vers POS...')) return; var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) return; var cmd = dc.data(); localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total })); navigateTo('pos'); }
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
@@ -117,7 +123,13 @@ function loadVentesPage(c) { c.innerHTML = '<div class="content-card"><div class
 function loadVentes() {
     var cont = document.getElementById('ventesTableContainer'); if (!cont) return;
     var isAdmin = window.currentUserData && window.currentUserData.userData.role === 'admin';
-    db.collection('ventes').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) {
+    var ventesQuery = db.collection('ventes').orderBy('createdAt', 'desc').limit(100);
+    // Si caissier, filtrer par son nom
+    if (window.currentUserData && window.currentUserData.userData.role === 'caissier') {
+        var caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
+        ventesQuery = ventesQuery.where('vendeur', '==', caissierName);
+    }
+    ventesQuery.get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
         var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.articlesDisplay = d.items ? d.items.map(function(it) { return it.nom; }).join(', ') : '-'; d.achatTotal = 0; d.profitTotal = 0; if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; d.achatTotal += pa * q; d.profitTotal += (pvr - pa) * q; }); } d.statutLabel = d.statutPaiement || (d.paid ? 'payé' : 'impayé'); d.totalValue = d.total || 0; d.discountValue = d.discountMAD || 0; d.vendeurValue = d.vendeur || '-'; d.paymentValue = d.paymentMethod || '-'; data.push(d); });
         if (venteSearchQuery) { data = data.filter(function(d) { return (d.clientDisplay||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.factureNum||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.articlesDisplay||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.vendeurValue||'').toLowerCase().indexOf(venteSearchQuery)!==-1; }); }
@@ -191,7 +203,13 @@ function creditSearch(query) { creditSearchQuery = query.toLowerCase().trim(); l
 function loadCreditsPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-credit-card"></i> Crédits</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:280px;min-width:180px;margin-bottom:0;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="creditSearchInput" placeholder="Rechercher (client, facture)..." onkeyup="creditSearch(this.value)" style="border:none;padding:10px;font-size:0.8rem;"></div><button class="btn-add" onclick="loadCredits()"><i class="fas fa-sync"></i> Actualiser</button></div></div><div id="creditsTableContainer">Chargement...</div></div>'; loadCredits(); }
 function loadCredits() {
     var cont = document.getElementById('creditsTableContainer'); if (!cont) return;
-    db.collection('credits').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) {
+    var creditsQuery = db.collection('credits').orderBy('createdAt', 'desc').limit(100);
+    // Si caissier, filtrer par son nom
+    if (window.currentUserData && window.currentUserData.userData.role === 'caissier') {
+        var caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
+        creditsQuery = creditsQuery.where('vendeur', '==', caissierName);
+    }
+    creditsQuery.get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun crédit</p>'; return; }
         var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.reste = d.remainingAmount || d.total || 0; d.totalValue = d.total || 0; d.paidValue = d.amountGiven || 0; d.vendeurValue = d.vendeur || '-'; d.factureValue = d.factureNum || d.id.substring(0, 8); data.push(d); });
         if (creditSearchQuery) { data = data.filter(function(d) { return (d.clientDisplay||'').toLowerCase().indexOf(creditSearchQuery)!==-1 || (d.factureValue||'').toLowerCase().indexOf(creditSearchQuery)!==-1; }); }
