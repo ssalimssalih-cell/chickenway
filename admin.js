@@ -89,30 +89,54 @@ function commandeSearch(query) { commandeSearchQuery = query.toLowerCase().trim(
 function loadCommandesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:280px;min-width:180px;margin-bottom:0;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="commandeSearchInput" placeholder="Rechercher (client, email, tel)..." onkeyup="commandeSearch(this.value)" style="border:none;padding:10px;font-size:0.8rem;"></div><button class="btn-add" onclick="loadCommandes()"><i class="fas fa-sync"></i> Actualiser</button></div></div><div id="commandesTableContainer">Chargement...</div></div>'; loadCommandes(); }
 function loadCommandes() {
     var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
-    var isAdmin = window.currentUserData && window.currentUserData.userData.role === 'admin';
-    var caissierName = '';
-    if (!isAdmin && window.currentUserData) { caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom; }
+    // CAISSIER ET ADMIN VOIENT TOUTES LES COMMANDES
     db.collection('commandes').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; }
         var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; data.push(d); });
-        if (caissierName) { data = data.filter(function(d) { return d.validatedBy === caissierName; }); }
         if (commandeSearchQuery) { data = data.filter(function(d) { return (d.clientName||'').toLowerCase().indexOf(commandeSearchQuery)!==-1 || (d.clientEmail||'').toLowerCase().indexOf(commandeSearchQuery)!==-1 || (d.clientTelephone||'').toLowerCase().indexOf(commandeSearchQuery)!==-1; }); }
         data = applySort('commandes', data, 'createdAt');
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun résultat</p>'; return; }
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr>'+makeSortableHeader('commandes','dateStr','Date','loadCommandes')+makeSortableHeader('commandes','clientName','Client','loadCommandes')+makeSortableHeader('commandes','clientEmail','Email','loadCommandes')+makeSortableHeader('commandes','clientTelephone','Tél','loadCommandes')+'<th>Articles</th><th>Options</th>'+makeSortableHeader('commandes','total','Total','loadCommandes')+makeSortableHeader('commandes','statut','Statut','loadCommandes')+'<th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr>'+makeSortableHeader('commandes','dateStr','Date','loadCommandes')+makeSortableHeader('commandes','clientName','Client','loadCommandes')+makeSortableHeader('commandes','clientEmail','Email','loadCommandes')+makeSortableHeader('commandes','clientTelephone','Tél','loadCommandes')+'<th>Articles</th><th>Options</th>'+makeSortableHeader('commandes','total','Total','loadCommandes')+makeSortableHeader('commandes','statut','Statut','loadCommandes')+makeSortableHeader('commandes','source','Source','loadCommandes')+'<th>Actions</th></tr></thead><tbody>';
         data.forEach(function(d) {
             var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '';
             var opts = d.items ? d.items.map(function(it) { var o = []; if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>'); if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>'); if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>'); if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>'); return o.length > 0 ? o.join(' | ') : '-'; }).join('<br>') : '-';
             var sc = d.statut === 'payé' ? '#4f46e5' : d.statut === 'valide' ? '#16a34a' : '#d97706';
             var sl = d.statut === 'payé' ? '💵 Payée' : d.statut === 'valide' ? '✅ Validée' : '⏳ En attente';
+            var source = d.source || 'client';
+            var sourceBadge = source === 'en_ligne' ? '<span class="status-warning">🌐 En ligne</span>' : '<span style="color:#94a3b8;">📱 App</span>';
             var act = d.statut === 'en_attente' ? '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="validateCommande(\'' + d.id + '\')"><i class="fas fa-check"></i> Valider</button><button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + d.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button><button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="cancelCommande(\'' + d.id + '\')"><i class="fas fa-times"></i> Annuler</button>' : d.statut === 'valide' ? '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;" onclick="payCommande(\'' + d.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button>' : '<small style="color:#4f46e5;">Payée</small>';
-            h += '<tr><td>' + d.dateStr + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td>' + opts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>';
+            h += '<tr><td>' + d.dateStr + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td>' + opts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + sourceBadge + '</td><td>' + act + '</td></tr>';
         });
         h += '</tbody></table></div>'; cont.innerHTML = h;
     }).catch(function(err) { cont.innerHTML = '<p style="color:#ef4444;">Erreur: ' + err.message + '</p>'; });
 }
-async function validateCommande(cid) { if (!confirm('Valider cette commande ?')) return; await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin' }); alert('✅ Validée !'); loadCommandes(); }
-async function payCommande(cid) { if (!confirm('Payer cette commande ? Redirection vers POS...')) return; var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) return; var cmd = dc.data(); localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total })); navigateTo('pos'); }
+async function validateCommande(cid) {
+    if (!confirm('Valider cette commande ?')) return;
+    var vendeur = window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin';
+    await db.collection('commandes').doc(cid).update({
+        statut: 'valide',
+        source: 'en_ligne',
+        validatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        validatedBy: vendeur
+    });
+    alert('✅ Validée !');
+    loadCommandes();
+}
+async function payCommande(cid) {
+    if (!confirm('Payer cette commande ? Redirection vers POS...')) return;
+    var dc = await db.collection('commandes').doc(cid).get();
+    if (!dc.exists) return;
+    var cmd = dc.data();
+    localStorage.setItem('posCommandeData', JSON.stringify({
+        commandeId: cid,
+        clientId: cmd.clientId,
+        clientName: cmd.clientName,
+        items: cmd.items,
+        total: cmd.total,
+        source: 'en_ligne'
+    }));
+    navigateTo('pos');
+}
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
 // ==================== VENTES ====================
@@ -125,13 +149,13 @@ function loadVentes() {
     if (!isAdmin && window.currentUserData) { caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom; }
     db.collection('ventes').orderBy('createdAt', 'desc').limit(200).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
-        var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.articlesDisplay = d.items ? d.items.map(function(it) { return it.nom; }).join(', ') : '-'; d.achatTotal = 0; d.profitTotal = 0; if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; d.achatTotal += pa * q; d.profitTotal += (pvr - pa) * q; }); } d.statutLabel = d.statutPaiement || (d.paid ? 'payé' : 'impayé'); d.totalValue = d.total || 0; d.discountValue = d.discountMAD || 0; d.vendeurValue = d.vendeur || '-'; d.paymentValue = d.paymentMethod || '-'; data.push(d); });
+        var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.articlesDisplay = d.items ? d.items.map(function(it) { return it.nom; }).join(', ') : '-'; d.achatTotal = 0; d.profitTotal = 0; if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; d.achatTotal += pa * q; d.profitTotal += (pvr - pa) * q; }); } d.statutLabel = d.statutPaiement || (d.paid ? 'payé' : 'impayé'); d.totalValue = d.total || 0; d.discountValue = d.discountMAD || 0; d.vendeurValue = d.vendeur || '-'; d.paymentValue = d.paymentMethod || '-'; d.sourceLabel = d.source === 'en_ligne' ? '<span class="status-warning">🌐 En ligne</span>' : '<span style="color:#94a3b8;">📱 POS</span>'; data.push(d); });
         if (caissierName) { data = data.filter(function(d) { return d.vendeurValue === caissierName; }); }
         if (venteSearchQuery) { data = data.filter(function(d) { return (d.clientDisplay||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.factureNum||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.articlesDisplay||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.vendeurValue||'').toLowerCase().indexOf(venteSearchQuery)!==-1; }); }
         data = applySort('ventes', data, 'createdAt');
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun résultat</p>'; return; }
         var tv = 0;
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('ventes','factureNum','Facture','loadVentes')+makeSortableHeader('ventes','dateStr','Date','loadVentes')+makeSortableHeader('ventes','clientDisplay','Client/Table','loadVentes')+'<th>Articles</th><th>Options</th>'+(isAdmin?makeSortableHeader('ventes','achatTotal','Achat','loadVentes')+makeSortableHeader('ventes','profitTotal','Profit','loadVentes'):'')+makeSortableHeader('ventes','totalValue','Total','loadVentes')+makeSortableHeader('ventes','discountValue','Remise','loadVentes')+makeSortableHeader('ventes','vendeurValue','Vendeur','loadVentes')+makeSortableHeader('ventes','paymentValue','Paiement','loadVentes')+makeSortableHeader('ventes','statutLabel','Statut','loadVentes')+'<th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('ventes','factureNum','Facture','loadVentes')+makeSortableHeader('ventes','dateStr','Date','loadVentes')+makeSortableHeader('ventes','clientDisplay','Client/Table','loadVentes')+'<th>Articles</th><th>Options</th>'+(isAdmin?makeSortableHeader('ventes','achatTotal','Achat','loadVentes')+makeSortableHeader('ventes','profitTotal','Profit','loadVentes'):'')+makeSortableHeader('ventes','totalValue','Total','loadVentes')+makeSortableHeader('ventes','discountValue','Remise','loadVentes')+makeSortableHeader('ventes','vendeurValue','Vendeur','loadVentes')+makeSortableHeader('ventes','paymentValue','Paiement','loadVentes')+makeSortableHeader('ventes','statutLabel','Statut','loadVentes')+makeSortableHeader('ventes','sourceLabel','Source','loadVentes')+'<th>Actions</th></tr></thead><tbody>';
         data.forEach(function(d) {
             var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '-';
             var opts = d.items ? d.items.map(function(it) { var o = []; if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>'); if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>'); if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>'); if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>'); return o.length > 0 ? o.join(' | ') : '-'; }).join('<br>') : '-';
@@ -140,7 +164,7 @@ function loadVentes() {
             var actions = '<button class="btn-edit" onclick="printFacture(\'' + d.id + '\')"><i class="fas fa-print"></i></button> ';
             if (isAdmin) { actions += '<button class="btn-edit" onclick="editVente(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteVente(\'' + d.id + '\')"><i class="fas fa-trash"></i></button> '; }
             if (!d.paid) { actions += '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;" onclick="payerVente(\'' + d.id + '\')"><i class="fas fa-check"></i> Payer</button>'; }
-            h += '<tr><td><strong>' + (d.factureNum || d.id.substring(0, 8)) + '</strong></td><td>' + d.dateStr + '</td><td>' + d.clientDisplay + '</td><td>' + arts + '</td><td>' + opts + '</td>' + (isAdmin ? '<td>' + d.achatTotal.toFixed(2) + '</td><td style="color:#16a34a;">' + d.profitTotal.toFixed(2) + '</td>' : '') + '<td><strong>' + d.totalValue.toFixed(2) + '</strong></td><td>' + d.discountValue.toFixed(2) + ' MAD</td><td>' + d.vendeurValue + '</td><td>' + d.paymentValue + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + d.statutLabel + '</span></td><td>' + actions + '</td></tr>';
+            h += '<tr><td><strong>' + (d.factureNum || d.id.substring(0, 8)) + '</strong></td><td>' + d.dateStr + '</td><td>' + d.clientDisplay + '</td><td>' + arts + '</td><td>' + opts + '</td>' + (isAdmin ? '<td>' + d.achatTotal.toFixed(2) + '</td><td style="color:#16a34a;">' + d.profitTotal.toFixed(2) + '</td>' : '') + '<td><strong>' + d.totalValue.toFixed(2) + '</strong></td><td>' + d.discountValue.toFixed(2) + ' MAD</td><td>' + d.vendeurValue + '</td><td>' + d.paymentValue + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + d.statutLabel + '</span></td><td>' + d.sourceLabel + '</td><td>' + actions + '</td></tr>';
         });
         h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
         cont.innerHTML = h;
