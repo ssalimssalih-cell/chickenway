@@ -41,10 +41,35 @@ function refreshCurrentPage(){var t=document.getElementById('pageTitle').textCon
 function openEditForm(cn,data){if(cn==='categories')openCategoryForm(data);else if(cn==='products')openProductForm(data);else if(cn==='clients')openClientForm(data);else if(cn==='fournisseurs')openFournisseurForm(data);else if(cn==='depenses')openDepenseForm(data);}
 
 // ==================== SYSTÈME DE TRI UNIVERSEL ====================
-function sortTableData(tableName, field, loadFn) {if(!sortOrders[tableName])sortOrders[tableName]={};if(!sortOrders[tableName][field])sortOrders[tableName][field]='asc';else sortOrders[tableName][field]=sortOrders[tableName][field]==='asc'?'desc':'asc';Object.keys(sortOrders[tableName]).forEach(function(k){if(k!==field)sortOrders[tableName][k]=null;});loadFn();}
-function getSortIcon(tableName, field) {if(!sortOrders[tableName]||!sortOrders[tableName][field])return'<i class="fas fa-sort" style="font-size:0.5rem;margin-left:2px;opacity:0.3;cursor:pointer;"></i>';return sortOrders[tableName][field]==='asc'?'<i class="fas fa-sort-up" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>':'<i class="fas fa-sort-down" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>';}
-function applySort(tableName, data, defaultField) {if(!sortOrders[tableName])sortOrders[tableName]={};var activeField=Object.keys(sortOrders[tableName]).find(function(k){return sortOrders[tableName][k];});if(!activeField)activeField=defaultField;var order=sortOrders[tableName][activeField]||'asc';return data.sort(function(a,b){var va=a[activeField],vb=b[activeField];if(va===undefined||va===null)va='';if(vb===undefined||vb===null)vb='';if(typeof va==='number'&&typeof vb==='number')return order==='asc'?va-vb:vb-va;va=String(va).toLowerCase();vb=String(vb).toLowerCase();if(order==='asc')return va>vb?1:(va<vb?-1:0);else return va<vb?1:(va>vb?-1:0);});}
-function makeSortableHeader(tableName, field, label, loadFn) {return'<th onclick="sortTableData(\''+tableName+'\',\''+field+'\', '+loadFn+')" style="cursor:pointer;white-space:nowrap;">'+label+' '+getSortIcon(tableName, field)+'</th>';}
+function sortTableData(tableName, field, loadFn) {
+    if (!sortOrders[tableName]) sortOrders[tableName] = {};
+    if (!sortOrders[tableName][field]) sortOrders[tableName][field] = 'asc';
+    else sortOrders[tableName][field] = sortOrders[tableName][field] === 'asc' ? 'desc' : 'asc';
+    Object.keys(sortOrders[tableName]).forEach(function(k) { if (k !== field) sortOrders[tableName][k] = null; });
+    loadFn();
+}
+function getSortIcon(tableName, field) {
+    if (!sortOrders[tableName] || !sortOrders[tableName][field]) return '<i class="fas fa-sort" style="font-size:0.5rem;margin-left:2px;opacity:0.3;cursor:pointer;"></i>';
+    return sortOrders[tableName][field] === 'asc' ? '<i class="fas fa-sort-up" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>' : '<i class="fas fa-sort-down" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>';
+}
+function applySort(tableName, data, defaultField) {
+    if (!sortOrders[tableName]) sortOrders[tableName] = {};
+    var activeField = Object.keys(sortOrders[tableName]).find(function(k) { return sortOrders[tableName][k]; });
+    if (!activeField) activeField = defaultField;
+    var order = sortOrders[tableName][activeField] || 'asc';
+    return data.sort(function(a, b) {
+        var va = a[activeField], vb = b[activeField];
+        if (va === undefined || va === null) va = '';
+        if (vb === undefined || vb === null) vb = '';
+        if (typeof va === 'number' && typeof vb === 'number') return order === 'asc' ? va - vb : vb - va;
+        va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+        if (order === 'asc') return va > vb ? 1 : (va < vb ? -1 : 0);
+        else return va < vb ? 1 : (va > vb ? -1 : 0);
+    });
+}
+function makeSortableHeader(tableName, field, label, loadFn) {
+    return '<th onclick="sortTableData(\'' + tableName + '\',\'' + field + '\', ' + loadFn + ')" style="cursor:pointer;white-space:nowrap;">' + label + ' ' + getSortIcon(tableName, field) + '</th>';
+}
 
 // ==================== CATEGORIES ====================
 function loadCategoriesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>'+makeSortableHeader('categories','nom','Nom','loadCategories')+makeSortableHeader('categories','description','Description','loadCategories')+makeSortableHeader('categories','ca','CA','loadCategories')+makeSortableHeader('categories','profit','Profit','loadCategories')+'<th>Nb Produits</th><th>Actions</th></tr></thead><tbody></tbody></table></div></div>'; loadCategories(); }
@@ -60,7 +85,7 @@ async function loadProducts() { var tb = document.querySelector('#productsTable 
 async function openProductForm(data) { data = data || {}; var co = ''; try { var cs = await db.collection('categories').get(); cs.forEach(function(d) { var sel = data.categorie === d.data().nom ? 'selected' : ''; co += '<option value="' + d.data().nom + '" ' + sel + '>' + d.data().nom + '</option>'; }); } catch (e) { } var ip = data.imageBase64 ? '<img src="' + data.imageBase64 + '" style="max-width:100px;">' : ''; var dy = data.disponible !== false ? 'selected' : '', dn = data.disponible === false ? 'selected' : ''; var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="prodImage" onchange="previewImage(this,\'prodPreview\')"><div id="prodPreview">' + ip + '</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="prodNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Catégorie</label><select id="prodCat"><option value="">-</option>' + co + '</select></div></div><div class="form-row"><div class="form-group"><label>Prix Achat</label><input type="number" id="prodPA" value="' + (data.prixAchat || 0) + '" step="0.01"></div><div class="form-group"><label>Prix Vente</label><input type="number" id="prodPV" value="' + (data.prixVente || 0) + '" step="0.01"></div></div><div class="form-row"><div class="form-group"><label>Prix Promo</label><input type="number" id="prodPromo" value="' + (data.prixPromo || 0) + '" step="0.01"></div><div class="form-group"><label>Stock</label><input type="number" id="prodStock" value="' + (data.stock || 0) + '"></div></div><div class="form-row"><div class="form-group"><label>Temps Prep</label><input type="text" id="prodTemps" value="' + (data.tempsPrep || '') + '" placeholder="15 min"></div><div class="form-group"><label>Disponible</label><select id="prodDispo"><option value="1" ' + dy + '>Oui</option><option value="0" ' + dn + '>Non</option></select></div></div><div class="form-row"><div class="form-group"><label>Description</label><textarea id="prodDesc">' + (data.description || '') + '</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveProduct()">Enregistrer</button>'; currentCollection = 'products'; openModal(editingId ? 'Modifier Produit' : 'Nouveau Produit', h); }
 function saveProduct() { var n = document.getElementById('prodNom').value; if (!n) { alert('Nom obligatoire'); return; } var f = document.getElementById('prodImage').files[0]; var sf = function(img) { var d = { nom: n, categorie: document.getElementById('prodCat').value, prixAchat: parseFloat(document.getElementById('prodPA').value) || 0, prixVente: parseFloat(document.getElementById('prodPV').value) || 0, prixPromo: parseFloat(document.getElementById('prodPromo').value) || 0, stock: parseInt(document.getElementById('prodStock').value) || 0, vendues: 0, ca: 0, tempsPrep: document.getElementById('prodTemps').value, disponible: document.getElementById('prodDispo').value === '1', description: document.getElementById('prodDesc').value }; if (img) d.imageBase64 = img; saveDocument('products', d, function() { closeModal(); refreshCurrentPage(); }); }; if (f) fileToBase64(f, sf); else sf(null); }
 
-// ==================== CLIENTS ====================
+// ==================== CLIENTS (TRI + RECHERCHE + DATE CRÉATION AUTO) ====================
 function clientSearch(query) { clientSearchQuery = query.toLowerCase().trim(); loadClients(); }
 function loadClientsPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher (nom, prénom, email, tél)..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+makeSortableHeader('clients','createdAt','Date créé','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div></div>'; loadClients(); }
 async function loadClients() { var tb = document.querySelector('#clientsTable tbody'); if (!tb) return; try { var sn = await db.collection('clients').get(); var data = []; sn.forEach(function(d) { var dd = d.data(); dd.id = d.id; data.push(dd); }); if (clientSearchQuery) { data = data.filter(function(d) { return (d.nom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.prenom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.username||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.email||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.telephone||'').toLowerCase().indexOf(clientSearchQuery)!==-1; }); } data = applySort('clients', data, 'nom'); tb.innerHTML = ''; if (data.length === 0) { tb.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:30px;">' + (clientSearchQuery ? 'Aucun client trouvé pour "' + clientSearchQuery + '"' : 'Aucun client') + '</td></tr>'; return; } for (var i = 0; i < data.length; i++) { var d = data[i]; var dateCreated = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleDateString('fr-FR') + ' ' + new Date(d.createdAt.seconds * 1000).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '-'; var row = '<tr>'; row += '<td><small>' + (d.id || '').substring(0, 6) + '</small></td>'; row += '<td><strong>' + (d.nom || '') + '</strong></td>'; row += '<td>' + (d.prenom || '') + '</td>'; row += '<td>@' + (d.username || '') + '</td>'; row += '<td>' + (d.genre || '-') + '</td>'; row += '<td><small>' + (d.adresse || '-') + '</small></td>'; row += '<td><small>' + (d.email || '-') + '</small></td>'; row += '<td>' + (d.telephone || '-') + '</td>'; row += '<td>' + (d.whatsapp || '-') + '</td>'; row += '<td>' + (d.facebook || '-') + '</td>'; row += '<td>' + (d.instagram || '-') + '</td>'; row += '<td style="color:#16a34a;font-weight:600;">' + (d.ca || 0).toFixed(2) + '</td>'; row += '<td style="color:#16a34a;">' + (d.profit || 0).toFixed(2) + '</td>'; row += '<td style="color:#f39c12;font-weight:600;">' + (d.pointsFidelite || 0) + '</td>'; row += '<td><small>' + (d.allergies ? d.allergies.join(', ') : '-') + '</small></td>'; row += '<td><small>' + (d.aime ? d.aime.join(', ') : '-') + '</small></td>'; row += '<td><small>' + (d.deteste ? d.deteste.join(', ') : '-') + '</small></td>'; row += '<td><small>' + dateCreated + '</small></td>'; row += '<td><button class="btn-edit" onclick="editClient(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteClient(\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td>'; row += '</tr>'; tb.innerHTML += row; } } catch (e) { console.error(e); tb.innerHTML = '<tr><td colspan="19">Erreur</td></tr>'; } }
@@ -87,51 +112,71 @@ function loadCommandes() {
     var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
     db.collection('commandes').orderBy('createdAt', 'desc').limit(50).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; }
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options (Sauces, Interdits, Épices, Sel)</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
         sn.forEach(function(dc) {
             var d = dc.data();
             var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
-            var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '';
-            var opts = d.items ? d.items.map(function(it) {
-                var o = [];
-                if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>');
-                if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>');
-                if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>');
-                if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>');
-                return o.length > 0 ? o.join(' | ') : '-';
-            }).join('<br>') : '-';
-            var sc = d.statut === 'payé' ? '#4f46e5' : d.statut === 'valide' ? '#16a34a' : '#d97706';
-            var sl = d.statut === 'payé' ? '💵 Payée' : d.statut === 'valide' ? '✅ Validée' : '⏳ En attente';
-            var act = '';
-            if (d.statut === 'en_attente') {
-                act = '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="validateCommande(\'' + dc.id + '\')"><i class="fas fa-check"></i> Valider</button>';
-                act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + dc.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button>';
-                act += '<button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="cancelCommande(\'' + dc.id + '\')"><i class="fas fa-times"></i> Annuler</button>';
-            } else if (d.statut === 'valide') {
-                act = '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;" onclick="payCommande(\'' + dc.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button>';
-            } else {
-                act = '<small style="color:#4f46e5;">Payée</small>';
-            }
-            h += '<tr><td>' + dt + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td>' + opts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>';
+            var articlesSimples = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '';
+            var optionsDetail = d.items ? d.items.map(function(it) {
+                var opts = [];
+                if (it.sauces && it.sauces.length > 0) opts.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
+                if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
+                if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
+                if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
+                return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
+            }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
+            var sc = d.statut === 'valide' ? '#16a34a' : '#d97706';
+            var sl = d.statut === 'valide' ? '✅ Validée' : '⏳ En attente';
+            var act = d.statut === 'en_attente' ? '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:5px;" onclick="validateCommande(\'' + dc.id + '\')"><i class="fas fa-check"></i> Valider</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="cancelCommande(\'' + dc.id + '\')"><i class="fas fa-times"></i> Annuler</button>' : '<small>Validée</small>';
+            h += '<tr><td>' + dt + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + articlesSimples + '</td><td>' + optionsDetail + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>';
         });
         h += '</tbody></table></div>'; cont.innerHTML = h;
     });
 }
 async function validateCommande(cid) {
-    if (!confirm('Valider cette commande ? Le statut passera à "Validée".')) return;
-    await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin' });
-    alert('✅ Validée !'); loadCommandes();
-}
-async function payCommande(cid) {
-    if (!confirm('Payer cette commande ? Redirection vers le POS...')) return;
-    var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) { alert('Introuvable'); return; }
+    if (!confirm('Valider ?')) return;
+    var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) return;
     var cmd = dc.data();
-    localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total }));
-    navigateTo('pos');
+    var fcs = await db.collection('ventes').get();
+    var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0');
+    // Calcul du profit avec prise en compte du prix promo
+    var profitCommande = 0;
+    if (cmd.items) {
+        cmd.items.forEach(function(it) {
+            var pa = it.prixAchat || 0;
+            var pvNormal = it.prixVente || it.prixUnitaire || 0;
+            var pPromo = it.prixPromo || 0;
+            var pvReel = (pPromo > 0) ? pPromo : pvNormal;
+            profitCommande += (pvReel - pa) * it.quantite;
+        });
+    }
+    await db.collection('ventes').add({
+        factureNum: fn, items: cmd.items, total: cmd.total, subtotal: cmd.total, discount: 0,
+        clientId: cmd.clientId, clientName: cmd.clientName,
+        paymentMethod: 'espece', paid: true, remainingAmount: 0,
+        vendeur: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Mettre à jour CA et Profit du client
+    if (cmd.clientId) {
+        try {
+            var clientRef = await db.collection('clients').doc(cmd.clientId).get();
+            if (clientRef.exists) {
+                var cd = clientRef.data();
+                await db.collection('clients').doc(cmd.clientId).update({
+                    ca: (cd.ca || 0) + cmd.total,
+                    profit: (cd.profit || 0) + profitCommande,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        } catch(e) { console.error('Erreur update client:', e); }
+    }
+    await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    alert('✅ Validée'); loadCommandes();
 }
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
-// ==================== VENTES ====================
+// ==================== VENTES (PROFIT CORRIGÉ : PRIX PROMO - PRIX ACHAT) ====================
 function loadVentesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><button class="btn-add" onclick="loadVentes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="ventesTableContainer">Chargement...</div></div>'; loadVentes(); }
 function loadVentes() {
     var cont = document.getElementById('ventesTableContainer'); if (!cont) return;
@@ -139,40 +184,44 @@ function loadVentes() {
     db.collection('ventes').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
         var tv = 0;
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.6rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client/Table</th><th>Articles</th><th>Options</th>' + (isAdmin ? '<th>Achat</th><th>Profit</th>' : '') + '<th>Total</th><th>Remise</th><th>Vendeur</th><th>Paiement</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.6rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client/Table</th><th>Articles</th><th>Options (Sauces, Interdits, Épices, Sel)</th>' + (isAdmin ? '<th>Achat</th><th>Profit</th>' : '') + '<th>Total</th><th>Remise</th><th>Vendeur</th><th>Paiement</th><th>Payé</th><th>Actions</th></tr></thead><tbody>';
         sn.forEach(function(dc) {
             var d = dc.data();
             var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
             var cl = d.clientName || d.table || '-';
-            var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '-';
-            var opts = d.items ? d.items.map(function(it) {
-                var o = [];
-                if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>');
-                if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>');
-                if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>');
-                if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>');
-                return o.length > 0 ? o.join(' | ') : '-';
-            }).join('<br>') : '-';
-            var achat = 0, profit = 0;
-            if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; achat += pa * q; profit += (pvr - pa) * q; }); }
+            var articlesSimples = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '-';
+            var optionsDetail = d.items ? d.items.map(function(it) {
+                var opts = [];
+                if (it.sauces && it.sauces.length > 0) opts.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
+                if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
+                if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
+                if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
+                return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
+            }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
+            // Calcul du profit : Prix Promo (sinon Prix Vente) - Prix Achat
+            var achatTotal = 0;
+            var profitTotal = 0;
+            if (d.items) {
+                d.items.forEach(function(it) {
+                    var prixAchat = it.prixAchat || 0;
+                    var prixVenteNormal = it.prixVente || 0;
+                    var prixPromo = it.prixPromo || 0;
+                    // Si promo > 0, on utilise le prix promo comme prix de vente réel
+                    var prixVenteReel = (prixPromo > 0) ? prixPromo : prixVenteNormal;
+                    var qte = it.quantite || 1;
+                    achatTotal += prixAchat * qte;
+                    profitTotal += (prixVenteReel - prixAchat) * qte;
+                });
+            }
             tv += d.total || 0;
-            var statutLabel = d.statutPaiement || (d.paid ? 'payé' : 'impayé');
-            var statutColor = statutLabel === 'payé' ? '#16a34a' : statutLabel === 'crédit' ? '#f39c12' : statutLabel === 'partiel' ? '#d97706' : '#ef4444';
-            h += '<tr><td><strong>' + (d.factureNum || dc.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + arts + '</td><td>' + opts + '</td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discountMAD || 0).toFixed(2) + ' MAD</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + statutLabel + '</span></td><td><button class="btn-edit" onclick="printFacture(\'' + dc.id + '\')"><i class="fas fa-print"></i></button> ' + (d.paid ? '' : '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;" onclick="payerVente(\'' + dc.id + '\')"><i class="fas fa-check"></i> Payer</button>') + '</td></tr>';
+            h += '<tr><td><strong>' + (d.factureNum || dc.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + articlesSimples + '</td><td>' + optionsDetail + '</td>' + (isAdmin ? '<td>' + achatTotal.toFixed(2) + '</td><td style="color:#16a34a;">' + profitTotal.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discount || 0) + '%</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td>' + (d.paid ? '<span class="status-success">Oui</span>' : '<span class="status-danger">Non</span>') + '</td><td><button class="btn-edit" onclick="printFacture(\'' + dc.id + '\')"><i class="fas fa-print"></i></button></td></tr>';
         });
         h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
         cont.innerHTML = h;
     });
 }
-async function payerVente(did) {
-    if (!confirm('Marquer cette vente comme payée ? Redirection vers le POS...')) return;
-    var dc = await db.collection('ventes').doc(did).get(); if (!dc.exists) { alert('Introuvable'); return; }
-    var d = dc.data();
-    localStorage.setItem('posPayerVente', JSON.stringify({ venteId: did, clientId: d.clientId, clientName: d.clientName, items: d.items, total: d.total }));
-    navigateTo('pos');
-}
 function printFacture(did) { db.collection('ventes').doc(did).get().then(function(dc) { if (dc.exists) imprimerFacture(dc.data(), dc.id); else { db.collection('credits').doc(did).get().then(function(cd) { if (cd.exists) imprimerFacture(cd.data(), cd.id); }); } }); }
-function imprimerFacture(d, id) { var ih = ''; if (d.items) { d.items.forEach(function(it) { var o = ''; if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(','); if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice; ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + (it.prixVente || 0).toFixed(2) + '</td><td>' + ((it.prixVente || 0) * it.quantite).toFixed(2) + '</td></tr>'; }); } var w = window.open('', '_blank', 'width=400,height=600'); w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discountMAD > 0 ? '<p>Remise: ' + d.discountMAD.toFixed(2) + ' MAD</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>'); w.document.close(); setTimeout(function() { w.print(); }, 500); }
+function imprimerFacture(d, id) { var ih = ''; if (d.items) { d.items.forEach(function(it) { var o = ''; if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(','); if (it.permis && it.permis.length > 0) o += ' ✅' + it.permis.join(','); if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice; ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + (it.prixVente || 0).toFixed(2) + '</td><td>' + ((it.prixVente || 0) * it.quantite).toFixed(2) + '</td></tr>'; }); } var w = window.open('', '_blank', 'width=400,height=600'); w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discount > 0 ? '<p>Remise: ' + d.discount + '%</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>'); w.document.close(); setTimeout(function() { w.print(); }, 500); }
 
 // ==================== CREDITS ====================
 function loadCreditsPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-credit-card"></i> Crédits</h3><button class="btn-add" onclick="loadCredits()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="creditsTableContainer">Chargement...</div></div>'; loadCredits(); }
@@ -184,4 +233,5 @@ function loadOptionsPage(c) { if (!window.currentUserData || window.currentUserD
 function loadUsersList() { db.collection('users').get().then(function(sn) { var p = 0, a = 0; var tb = document.getElementById('usersTableBody'); tb.innerHTML = ''; if (sn.empty) { tb.innerHTML = '<tr><td colspan="6">Aucun</td></tr>'; } var us = []; sn.forEach(function(dc) { us.push({ id: dc.id, data: dc.data() }); }); us.sort(function(x, y) { return (y.data.createdAt?.seconds || 0) - (x.data.createdAt?.seconds || 0); }); us.forEach(function(u) { var d = u.data, id = u.id; if (d.authorized === 'no') p++; else a++; var badge = d.authorized === 'yes' ? '<span class="status-success">OK</span>' : '<span class="status-warning">En attente</span>'; var act = d.authorized === 'no' ? '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:5px;" onclick="approveUser(\'' + id + '\')">Accepter</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="rejectUser(\'' + id + '\')">Refuser</button>' : '<button style="padding:4px 8px;font-size:0.7rem;margin-right:5px;color:#d97706;border:none;background:#fef3c7;border-radius:6px;cursor:pointer;" onclick="blockUser(\'' + id + '\')">Bloquer</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="deleteUserPermanently(\'' + id + '\')">Supprimer</button>'; tb.innerHTML += '<tr><td>@' + d.username + '</td><td>' + d.prenom + ' ' + d.nom + '</td><td>' + d.email + '</td><td>' + d.role + '</td><td>' + badge + '</td><td>' + act + '</td></tr>'; }); document.getElementById('pendingCount').textContent = p; document.getElementById('authorizedCount').textContent = a; document.getElementById('totalUsers').textContent = sn.size; }); }
 function blockUser(uid) { if (confirm('Bloquer ?')) { db.collection('users').doc(uid).update({ authorized: 'no' }).then(function() { loadUsersList(); loadPendingRegistrations(); }); } }
 function deleteUserPermanently(uid) { if (confirm('Supprimer ?')) { db.collection('users').doc(uid).delete().then(function() { loadUsersList(); loadPendingRegistrations(); }); } }
+
 console.log('Admin JS OK');
