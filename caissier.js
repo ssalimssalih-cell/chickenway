@@ -21,32 +21,35 @@ function posResetCart() { posCart=[]; posStep=1; posSelectedCategory='all'; posC
 // ==================== RECHERCHE CLIENT DYNAMIQUE ====================
 function posSearchClient(query) {
     var q = query.toLowerCase().trim();
+    posCurrentClient = null; // Réinitialiser le client sélectionné
+    
     if (!q) { 
-        posFilteredClients = posAllClients.slice(); 
+        posFilteredClients = posAllClients.slice();
+        document.getElementById('posClientDropdown').style.display = 'none';
     } else {
         posFilteredClients = posAllClients.filter(function(c) {
             return (c.nom||'').toLowerCase().indexOf(q) !== -1 || 
                    (c.prenom||'').toLowerCase().indexOf(q) !== -1 || 
                    (c.telephone||'').toLowerCase().indexOf(q) !== -1;
         });
+        renderClientDropdown();
     }
-    posCurrentClient = null;
-    
-    // Mettre à jour le dropdown sans re-render complet
+}
+
+function renderClientDropdown() {
     var dropdown = document.getElementById('posClientDropdown');
-    var searchInput = document.getElementById('posClientSearchInput');
-    if (dropdown && searchInput) {
+    if (!dropdown) return;
+    
+    if (posFilteredClients.length === 0) {
+        dropdown.innerHTML = '<div style="padding:10px;color:#94a3b8;text-align:center;font-size:0.8rem;">Aucun client trouvé</div>';
+    } else {
         var ddHtml = '';
-        if (posFilteredClients.length === 0) {
-            ddHtml = '<div style="padding:10px;color:#94a3b8;text-align:center;font-size:0.8rem;">Aucun client trouvé</div>';
-        } else {
-            posFilteredClients.forEach(function(cl) {
-                ddHtml += '<div class="pos-client-dropdown-item" data-clientid="'+cl.id+'" data-clientname="'+cl.nom+' '+cl.prenom+'" onclick="posSelectClientFromDropdown(\''+cl.id+'\', \''+cl.nom.replace(/'/g,"\\'")+' '+cl.prenom.replace(/'/g,"\\'")+'\')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:0.85rem;">'+cl.nom+' '+cl.prenom+' <span style="color:#94a3b8;font-size:0.7rem;">('+(cl.telephone||'N/A')+')</span></div>';
-            });
-        }
+        posFilteredClients.forEach(function(cl) {
+            ddHtml += '<div class="pos-client-item" onclick="posSelectClientFromDropdown(\''+cl.id+'\', \''+cl.nom.replace(/'/g,"\\'")+' '+cl.prenom.replace(/'/g,"\\'")+'\')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:0.85rem;">'+cl.nom+' '+cl.prenom+' <span style="color:#94a3b8;font-size:0.7rem;">('+(cl.telephone||'N/A')+')</span></div>';
+        });
         dropdown.innerHTML = ddHtml;
-        dropdown.style.display = 'block';
     }
+    dropdown.style.display = 'block';
 }
 
 function posSelectClientFromDropdown(clientId, clientName) {
@@ -59,25 +62,37 @@ function posSelectClientFromDropdown(clientId, clientName) {
     
     if (searchInput) searchInput.value = clientName;
     if (tableInput) tableInput.value = '';
-    if (dropdown) dropdown.style.display = 'none';
+    if (dropdown) dropdown.style.display = 'none'; // FERMER la liste
     
-    // Réactiver les boutons crédit/partiel
+    // Mettre à jour les boutons de paiement
     updatePaymentButtons();
 }
 
+// Fermer le dropdown quand on clique ailleurs
+document.addEventListener('click', function(event) {
+    var dropdown = document.getElementById('posClientDropdown');
+    var searchInput = document.getElementById('posClientSearchInput');
+    if (dropdown && searchInput && !searchInput.contains(event.target) && !dropdown.contains(event.target)) {
+        dropdown.style.display = 'none';
+    }
+});
+
 function updatePaymentButtons() {
-    var creditBtn = document.querySelector('.pos-payment-btn[onclick*="credit"]');
-    var partielBtn = document.querySelector('.pos-payment-btn[onclick*="partiel"]');
-    if (creditBtn) {
-        creditBtn.disabled = !(posCurrentClient && posCurrentClient.id);
-        creditBtn.style.opacity = creditBtn.disabled ? '0.4' : '1';
-        creditBtn.style.cursor = creditBtn.disabled ? 'not-allowed' : 'pointer';
-    }
-    if (partielBtn) {
-        partielBtn.disabled = !(posCurrentClient && posCurrentClient.id);
-        partielBtn.style.opacity = partielBtn.disabled ? '0.4' : '1';
-        partielBtn.style.cursor = partielBtn.disabled ? 'not-allowed' : 'pointer';
-    }
+    setTimeout(function() {
+        var creditBtn = document.getElementById('posCreditBtn');
+        var partielBtn = document.getElementById('posPartielBtn');
+        var canCredit = posCurrentClient && posCurrentClient.id;
+        if (creditBtn) {
+            creditBtn.disabled = !canCredit;
+            creditBtn.style.opacity = canCredit ? '1' : '0.4';
+            creditBtn.style.cursor = canCredit ? 'pointer' : 'not-allowed';
+        }
+        if (partielBtn) {
+            partielBtn.disabled = !canCredit;
+            partielBtn.style.opacity = canCredit ? '1' : '0.4';
+            partielBtn.style.cursor = canCredit ? 'pointer' : 'not-allowed';
+        }
+    }, 300);
 }
 
 function posSetTable(value) {
@@ -88,7 +103,6 @@ function posSetTable(value) {
         var searchInput = document.getElementById('posClientSearchInput');
         if (searchInput) searchInput.value = '';
     }
-    updatePaymentButtons();
 }
 
 // ==================== OPTIONS PRODUIT ====================
@@ -138,15 +152,12 @@ function renderPOS() {
         var canCredit = posCurrentClient && posCurrentClient.id;
         h+='<div class="pos-cart-header"><h3><i class="fas fa-credit-card"></i> Paiement</h3><button class="pos-back-btn" onclick="posGoToStep1()"><i class="fas fa-arrow-left"></i> Retour</button></div><div class="pos-payment-form">';
         
-        // CLIENT - CHAMP TEXTE AVEC DROPDOWN
+        // CLIENT - CHAMP TEXTE AVEC DROPDOWN CACHÉ AU DÉBUT
         h+='<div class="pos-payment-section"><label>Client</label>';
         h+='<div style="position:relative;">';
-        h+='<input type="text" id="posClientSearchInput" placeholder="🔍 Rechercher un client..." onkeyup="posSearchClient(this.value)" onfocus="posSearchClient(this.value)" autocomplete="off" value="'+(posCurrentClient?posCurrentClient.name:'')+'" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:0.9rem;box-sizing:border-box;">';
-        h+='<div id="posClientDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #e2e8f0;border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,0.15);">';
-        posFilteredClients.forEach(function(cl) {
-            h+='<div onclick="posSelectClientFromDropdown(\''+cl.id+'\', \''+cl.nom.replace(/'/g,"\\'")+' '+cl.prenom.replace(/'/g,"\\'")+'\')" style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:0.85rem;">'+cl.nom+' '+cl.prenom+' <span style="color:#94a3b8;font-size:0.7rem;">('+(cl.telephone||'N/A')+')</span></div>';
-        });
-        h+='</div></div></div>';
+        h+='<input type="text" id="posClientSearchInput" placeholder="🔍 Tapez pour rechercher un client..." onkeyup="posSearchClient(this.value)" autocomplete="off" value="'+(posCurrentClient?posCurrentClient.name:'')+'" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:0.9rem;box-sizing:border-box;">';
+        h+='<div id="posClientDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #e2e8f0;border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,0.15);"></div>';
+        h+='</div></div>';
         
         h+='<div class="pos-or-divider">— OU —</div>';
         h+='<div class="pos-payment-section"><label>Table</label><input type="text" id="posTableNum" value="'+posCurrentTable+'" onchange="posSetTable(this.value)" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"></div>';
@@ -169,18 +180,6 @@ function renderPOS() {
         h+='<button class="pos-finalize-btn" onclick="posFinalizeSale()"><i class="fas fa-check-circle"></i> Finaliser</button></div>';
     }
     h+='</div></div>';c.innerHTML=h;
-    
-    // Afficher le dropdown automatiquement au focus
-    if(posStep===2){
-        setTimeout(function(){
-            var dropdown = document.getElementById('posClientDropdown');
-            var searchInput = document.getElementById('posClientSearchInput');
-            if(dropdown && searchInput && !posCurrentClient) {
-                dropdown.style.display = 'block';
-            }
-        }, 200);
-    }
-    
     if(posStep===2)setTimeout(posCalculateChange,200);
 }
 
@@ -193,10 +192,7 @@ function posCalculateTotal(){var t=0;for(var i=0;i<posCart.length;i++)t+=posCart
 function posGoToStep2(){if(posCart.length===0){alert('Panier vide');return;}posStep=2;renderPOS();}
 function posGoToStep1(){posStep=1;renderPOS();}
 function posSetPaymentMethod(m){
-    if((m==='credit'||m==='partiel')&&(!posCurrentClient||!posCurrentClient.id)){
-        alert('Le crédit et le paiement partiel nécessitent un client enregistré.');
-        return;
-    }
+    if((m==='credit'||m==='partiel')&&(!posCurrentClient||!posCurrentClient.id)){alert('Client requis pour crédit/partiel.');return;}
     posPaymentMethod=m;posAmountGiven=0;renderPOS();
 }
 function posCalculateChange(){var ai=document.getElementById('posAmountGiven'),cd=document.getElementById('posChangeDisplay');if(!ai||!cd)return;var st=posCalculateTotal();var t=st-posDiscountMAD;posAmountGiven=parseFloat(ai.value)||0;var c=posAmountGiven-t;if(posAmountGiven>0){cd.innerHTML=c>=0?'<div class="pos-change-positive"><span>Rendu</span><span>'+c.toFixed(2)+' MAD</span></div>':'<div class="pos-change-negative"><span>Manquant</span><span>'+Math.abs(c).toFixed(2)+' MAD</span></div>';}else{cd.innerHTML='';}}
@@ -207,7 +203,6 @@ async function posFinalizeSale() {
     if(posCurrentTable&&(posPaymentMethod==='credit'||posPaymentMethod==='partiel')){alert('Pour une table, seul le paiement espèces est autorisé.');return;}
     if((posPaymentMethod==='credit'||posPaymentMethod==='partiel')&&!posCurrentClient){alert('Client requis pour crédit/partiel.');return;}
     if(posPaymentMethod==='espece'){posAmountGiven=parseFloat(document.getElementById('posAmountGiven').value)||0;if(posAmountGiven<t){alert('Montant insuffisant.');return;}}
-    
     var vendeur=document.getElementById('posVendeur').value.trim()||(window.currentUserData?window.currentUserData.userData.prenom+' '+window.currentUserData.userData.nom:'');
     try{
         var fcs=await db.collection('ventes').get();var fn='FACT-'+new Date().getFullYear()+'-'+String(fcs.size+1).padStart(5,'0');
@@ -216,7 +211,6 @@ async function posFinalizeSale() {
         else if(posPaymentMethod==='partiel'){posAmountGiven=parseFloat(document.getElementById('posAmountGiven').value)||0;remaining=t-posAmountGiven;paid=false;statutPaiement='partiel';change=Math.max(0,posAmountGiven-t);}
         else{posAmountGiven=parseFloat(document.getElementById('posAmountGiven').value)||0;change=posAmountGiven-t;paid=true;statutPaiement='payé';}
         if(posCurrentTable&&!posCurrentClient){paid=false;statutPaiement='en_attente';remaining=t;}
-        
         var profitTotal=0;
         var itemsDetail=posCart.map(function(it){var pa=it.prixAchat||0,pvn=it.prixVente||0,pp=it.prixPromo||0,pvr=(pp>0)?pp:pvn;var prof=(pvr-pa)*it.quantite;profitTotal+=prof;return{id:it.id,nom:it.nom,quantite:it.quantite,prixVente:pvr,prixAchat:pa,prixPromo:pp,profit:prof,sauces:it.sauces||[],interdits:it.interdits||[],epice:it.epice||'Normal',sel:it.sel||'Normal'};});
         var sd={factureNum:fn,items:itemsDetail,subtotal:st,discountMAD:posDiscountMAD,total:t,clientId:posCurrentClient?posCurrentClient.id:null,clientName:posCurrentClient?posCurrentClient.name:null,table:posCurrentTable||null,vendeur:vendeur,paymentMethod:posPaymentMethod,statutPaiement:statutPaiement,amountGiven:posAmountGiven,change:change,paid:paid,remainingAmount:remaining,profitTotal:profitTotal,createdAt:firebase.firestore.FieldValue.serverTimestamp()};
