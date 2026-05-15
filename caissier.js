@@ -7,7 +7,7 @@ var posEpicesList = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var posSelList = ['Normal','Moins de sel','Sans sel'];
 
 // ==================== OPTIONS CAISSIER ====================
-function loadOptionsPage(c) {
+function loadOptionsPageCaissier(c) {
     if (!window.currentUserData) { c.innerHTML = '<div class="content-card"><p>Non connecté</p></div>'; return; }
     
     var userData = window.currentUserData.userData;
