@@ -109,7 +109,7 @@ async function clientValidateOrder() {
     } catch(e) { console.error('Erreur commande:', e); alert('Erreur lors de l\'envoi de la commande.'); }
 }
 
-// ==================== PAGE HISTORIQUE (CORRIGÉE) ====================
+// ==================== PAGE HISTORIQUE (SANS INDEX) ====================
 async function loadClientHistoriquePage() {
     var c = document.getElementById('clientDynamicContent');
     if (!c) return;
@@ -121,41 +121,42 @@ async function loadClientHistoriquePage() {
     }
     
     var uid = window.currentUserData.uid;
-    var clientName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
-    var clientEmail = window.currentUserData.userData.email;
-    var clientTelephone = window.currentUserData.userData.telephone;
+    var clientName = (window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom).toLowerCase().trim();
+    var clientEmail = (window.currentUserData.userData.email || '').toLowerCase().trim();
+    var clientTelephone = (window.currentUserData.userData.telephone || '').trim();
     
     try {
-        // Récupérer les commandes du client (par clientId)
-        var cmdSnap = await db.collection('commandes').where('clientId', '==', uid).orderBy('createdAt', 'desc').limit(50).get();
-        
-        // Récupérer les ventes du client (par clientName OU clientEmail OU clientTelephone)
-        var venteSnap = await db.collection('ventes')
-            .orderBy('createdAt', 'desc')
-            .limit(200)
-            .get();
-        
+        // Charger TOUTES les commandes (sans where + orderBy)
+        var cmdSnap = await db.collection('commandes').get();
         var all = [];
         
-        // Ajouter les commandes
-        cmdSnap.forEach(function(d) { 
-            all.push({type: 'commande', data: d.data(), date: d.data().createdAt}); 
+        cmdSnap.forEach(function(d) {
+            var cmd = d.data();
+            if (cmd.clientId === uid) {
+                all.push({type: 'commande', data: cmd, date: cmd.createdAt});
+            }
         });
         
-        // Filtrer les ventes pour ce client (par nom, email ou téléphone)
+        // Charger TOUTES les ventes (sans where + orderBy)
+        var venteSnap = await db.collection('ventes').get();
+        
         venteSnap.forEach(function(d) {
             var v = d.data();
-            var matchName = v.clientName && clientName && v.clientName.toLowerCase() === clientName.toLowerCase();
-            var matchEmail = v.clientEmail && clientEmail && v.clientEmail.toLowerCase() === clientEmail.toLowerCase();
-            var matchTel = v.clientTelephone && clientTelephone && v.clientTelephone === clientTelephone;
+            var vName = (v.clientName || '').toLowerCase().trim();
+            var vEmail = (v.clientEmail || '').toLowerCase().trim();
+            var vTel = (v.clientTelephone || '').trim();
             
-            if (matchName || matchEmail || matchTel) {
+            if ((clientName && vName === clientName) || 
+                (clientEmail && vEmail === clientEmail) || 
+                (clientTelephone && vTel === clientTelephone) ||
+                (v.clientId === uid)) {
                 all.push({type: 'vente', data: v, date: v.createdAt});
             }
         });
         
-        // Trier par date
+        // Trier par date décroissante
         all.sort(function(a, b) { return (b.date?.seconds || 0) - (a.date?.seconds || 0); });
+        all = all.slice(0, 50);
         
         var cont = document.getElementById('clientOrdersList');
         if (!cont) return;
@@ -165,7 +166,7 @@ async function loadClientHistoriquePage() {
             return; 
         }
         
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.8rem;"><thead><tr><th>Date</th><th>Type</th><th>N° Facture</th><th>Articles</th><th>Total</th><th>Vendeur</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.75rem;"><thead><tr><th>Date</th><th>Type</th><th>N° Facture</th><th>Articles</th><th>Total</th><th>Vendeur</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>';
         all.forEach(function(item) {
             var d = item.data;
             var date = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
@@ -179,7 +180,7 @@ async function loadClientHistoriquePage() {
             if (item.type === 'commande') {
                 statut = d.statut === 'valide' ? '✅ Validée' : d.statut === 'payé' ? '💵 Payée' : '⏳ En attente';
             } else {
-                statut = d.paid ? '✅ Payé' : '❌ Impayé';
+                statut = d.paid ? '✅ Payé' : d.statutPaiement === 'crédit' ? '📋 Crédit' : d.statutPaiement === 'partiel' ? '🔶 Partiel' : '⏳ En attente';
             }
             var sc = (statut.includes('✅') || statut.includes('💵')) ? '#16a34a' : '#d97706';
             
@@ -191,7 +192,7 @@ async function loadClientHistoriquePage() {
     } catch(e) {
         console.error('Erreur historique:', e);
         var cont2 = document.getElementById('clientOrdersList');
-        if (cont2) cont2.innerHTML = '<p style="padding:40px;color:#ef4444;">Erreur de chargement: ' + e.message + '</p>';
+        if (cont2) cont2.innerHTML = '<p style="padding:40px;color:#ef4444;">Erreur de chargement</p>';
     }
 }
 
