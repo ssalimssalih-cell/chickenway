@@ -91,11 +91,11 @@ function loadCommandes() {
     var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
     db.collection('commandes').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; }
-        var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; data.push(d); });
+        var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.amountGivenVal = d.amountGiven || 0; d.changeVal = d.change || 0; data.push(d); });
         if (commandeSearchQuery) { data = data.filter(function(d) { return (d.clientName||'').toLowerCase().indexOf(commandeSearchQuery)!==-1 || (d.clientEmail||'').toLowerCase().indexOf(commandeSearchQuery)!==-1 || (d.clientTelephone||'').toLowerCase().indexOf(commandeSearchQuery)!==-1; }); }
         data = applySort('commandes', data, 'createdAt');
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun résultat</p>'; return; }
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr>'+makeSortableHeader('commandes','dateStr','Date','loadCommandes')+makeSortableHeader('commandes','clientName','Client','loadCommandes')+makeSortableHeader('commandes','clientEmail','Email','loadCommandes')+makeSortableHeader('commandes','clientTelephone','Tél','loadCommandes')+'<th>Articles</th><th>Options</th>'+makeSortableHeader('commandes','total','Total','loadCommandes')+makeSortableHeader('commandes','statut','Statut','loadCommandes')+makeSortableHeader('commandes','source','Source','loadCommandes')+'<th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('commandes','dateStr','Date','loadCommandes')+makeSortableHeader('commandes','clientName','Client','loadCommandes')+makeSortableHeader('commandes','clientEmail','Email','loadCommandes')+makeSortableHeader('commandes','clientTelephone','Tél','loadCommandes')+'<th>Articles</th><th>Options</th>'+makeSortableHeader('commandes','total','Total','loadCommandes')+makeSortableHeader('commandes','amountGivenVal','Donné','loadCommandes')+makeSortableHeader('commandes','changeVal','Rendu','loadCommandes')+makeSortableHeader('commandes','statut','Statut','loadCommandes')+makeSortableHeader('commandes','source','Source','loadCommandes')+'<th>Actions</th></tr></thead><tbody>';
         data.forEach(function(d) {
             var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '';
             var opts = d.items ? d.items.map(function(it) { var o = []; if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>'); if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>'); if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>'); if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>'); return o.length > 0 ? o.join(' | ') : '-'; }).join('<br>') : '-';
@@ -104,21 +104,14 @@ function loadCommandes() {
             var sourceBadge = d.source === 'en_ligne' ? '<span class="status-warning">🌐 En ligne</span>' : '<span style="color:#94a3b8;">📱 App</span>';
             var act = '';
             act += '<button class="btn-edit" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="editCommande(\'' + d.id + '\')" title="Modifier"><i class="fas fa-edit"></i></button>';
-            if (d.statut === 'en_attente') {
-                act += '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="validateCommande(\'' + d.id + '\')" title="Valider"><i class="fas fa-check"></i></button>';
-                act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + d.id + '\')" title="Payer"><i class="fas fa-money-bill-wave"></i></button>';
-            }
-            if (d.statut === 'valide') {
-                act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + d.id + '\')" title="Payer"><i class="fas fa-money-bill-wave"></i></button>';
-            }
+            if (d.statut === 'en_attente') { act += '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="validateCommande(\'' + d.id + '\')" title="Valider"><i class="fas fa-check"></i></button>'; act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + d.id + '\')" title="Payer"><i class="fas fa-money-bill-wave"></i></button>'; }
+            if (d.statut === 'valide') { act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + d.id + '\')" title="Payer"><i class="fas fa-money-bill-wave"></i></button>'; }
             act += '<button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="deleteCommande(\'' + d.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button>';
-            h += '<tr><td>' + d.dateStr + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td>' + opts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + sourceBadge + '</td><td>' + act + '</td></tr>';
+            h += '<tr><td>' + d.dateStr + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td>' + opts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td>' + d.amountGivenVal.toFixed(2) + '</td><td>' + d.changeVal.toFixed(2) + '</td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + sourceBadge + '</td><td>' + act + '</td></tr>';
         });
         h += '</tbody></table></div>'; cont.innerHTML = h;
     }).catch(function(err) { cont.innerHTML = '<p style="color:#ef4444;">Erreur: ' + err.message + '</p>'; });
 }
-
-// ==================== MODIFIER COMMANDE ====================
 function editCommande(cid) {
     db.collection('commandes').doc(cid).get().then(function(doc) {
         if (!doc.exists) { alert('Commande introuvable'); return; }
@@ -130,168 +123,56 @@ function editCommande(cid) {
         h += '<div style="margin-bottom:15px;"><label style="font-weight:600;">📧 Email:</label> ' + (d.clientEmail || '-') + '</div>';
         h += '<div style="margin-bottom:15px;"><label style="font-weight:600;">📱 Tél:</label> ' + (d.clientTelephone || '-') + '</div>';
         h += '<div style="margin-bottom:15px;"><label style="font-weight:600;">📦 Articles:</label>' + articlesHtml + '</div>';
-        h += '<div class="form-row"><div class="form-group"><label>Total (MAD)</label><input type="number" id="editCmdTotal" value="' + (d.total || 0) + '" step="0.01"></div><div class="form-group"><label>Statut</label><select id="editCmdStatut"><option value="en_attente" ' + (d.statut === 'en_attente' ? 'selected' : '') + '>En attente</option><option value="valide" ' + (d.statut === 'valide' ? 'selected' : '') + '>Validée</option><option value="payé" ' + (d.statut === 'payé' ? 'selected' : '') + '>Payée</option><option value="annule" ' + (d.statut === 'annule' ? 'selected' : '') + '>Annulée</option></select></div></div>';
+        h += '<div class="form-row"><div class="form-group"><label>Total (MAD)</label><input type="number" id="editCmdTotal" value="' + (d.total || 0) + '" step="0.01"></div><div class="form-group"><label>Statut</label><select id="editCmdStatut"><option value="en_attente" ' + (d.statut==='en_attente'?'selected':'') + '>En attente</option><option value="valide" ' + (d.statut==='valide'?'selected':'') + '>Validée</option><option value="payé" ' + (d.statut==='payé'?'selected':'') + '>Payée</option><option value="annule" ' + (d.statut==='annule'?'selected':'') + '>Annulée</option></select></div></div>';
         h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditCommande()">Enregistrer</button>';
         openModal('✏️ Modifier Commande', h);
     });
 }
-function saveEditCommande() {
-    var total = parseFloat(document.getElementById('editCmdTotal').value) || 0;
-    var statut = document.getElementById('editCmdStatut').value;
-    var data = { total: total, statut: statut, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-    saveDocument('commandes', data, function() { closeModal(); loadCommandes(); });
-}
-
-// ==================== SUPPRIMER COMMANDE ====================
-function deleteCommande(cid) {
-    if (!confirm('⚠️ Supprimer cette commande ?')) return;
-    db.collection('commandes').doc(cid).delete().then(function() { alert('✅ Supprimée'); loadCommandes(); });
-}
-
-// ==================== VALIDER COMMANDE ====================
-async function validateCommande(cid) {
-    if (!confirm('Valider cette commande ?')) return;
-    var vendeur = window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin';
-    await db.collection('commandes').doc(cid).update({ statut: 'valide', source: 'en_ligne', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: vendeur });
-    alert('✅ Validée !'); loadCommandes();
-}
-
-// ==================== PAYER COMMANDE (MODAL) ====================
-async function payCommande(cid) {
-    var dc = await db.collection('commandes').doc(cid).get();
-    if (!dc.exists) { alert('Commande introuvable'); return; }
-    var cmd = dc.data();
-    window.currentPaiementCommandeId = cid;
-    window.currentPaiementCommandeData = cmd;
-    showCommandePaymentModal(cmd, cid);
-}
-
+function saveEditCommande() { var total = parseFloat(document.getElementById('editCmdTotal').value)||0; var statut = document.getElementById('editCmdStatut').value; var data = { total: total, statut: statut, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }; saveDocument('commandes', data, function() { closeModal(); loadCommandes(); }); }
+function deleteCommande(cid) { if (!confirm('⚠️ Supprimer cette commande ?')) return; db.collection('commandes').doc(cid).delete().then(function() { alert('✅ Supprimée'); loadCommandes(); }); }
+async function validateCommande(cid) { if (!confirm('Valider cette commande ?')) return; var vendeur = window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin'; await db.collection('commandes').doc(cid).update({ statut: 'valide', source: 'en_ligne', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: vendeur }); alert('✅ Validée !'); loadCommandes(); }
+async function payCommande(cid) { var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) { alert('Commande introuvable'); return; } var cmd = dc.data(); window.currentPaiementCommandeId = cid; window.currentPaiementCommandeData = cmd; showCommandePaymentModal(cmd, cid); }
 function showCommandePaymentModal(cmd, cid) {
-    var subtotal = cmd.total || 0;
-    var discountMAD = 0;
-    var total = subtotal - discountMAD;
-    
+    var subtotal = cmd.total || 0; var discountMAD = 0; var total = subtotal - discountMAD;
     var articlesHtml = '';
-    if (cmd.items) {
-        cmd.items.forEach(function(it) {
-            var opts = '';
-            if (it.sauces && it.sauces.length > 0) opts += ' 🥫' + it.sauces.join(',');
-            if (it.interdits && it.interdits.length > 0) opts += ' 🚫' + it.interdits.join(',');
-            if (it.epice && it.epice !== 'Normal') opts += ' 🌶️' + it.epice;
-            if (it.sel && it.sel !== 'Normal') opts += ' 🧂' + it.sel;
-            articlesHtml += '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;"><span><strong>' + it.quantite + 'x</strong> ' + it.nom + '<small>' + opts + '</small></span><span>' + ((it.prixVente || it.prixUnitaire || 0) * it.quantite).toFixed(2) + ' MAD</span></div>';
-        });
-    }
-    
-    var vendeur = window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : '';
-    
-    var h = '<div id="commandePaymentModal">';
-    h += '<div id="cmdPaymentStep1">';
-    h += '<div style="background:#f8fafc;padding:15px;border-radius:12px;margin-bottom:15px;">';
-    h += '<p><strong>👤 Client:</strong> ' + (cmd.clientName || 'N/A') + '</p>';
-    h += '<p><strong>📧 Email:</strong> ' + (cmd.clientEmail || '-') + '</p>';
-    h += '<p><strong>📱 Tél:</strong> ' + (cmd.clientTelephone || '-') + '</p>';
-    h += '</div>';
-    h += '<h4 style="margin-bottom:10px;">📦 Articles commandés</h4>';
-    h += '<div style="max-height:200px;overflow-y:auto;margin-bottom:15px;">' + articlesHtml + '</div>';
-    h += '<div style="background:#f8fafc;padding:15px;border-radius:12px;margin-bottom:15px;">';
-    h += '<div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Sous-total</span><span>' + subtotal.toFixed(2) + ' MAD</span></div>';
-    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span>Remise (MAD)</span><input type="number" id="cmdDiscount" value="0" min="0" step="0.01" onchange="updateCmdTotal()" style="width:100px;padding:6px;border:1px solid #e2e8f0;border-radius:6px;text-align:right;"></div>';
-    h += '<div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:700;"><span>Total</span><span id="cmdTotalDisplay">' + total.toFixed(2) + ' MAD</span></div>';
-    h += '</div>';
-    h += '<button class="pos-validate-btn" onclick="goToCmdPaymentStep2()" style="width:100%;">Suivant <i class="fas fa-arrow-right"></i></button>';
-    h += '</div>';
-    
-    h += '<div id="cmdPaymentStep2" style="display:none;">';
-    h += '<div class="pos-payment-section"><label>Méthode de paiement</label><div class="pos-payment-methods">';
-    h += '<button class="pos-payment-btn active" id="cmdPayEspece" onclick="setCmdPaymentMethod(\'espece\')"><i class="fas fa-money-bill-wave"></i> Espèces</button>';
-    h += '<button class="pos-payment-btn" id="cmdPayCredit" onclick="setCmdPaymentMethod(\'credit\')"><i class="fas fa-credit-card"></i> Crédit</button>';
-    h += '</div></div>';
+    if (cmd.items) { cmd.items.forEach(function(it) { var opts = ''; if (it.sauces && it.sauces.length > 0) opts += ' 🥫' + it.sauces.join(','); if (it.interdits && it.interdits.length > 0) opts += ' 🚫' + it.interdits.join(','); if (it.epice && it.epice !== 'Normal') opts += ' 🌶️' + it.epice; if (it.sel && it.sel !== 'Normal') opts += ' 🧂' + it.sel; articlesHtml += '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;"><span><strong>' + it.quantite + 'x</strong> ' + it.nom + '<small>' + opts + '</small></span><span>' + ((it.prixVente || it.prixUnitaire || 0) * it.quantite).toFixed(2) + ' MAD</span></div>'; }); }
+    var h = '<div id="commandePaymentModal"><div id="cmdPaymentStep1">';
+    h += '<div style="background:#f8fafc;padding:15px;border-radius:12px;margin-bottom:15px;"><p><strong>👤 Client:</strong> ' + (cmd.clientName || 'N/A') + '</p><p><strong>📧 Email:</strong> ' + (cmd.clientEmail || '-') + '</p><p><strong>📱 Tél:</strong> ' + (cmd.clientTelephone || '-') + '</p></div>';
+    h += '<h4 style="margin-bottom:10px;">📦 Articles commandés</h4><div style="max-height:200px;overflow-y:auto;margin-bottom:15px;">' + articlesHtml + '</div>';
+    h += '<div style="background:#f8fafc;padding:15px;border-radius:12px;margin-bottom:15px;"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Sous-total</span><span>' + subtotal.toFixed(2) + ' MAD</span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span>Remise (MAD)</span><input type="number" id="cmdDiscount" value="0" min="0" step="0.01" onchange="updateCmdTotal()" style="width:100px;padding:6px;border:1px solid #e2e8f0;border-radius:6px;text-align:right;"></div><div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:700;"><span>Total</span><span id="cmdTotalDisplay">' + total.toFixed(2) + ' MAD</span></div></div>';
+    h += '<button class="pos-validate-btn" onclick="goToCmdPaymentStep2()" style="width:100%;">Suivant <i class="fas fa-arrow-right"></i></button></div>';
+    h += '<div id="cmdPaymentStep2" style="display:none;"><div class="pos-payment-section"><label>Méthode de paiement</label><div class="pos-payment-methods"><button class="pos-payment-btn active" id="cmdPayEspece" onclick="setCmdPaymentMethod(\'espece\')"><i class="fas fa-money-bill-wave"></i> Espèces</button><button class="pos-payment-btn" id="cmdPayCredit" onclick="setCmdPaymentMethod(\'credit\')"><i class="fas fa-credit-card"></i> Crédit</button></div></div>';
     h += '<div class="pos-payment-section" id="cmdAmountSection"><label>Montant donné</label><input type="number" id="cmdAmountGiven" placeholder="0.00" value="" onkeyup="calculateCmdChange()" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:1rem;"><div id="cmdChangeDisplay"></div></div>';
-    h += '<div style="display:flex;gap:10px;">';
-    h += '<button class="btn-cancel" onclick="goToCmdPaymentStep1()" style="flex:1;">Retour</button>';
-    h += '<button class="btn-save" onclick="finalizeCmdPayment()" style="flex:1;">Valider le paiement</button>';
-    h += '</div>';
-    h += '</div>';
-    h += '</div>';
-    
+    h += '<div style="display:flex;gap:10px;"><button class="btn-cancel" onclick="goToCmdPaymentStep1()" style="flex:1;">Retour</button><button class="btn-save" onclick="finalizeCmdPayment()" style="flex:1;">Valider le paiement</button></div></div></div>';
     openModal('💵 Paiement Commande En Ligne', h);
-    window.cmdPaymentMethod = 'espece';
-    window.cmdAmountGiven = 0;
+    window.cmdPaymentMethod = 'espece'; window.cmdAmountGiven = 0;
 }
-
-function updateCmdTotal() {
-    var discount = parseFloat(document.getElementById('cmdDiscount').value) || 0;
-    var subtotal = window.currentPaiementCommandeData.total || 0;
-    var total = subtotal - discount;
-    document.getElementById('cmdTotalDisplay').textContent = total.toFixed(2) + ' MAD';
-}
-
-function goToCmdPaymentStep2() {
-    document.getElementById('cmdPaymentStep1').style.display = 'none';
-    document.getElementById('cmdPaymentStep2').style.display = 'block';
-}
-
-function goToCmdPaymentStep1() {
-    document.getElementById('cmdPaymentStep1').style.display = 'block';
-    document.getElementById('cmdPaymentStep2').style.display = 'none';
-}
-
-function setCmdPaymentMethod(method) {
-    window.cmdPaymentMethod = method;
-    document.getElementById('cmdPayEspece').className = method === 'espece' ? 'pos-payment-btn active' : 'pos-payment-btn';
-    document.getElementById('cmdPayCredit').className = method === 'credit' ? 'pos-payment-btn active' : 'pos-payment-btn';
-    var amountSection = document.getElementById('cmdAmountSection');
-    if (method === 'espece') { amountSection.style.display = 'block'; }
-    else { amountSection.style.display = 'none'; document.getElementById('cmdChangeDisplay').innerHTML = ''; }
-}
-
-function calculateCmdChange() {
-    var amountGiven = parseFloat(document.getElementById('cmdAmountGiven').value) || 0;
-    var discount = parseFloat(document.getElementById('cmdDiscount').value) || 0;
-    var total = (window.currentPaiementCommandeData.total || 0) - discount;
-    window.cmdAmountGiven = amountGiven;
-    var change = amountGiven - total;
-    var display = document.getElementById('cmdChangeDisplay');
-    if (amountGiven > 0) {
-        if (change >= 0) { display.innerHTML = '<div class="pos-change-positive"><span>Rendu</span><span>' + change.toFixed(2) + ' MAD</span></div>'; }
-        else { display.innerHTML = '<div class="pos-change-negative"><span>Manquant</span><span>' + Math.abs(change).toFixed(2) + ' MAD</span></div>'; }
-    } else { display.innerHTML = ''; }
-}
-
+function updateCmdTotal() { var discount = parseFloat(document.getElementById('cmdDiscount').value) || 0; var subtotal = window.currentPaiementCommandeData.total || 0; document.getElementById('cmdTotalDisplay').textContent = (subtotal - discount).toFixed(2) + ' MAD'; }
+function goToCmdPaymentStep2() { document.getElementById('cmdPaymentStep1').style.display = 'none'; document.getElementById('cmdPaymentStep2').style.display = 'block'; }
+function goToCmdPaymentStep1() { document.getElementById('cmdPaymentStep1').style.display = 'block'; document.getElementById('cmdPaymentStep2').style.display = 'none'; }
+function setCmdPaymentMethod(method) { window.cmdPaymentMethod = method; document.getElementById('cmdPayEspece').className = method === 'espece' ? 'pos-payment-btn active' : 'pos-payment-btn'; document.getElementById('cmdPayCredit').className = method === 'credit' ? 'pos-payment-btn active' : 'pos-payment-btn'; var s = document.getElementById('cmdAmountSection'); if (method === 'espece') { s.style.display = 'block'; } else { s.style.display = 'none'; document.getElementById('cmdChangeDisplay').innerHTML = ''; } }
+function calculateCmdChange() { var amountGiven = parseFloat(document.getElementById('cmdAmountGiven').value) || 0; var discount = parseFloat(document.getElementById('cmdDiscount').value) || 0; var total = (window.currentPaiementCommandeData.total || 0) - discount; window.cmdAmountGiven = amountGiven; var change = amountGiven - total; var d = document.getElementById('cmdChangeDisplay'); if (amountGiven > 0) { d.innerHTML = change >= 0 ? '<div class="pos-change-positive"><span>Rendu</span><span>' + change.toFixed(2) + ' MAD</span></div>' : '<div class="pos-change-negative"><span>Manquant</span><span>' + Math.abs(change).toFixed(2) + ' MAD</span></div>'; } else { d.innerHTML = ''; } }
 async function finalizeCmdPayment() {
-    var cmd = window.currentPaiementCommandeData;
-    var cid = window.currentPaiementCommandeId;
-    var discount = parseFloat(document.getElementById('cmdDiscount').value) || 0;
-    var total = cmd.total - discount;
-    var method = window.cmdPaymentMethod;
-    var amountGiven = method === 'espece' ? (parseFloat(document.getElementById('cmdAmountGiven').value) || 0) : total;
-    var change = method === 'espece' ? Math.max(0, amountGiven - total) : 0;
-    var paid = method === 'espece';
-    var remaining = method === 'credit' ? total : 0;
-    
+    var cmd = window.currentPaiementCommandeData; var cid = window.currentPaiementCommandeId;
+    var discount = parseFloat(document.getElementById('cmdDiscount').value) || 0; var total = cmd.total - discount;
+    var method = window.cmdPaymentMethod; var amountGiven = method === 'espece' ? (parseFloat(document.getElementById('cmdAmountGiven').value) || 0) : total;
+    var change = method === 'espece' ? Math.max(0, amountGiven - total) : 0; var paid = method === 'espece'; var remaining = method === 'credit' ? total : 0;
     if (method === 'espece' && amountGiven < total) { alert('Le montant donné est insuffisant.'); return; }
-    
     var vendeur = window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin';
-    
     try {
-        var fcs = await db.collection('ventes').get();
-        var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0');
-        var profitTotal = 0;
-        if (cmd.items) { cmd.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || it.prixUnitaire || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; profitTotal += (pvr - pa) * (it.quantite || 1); }); }
-        
+        var fcs = await db.collection('ventes').get(); var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0');
+        var profitTotal = 0; if (cmd.items) { cmd.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || it.prixUnitaire || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; profitTotal += (pvr - pa) * (it.quantite || 1); }); }
         await db.collection('ventes').add({ factureNum: fn, items: cmd.items, subtotal: cmd.total, discountMAD: discount, total: total, clientId: cmd.clientId, clientName: cmd.clientName, clientEmail: cmd.clientEmail, clientTelephone: cmd.clientTelephone, vendeur: vendeur, paymentMethod: method, statutPaiement: paid ? 'payé' : 'crédit', amountGiven: amountGiven, change: change, paid: paid, remainingAmount: remaining, profitTotal: profitTotal, source: 'en_ligne', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-        if (!paid) { await db.collection('credits').add({ factureNum: fn, items: cmd.items, total: total, clientId: cmd.clientId, clientName: cmd.clientName, vendeur: vendeur, paymentMethod: method, amountGiven: amountGiven, paid: false, remainingAmount: remaining, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); }
-        await db.collection('commandes').doc(cid).update({ statut: 'payé', factureNum: fn, paidAt: firebase.firestore.FieldValue.serverTimestamp() });
+        if (!paid) { await db.collection('credits').add({ factureNum: fn, items: cmd.items, total: total, clientId: cmd.clientId, clientName: cmd.clientName, vendeur: vendeur, paymentMethod: method, amountGiven: amountGiven, change: change, paid: false, remainingAmount: remaining, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); }
+        await db.collection('commandes').doc(cid).update({ statut: 'payé', factureNum: fn, amountGiven: amountGiven, change: change, paidAt: firebase.firestore.FieldValue.serverTimestamp() });
         if (cmd.clientId && paid) { try { var cr = await db.collection('clients').doc(cmd.clientId).get(); if (cr.exists) { var cd = cr.data(); await db.collection('clients').doc(cmd.clientId).update({ ca: (cd.ca || 0) + total, profit: (cd.profit || 0) + profitTotal, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }); } } catch(e) {} }
         alert('✅ Paiement effectué !\nFacture: ' + fn + '\nTotal: ' + total.toFixed(2) + ' MAD' + (change > 0 ? '\nRendu: ' + change.toFixed(2) + ' MAD' : ''));
         closeModal(); loadCommandes();
     } catch(e) { alert('Erreur: ' + e.message); }
 }
-
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
-// ==================== VENTES ====================
+// ==================== VENTES (AVEC MONTANT DONNÉ ET RENDU) ====================
 function venteSearch(query) { venteSearchQuery = query.toLowerCase().trim(); loadVentes(); }
 function loadVentesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:280px;min-width:180px;margin-bottom:0;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="venteSearchInput" placeholder="Rechercher (client, facture, produit)..." onkeyup="venteSearch(this.value)" style="border:none;padding:10px;font-size:0.8rem;"></div><button class="btn-add" onclick="loadVentes()"><i class="fas fa-sync"></i> Actualiser</button></div></div><div id="ventesTableContainer">Chargement...</div></div>'; loadVentes(); }
 function loadVentes() {
@@ -301,13 +182,13 @@ function loadVentes() {
     if (!isAdmin && window.currentUserData) { caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom; }
     db.collection('ventes').orderBy('createdAt', 'desc').limit(200).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
-        var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.articlesDisplay = d.items ? d.items.map(function(it) { return it.nom; }).join(', ') : '-'; d.achatTotal = 0; d.profitTotal = 0; if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; d.achatTotal += pa * q; d.profitTotal += (pvr - pa) * q; }); } d.statutLabel = d.statutPaiement || (d.paid ? 'payé' : 'impayé'); d.totalValue = d.total || 0; d.discountValue = d.discountMAD || 0; d.vendeurValue = d.vendeur || '-'; d.paymentValue = d.paymentMethod || '-'; d.sourceLabel = d.source === 'en_ligne' ? '<span class="status-warning">🌐 En ligne</span>' : '<span style="color:#94a3b8;">📱 POS</span>'; data.push(d); });
+        var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.articlesDisplay = d.items ? d.items.map(function(it) { return it.nom; }).join(', ') : '-'; d.achatTotal = 0; d.profitTotal = 0; if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; d.achatTotal += pa * q; d.profitTotal += (pvr - pa) * q; }); } d.statutLabel = d.statutPaiement || (d.paid ? 'payé' : 'impayé'); d.totalValue = d.total || 0; d.discountValue = d.discountMAD || 0; d.vendeurValue = d.vendeur || '-'; d.paymentValue = d.paymentMethod || '-'; d.sourceLabel = d.source === 'en_ligne' ? '<span class="status-warning">🌐 En ligne</span>' : '<span style="color:#94a3b8;">📱 POS</span>'; d.amountGivenValue = d.amountGiven || 0; d.changeValue = d.change || 0; data.push(d); });
         if (caissierName) { data = data.filter(function(d) { return d.vendeurValue === caissierName; }); }
         if (venteSearchQuery) { data = data.filter(function(d) { return (d.clientDisplay||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.factureNum||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.articlesDisplay||'').toLowerCase().indexOf(venteSearchQuery)!==-1 || (d.vendeurValue||'').toLowerCase().indexOf(venteSearchQuery)!==-1; }); }
         data = applySort('ventes', data, 'createdAt');
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun résultat</p>'; return; }
         var tv = 0;
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('ventes','factureNum','Facture','loadVentes')+makeSortableHeader('ventes','dateStr','Date','loadVentes')+makeSortableHeader('ventes','clientDisplay','Client/Table','loadVentes')+'<th>Articles</th><th>Options</th>'+(isAdmin?makeSortableHeader('ventes','achatTotal','Achat','loadVentes')+makeSortableHeader('ventes','profitTotal','Profit','loadVentes'):'')+makeSortableHeader('ventes','totalValue','Total','loadVentes')+makeSortableHeader('ventes','discountValue','Remise','loadVentes')+makeSortableHeader('ventes','vendeurValue','Vendeur','loadVentes')+makeSortableHeader('ventes','paymentValue','Paiement','loadVentes')+makeSortableHeader('ventes','statutLabel','Statut','loadVentes')+makeSortableHeader('ventes','sourceLabel','Source','loadVentes')+'<th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.55rem;"><thead><tr>'+makeSortableHeader('ventes','factureNum','Facture','loadVentes')+makeSortableHeader('ventes','dateStr','Date','loadVentes')+makeSortableHeader('ventes','clientDisplay','Client/Table','loadVentes')+'<th>Articles</th><th>Options</th>'+(isAdmin?makeSortableHeader('ventes','achatTotal','Achat','loadVentes')+makeSortableHeader('ventes','profitTotal','Profit','loadVentes'):'')+makeSortableHeader('ventes','totalValue','Total','loadVentes')+makeSortableHeader('ventes','amountGivenValue','Donné','loadVentes')+makeSortableHeader('ventes','changeValue','Rendu','loadVentes')+makeSortableHeader('ventes','discountValue','Remise','loadVentes')+makeSortableHeader('ventes','vendeurValue','Vendeur','loadVentes')+makeSortableHeader('ventes','paymentValue','Paiement','loadVentes')+makeSortableHeader('ventes','statutLabel','Statut','loadVentes')+makeSortableHeader('ventes','sourceLabel','Source','loadVentes')+'<th>Actions</th></tr></thead><tbody>';
         data.forEach(function(d) {
             var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '-';
             var opts = d.items ? d.items.map(function(it) { var o = []; if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>'); if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>'); if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>'); if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>'); return o.length > 0 ? o.join(' | ') : '-'; }).join('<br>') : '-';
@@ -316,7 +197,7 @@ function loadVentes() {
             var actions = '<button class="btn-edit" onclick="printFacture(\'' + d.id + '\')"><i class="fas fa-print"></i></button> ';
             if (isAdmin) { actions += '<button class="btn-edit" onclick="editVente(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteVente(\'' + d.id + '\')"><i class="fas fa-trash"></i></button> '; }
             if (!d.paid) { actions += '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;" onclick="payerVente(\'' + d.id + '\')"><i class="fas fa-check"></i> Payer</button>'; }
-            h += '<tr><td><strong>' + (d.factureNum || d.id.substring(0, 8)) + '</strong></td><td>' + d.dateStr + '</td><td>' + d.clientDisplay + '</td><td>' + arts + '</td><td>' + opts + '</td>' + (isAdmin ? '<td>' + d.achatTotal.toFixed(2) + '</td><td style="color:#16a34a;">' + d.profitTotal.toFixed(2) + '</td>' : '') + '<td><strong>' + d.totalValue.toFixed(2) + '</strong></td><td>' + d.discountValue.toFixed(2) + ' MAD</td><td>' + d.vendeurValue + '</td><td>' + d.paymentValue + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + d.statutLabel + '</span></td><td>' + d.sourceLabel + '</td><td>' + actions + '</td></tr>';
+            h += '<tr><td><strong>' + (d.factureNum || d.id.substring(0, 8)) + '</strong></td><td>' + d.dateStr + '</td><td>' + d.clientDisplay + '</td><td>' + arts + '</td><td>' + opts + '</td>' + (isAdmin ? '<td>' + d.achatTotal.toFixed(2) + '</td><td style="color:#16a34a;">' + d.profitTotal.toFixed(2) + '</td>' : '') + '<td><strong>' + d.totalValue.toFixed(2) + '</strong></td><td>' + d.amountGivenValue.toFixed(2) + '</td><td>' + d.changeValue.toFixed(2) + '</td><td>' + d.discountValue.toFixed(2) + ' MAD</td><td>' + d.vendeurValue + '</td><td>' + d.paymentValue + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + d.statutLabel + '</span></td><td>' + d.sourceLabel + '</td><td>' + actions + '</td></tr>';
         });
         h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
         cont.innerHTML = h;
@@ -327,15 +208,13 @@ function editVente(did) {
     db.collection('ventes').doc(did).get().then(function(doc) {
         if (!doc.exists) { alert('Vente introuvable'); return; }
         editingId = did; currentCollection = 'ventes';
-        var d = doc.data();
-        var articlesHtml = '';
+        var d = doc.data(); var articlesHtml = '';
         if (d.items) { d.items.forEach(function(it) { var opts = []; if (it.sauces && it.sauces.length > 0) opts.push('🥫' + it.sauces.join(',')); if (it.interdits && it.interdits.length > 0) opts.push('🚫' + it.interdits.join(',')); if (it.epice && it.epice !== 'Normal') opts.push('🌶️' + it.epice); if (it.sel && it.sel !== 'Normal') opts.push('🧂' + it.sel); articlesHtml += '<div style="background:#f8fafc;padding:8px;border-radius:8px;margin-bottom:5px;"><strong>' + it.quantite + 'x ' + it.nom + '</strong> - ' + (it.prixVente || 0).toFixed(2) + ' MAD/u' + (opts.length > 0 ? ' <small>(' + opts.join(' ') + ')</small>' : '') + '</div>'; }); }
-        var h = '<div style="margin-bottom:15px;"><label style="font-weight:600;">📄 Facture: ' + (d.factureNum || did.substring(0,8)) + '</label></div>';
-        h += '<div style="margin-bottom:15px;"><label style="font-weight:600;">👤 Client:</label> ' + (d.clientName || d.table || 'N/A') + '</div>';
-        h += '<div style="margin-bottom:15px;"><label style="font-weight:600;">📦 Articles:</label>' + articlesHtml + '</div>';
+        var h = '<div style="margin-bottom:15px;"><label style="font-weight:600;">📄 Facture: ' + (d.factureNum || did.substring(0,8)) + '</label></div><div style="margin-bottom:15px;"><label style="font-weight:600;">👤 Client:</label> ' + (d.clientName || d.table || 'N/A') + '</div><div style="margin-bottom:15px;"><label style="font-weight:600;">📦 Articles:</label>' + articlesHtml + '</div>';
         h += '<div class="form-row"><div class="form-group"><label>Total</label><input type="number" id="editVenteTotal" value="' + (d.total || 0) + '" step="0.01"></div><div class="form-group"><label>Remise (MAD)</label><input type="number" id="editVenteDiscount" value="' + (d.discountMAD || 0) + '" step="0.01"></div></div>';
-        h += '<div class="form-row"><div class="form-group"><label>Statut paiement</label><select id="editVenteStatut"><option value="payé" ' + (d.statutPaiement === 'payé' || d.paid ? 'selected' : '') + '>Payé</option><option value="crédit" ' + (d.statutPaiement === 'crédit' ? 'selected' : '') + '>Crédit</option><option value="partiel" ' + (d.statutPaiement === 'partiel' ? 'selected' : '') + '>Partiel</option><option value="en_attente" ' + (d.statutPaiement === 'en_attente' ? 'selected' : '') + '>En attente</option></select></div><div class="form-group"><label>Montant restant</label><input type="number" id="editVenteRemaining" value="' + (d.remainingAmount || 0) + '" step="0.01"></div></div>';
-        h += '<div class="form-row"><div class="form-group"><label>Vendeur</label><input type="text" id="editVenteVendeur" value="' + (d.vendeur || '') + '"></div><div class="form-group"><label>Méthode paiement</label><select id="editVentePayment"><option value="espece" ' + (d.paymentMethod === 'espece' ? 'selected' : '') + '>Espèces</option><option value="credit" ' + (d.paymentMethod === 'credit' ? 'selected' : '') + '>Crédit</option><option value="partiel" ' + (d.paymentMethod === 'partiel' ? 'selected' : '') + '>Partiel</option></select></div></div>';
+        h += '<div class="form-row"><div class="form-group"><label>Montant donné</label><input type="number" id="editVenteAmountGiven" value="' + (d.amountGiven || 0) + '" step="0.01"></div><div class="form-group"><label>Montant rendu</label><input type="number" id="editVenteChange" value="' + (d.change || 0) + '" step="0.01"></div></div>';
+        h += '<div class="form-row"><div class="form-group"><label>Statut paiement</label><select id="editVenteStatut"><option value="payé" ' + (d.statutPaiement==='payé'||d.paid?'selected':'') + '>Payé</option><option value="crédit" ' + (d.statutPaiement==='crédit'?'selected':'') + '>Crédit</option><option value="partiel" ' + (d.statutPaiement==='partiel'?'selected':'') + '>Partiel</option><option value="en_attente" ' + (d.statutPaiement==='en_attente'?'selected':'') + '>En attente</option></select></div><div class="form-group"><label>Montant restant</label><input type="number" id="editVenteRemaining" value="' + (d.remainingAmount || 0) + '" step="0.01"></div></div>';
+        h += '<div class="form-row"><div class="form-group"><label>Vendeur</label><input type="text" id="editVenteVendeur" value="' + (d.vendeur || '') + '"></div><div class="form-group"><label>Méthode paiement</label><select id="editVentePayment"><option value="espece" ' + (d.paymentMethod==='espece'?'selected':'') + '>Espèces</option><option value="credit" ' + (d.paymentMethod==='credit'?'selected':'') + '>Crédit</option><option value="partiel" ' + (d.paymentMethod==='partiel'?'selected':'') + '>Partiel</option></select></div></div>';
         h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditVente()">Enregistrer</button>';
         openModal('✏️ Modifier Vente', h);
     });
@@ -343,25 +222,23 @@ function editVente(did) {
 function saveEditVente() {
     var total = parseFloat(document.getElementById('editVenteTotal').value) || 0;
     var discount = parseFloat(document.getElementById('editVenteDiscount').value) || 0;
+    var amountGiven = parseFloat(document.getElementById('editVenteAmountGiven').value) || 0;
+    var change = parseFloat(document.getElementById('editVenteChange').value) || 0;
     var statut = document.getElementById('editVenteStatut').value;
     var remaining = parseFloat(document.getElementById('editVenteRemaining').value) || 0;
     var vendeur = document.getElementById('editVenteVendeur').value;
     var payment = document.getElementById('editVentePayment').value;
     var paid = (statut === 'payé'); if (statut === 'payé') remaining = 0;
-    var data = { total: total, discountMAD: discount, statutPaiement: statut, paid: paid, remainingAmount: remaining, vendeur: vendeur, paymentMethod: payment, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin' };
+    var data = { total: total, discountMAD: discount, amountGiven: amountGiven, change: change, statutPaiement: statut, paid: paid, remainingAmount: remaining, vendeur: vendeur, paymentMethod: payment, updatedAt: firebase.firestore.FieldValue.serverTimestamp(), updatedBy: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin' };
     db.collection('ventes').doc(editingId).get().then(function(doc) { if (doc.exists) { var fn = doc.data().factureNum; if (fn) { db.collection('credits').where('factureNum', '==', fn).get().then(function(sn) { sn.forEach(function(d) { d.ref.update({ paid: paid, remainingAmount: remaining }); }); }); } } });
     saveDocument('ventes', data, function() { closeModal(); refreshCurrentPage(); });
 }
-function deleteVente(did) {
-    if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') { alert('Accès réservé à l\'administrateur.'); return; }
-    if (!confirm('⚠️ Supprimer cette vente ?\n\nCette action est irréversible. Les stocks NE seront PAS restaurés.')) return;
-    db.collection('ventes').doc(did).get().then(function(doc) { if (doc.exists) { var fn = doc.data().factureNum; if (fn) { db.collection('credits').where('factureNum', '==', fn).get().then(function(sn) { sn.forEach(function(d) { d.ref.delete(); }); }); } db.collection('ventes').doc(did).delete().then(function() { alert('✅ Vente supprimée.'); refreshCurrentPage(); }); } });
-}
-async function payerVente(did) { if (!confirm('Payer cette vente ? Redirection vers POS...')) return; var dc = await db.collection('ventes').doc(did).get(); if (!dc.exists) return; var d = dc.data(); localStorage.setItem('posPayerVente', JSON.stringify({ venteId: did, clientId: d.clientId, clientName: d.clientName, items: d.items, total: d.total })); navigateTo('pos'); }
+function deleteVente(did) { if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') { alert('Accès réservé à l\'administrateur.'); return; } if (!confirm('⚠️ Supprimer cette vente ?')) return; db.collection('ventes').doc(did).get().then(function(doc) { if (doc.exists) { var fn = doc.data().factureNum; if (fn) { db.collection('credits').where('factureNum', '==', fn).get().then(function(sn) { sn.forEach(function(d) { d.ref.delete(); }); }); } db.collection('ventes').doc(did).delete().then(function() { alert('✅ Vente supprimée.'); refreshCurrentPage(); }); } }); }
+async function payerVente(did) { if (!confirm('Payer cette vente ?')) return; var dc = await db.collection('ventes').doc(did).get(); if (!dc.exists) return; var d = dc.data(); localStorage.setItem('posPayerVente', JSON.stringify({ venteId: did, clientId: d.clientId, clientName: d.clientName, items: d.items, total: d.total })); navigateTo('pos'); }
 function printFacture(did) { db.collection('ventes').doc(did).get().then(function(dc) { if (dc.exists) imprimerFacture(dc.data(), dc.id); else { db.collection('credits').doc(did).get().then(function(cd) { if (cd.exists) imprimerFacture(cd.data(), cd.id); }); } }); }
 function imprimerFacture(d, id) { var ih = ''; if (d.items) { d.items.forEach(function(it) { var o = ''; if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(','); if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice; ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + (it.prixVente || 0).toFixed(2) + '</td><td>' + ((it.prixVente || 0) * it.quantite).toFixed(2) + '</td></tr>'; }); } var w = window.open('', '_blank', 'width=400,height=600'); w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discountMAD > 0 ? '<p>Remise: ' + d.discountMAD.toFixed(2) + ' MAD</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>'); w.document.close(); setTimeout(function() { w.print(); }, 500); }
 
-// ==================== CREDITS ====================
+// ==================== CREDITS (AVEC MONTANT DONNÉ ET RENDU) ====================
 function creditSearch(query) { creditSearchQuery = query.toLowerCase().trim(); loadCredits(); }
 function loadCreditsPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-credit-card"></i> Crédits</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:280px;min-width:180px;margin-bottom:0;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="creditSearchInput" placeholder="Rechercher (client, facture)..." onkeyup="creditSearch(this.value)" style="border:none;padding:10px;font-size:0.8rem;"></div><button class="btn-add" onclick="loadCredits()"><i class="fas fa-sync"></i> Actualiser</button></div></div><div id="creditsTableContainer">Chargement...</div></div>'; loadCredits(); }
 function loadCredits() {
@@ -371,14 +248,14 @@ function loadCredits() {
     if (!isAdmin && window.currentUserData) { caissierName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom; }
     db.collection('credits').orderBy('createdAt', 'desc').limit(200).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun crédit</p>'; return; }
-        var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.reste = d.remainingAmount || d.total || 0; d.totalValue = d.total || 0; d.paidValue = d.amountGiven || 0; d.vendeurValue = d.vendeur || '-'; d.factureValue = d.factureNum || d.id.substring(0, 8); data.push(d); });
+        var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; d.dateStr = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; d.clientDisplay = d.clientName || d.table || '-'; d.reste = d.remainingAmount || d.total || 0; d.totalValue = d.total || 0; d.paidValue = d.amountGiven || 0; d.changeValue = d.change || 0; d.vendeurValue = d.vendeur || '-'; d.factureValue = d.factureNum || d.id.substring(0, 8); data.push(d); });
         if (caissierName) { data = data.filter(function(d) { return d.vendeurValue === caissierName; }); }
         if (creditSearchQuery) { data = data.filter(function(d) { return (d.clientDisplay||'').toLowerCase().indexOf(creditSearchQuery)!==-1 || (d.factureValue||'').toLowerCase().indexOf(creditSearchQuery)!==-1; }); }
         data = applySort('credits', data, 'createdAt');
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun résultat</p>'; return; }
         var tc = 0;
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.7rem;"><thead><tr>'+makeSortableHeader('credits','factureValue','Facture','loadCredits')+makeSortableHeader('credits','dateStr','Date','loadCredits')+makeSortableHeader('credits','clientDisplay','Client','loadCredits')+makeSortableHeader('credits','totalValue','Total','loadCredits')+makeSortableHeader('credits','paidValue','Payé','loadCredits')+makeSortableHeader('credits','reste','Restant','loadCredits')+makeSortableHeader('credits','vendeurValue','Vendeur','loadCredits')+'<th>Actions</th></tr></thead><tbody>';
-        data.forEach(function(d) { if (!d.paid) tc += d.reste; h += '<tr><td>' + d.factureValue + '</td><td>' + d.dateStr + '</td><td>' + d.clientDisplay + '</td><td>' + d.totalValue.toFixed(2) + '</td><td>' + d.paidValue.toFixed(2) + '</td><td style="color:#ef4444;"><strong>' + d.reste.toFixed(2) + '</strong></td><td>' + d.vendeurValue + '</td><td><button class="btn-edit" onclick="printFacture(\'' + d.id + '\')"><i class="fas fa-print"></i></button> ' + (d.paid ? '' : '<button class="btn-add" style="padding:4px 8px;font-size:0.65rem;" onclick="markCreditPaid(\'' + d.id + '\')">Payer</button>') + '</td></tr>'; });
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.7rem;"><thead><tr>'+makeSortableHeader('credits','factureValue','Facture','loadCredits')+makeSortableHeader('credits','dateStr','Date','loadCredits')+makeSortableHeader('credits','clientDisplay','Client','loadCredits')+makeSortableHeader('credits','totalValue','Total','loadCredits')+makeSortableHeader('credits','paidValue','Payé','loadCredits')+makeSortableHeader('credits','changeValue','Rendu','loadCredits')+makeSortableHeader('credits','reste','Restant','loadCredits')+makeSortableHeader('credits','vendeurValue','Vendeur','loadCredits')+'<th>Actions</th></tr></thead><tbody>';
+        data.forEach(function(d) { if (!d.paid) tc += d.reste; h += '<tr><td>' + d.factureValue + '</td><td>' + d.dateStr + '</td><td>' + d.clientDisplay + '</td><td>' + d.totalValue.toFixed(2) + '</td><td>' + d.paidValue.toFixed(2) + '</td><td>' + d.changeValue.toFixed(2) + '</td><td style="color:#ef4444;"><strong>' + d.reste.toFixed(2) + '</strong></td><td>' + d.vendeurValue + '</td><td><button class="btn-edit" onclick="printFacture(\'' + d.id + '\')"><i class="fas fa-print"></i></button> ' + (d.paid ? '' : '<button class="btn-add" style="padding:4px 8px;font-size:0.65rem;" onclick="markCreditPaid(\'' + d.id + '\')">Payer</button>') + '</td></tr>'; });
         h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#fef2f2;border-radius:12px;text-align:center;"><strong>Impayés: ' + tc.toFixed(2) + ' MAD</strong></div>';
         cont.innerHTML = h;
     }).catch(function(err) { cont.innerHTML = '<p style="color:#ef4444;">Erreur: ' + err.message + '</p>'; });
