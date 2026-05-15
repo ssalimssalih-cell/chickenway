@@ -41,7 +41,7 @@ function saveDocument(cn,data,cb){if(editingId){data.updatedAt=firebase.firestor
 function editDocument(cn,id){db.collection(cn).doc(id).get().then(function(doc){if(doc.exists){editingId=id;currentCollection=cn;openEditForm(cn,doc.data());}});}
 function deleteDocument(cn,id){if(confirm('Confirmer la suppression ?')){db.collection(cn).doc(id).delete().then(function(){alert('Supprimé');refreshCurrentPage();});}}
 function refreshCurrentPage(){var t=document.getElementById('pageTitle').textContent;var m={'Catégories':'categories','Produits':'products','Clients':'clients','Fournisseurs':'fournisseurs','Dépenses':'depenses','Ventes':'ventes','Crédits':'credits','Commandes en ligne':'commandes'};navigateTo(m[t]||'dashboard');}
-function openEditForm(cn,data){if(cn==='categories')openCategoryForm(data);else if(cn==='products')openProductForm(data);else if(cn==='clients')openClientForm(data);else if(cn==='fournisseurs')openFournisseurForm(data);else if(cn==='depenses')openDepenseForm(data);else if(cn==='commandes')editCommandeForm(data);}
+function openEditForm(cn,data){if(cn==='categories')openCategoryForm(data);else if(cn==='products')openProductForm(data);else if(cn==='clients')openClientForm(data);else if(cn==='fournisseurs')openFournisseurForm(data);else if(cn==='depenses')openDepenseForm(data);}
 
 // ==================== SYSTÈME DE TRI UNIVERSEL ====================
 function sortTableData(tableName, field, loadFn) {if(!sortOrders[tableName])sortOrders[tableName]={};if(!sortOrders[tableName][field])sortOrders[tableName][field]='asc';else sortOrders[tableName][field]=sortOrders[tableName][field]==='asc'?'desc':'asc';Object.keys(sortOrders[tableName]).forEach(function(k){if(k!==field)sortOrders[tableName][k]=null;});loadFn();}
@@ -103,18 +103,15 @@ function loadCommandes() {
             var sl = d.statut === 'payé' ? '💵 Payée' : d.statut === 'valide' ? '✅ Validée' : '⏳ En attente';
             var sourceBadge = d.source === 'en_ligne' ? '<span class="status-warning">🌐 En ligne</span>' : '<span style="color:#94a3b8;">📱 App</span>';
             var act = '';
+            act += '<button class="btn-edit" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="editCommande(\'' + d.id + '\')" title="Modifier"><i class="fas fa-edit"></i></button>';
             if (d.statut === 'en_attente') {
-                act = '<button class="btn-edit" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="editCommande(\'' + d.id + '\')"><i class="fas fa-edit"></i></button>';
-                act += '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="validateCommande(\'' + d.id + '\')"><i class="fas fa-check"></i></button>';
-                act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + d.id + '\')"><i class="fas fa-money-bill-wave"></i></button>';
-                act += '<button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="deleteCommande(\'' + d.id + '\')"><i class="fas fa-trash"></i></button>';
-            } else if (d.statut === 'valide') {
-                act = '<button class="btn-edit" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="editCommande(\'' + d.id + '\')"><i class="fas fa-edit"></i></button>';
-                act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + d.id + '\')"><i class="fas fa-money-bill-wave"></i></button>';
-                act += '<button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="deleteCommande(\'' + d.id + '\')"><i class="fas fa-trash"></i></button>';
-            } else {
-                act = '<button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="deleteCommande(\'' + d.id + '\')"><i class="fas fa-trash"></i></button>';
+                act += '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="validateCommande(\'' + d.id + '\')" title="Valider"><i class="fas fa-check"></i></button>';
+                act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + d.id + '\')" title="Payer"><i class="fas fa-money-bill-wave"></i></button>';
             }
+            if (d.statut === 'valide') {
+                act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + d.id + '\')" title="Payer"><i class="fas fa-money-bill-wave"></i></button>';
+            }
+            act += '<button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="deleteCommande(\'' + d.id + '\')" title="Supprimer"><i class="fas fa-trash"></i></button>';
             h += '<tr><td>' + d.dateStr + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td>' + opts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + sourceBadge + '</td><td>' + act + '</td></tr>';
         });
         h += '</tbody></table></div>'; cont.innerHTML = h;
@@ -144,31 +141,154 @@ function saveEditCommande() {
     var data = { total: total, statut: statut, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
     saveDocument('commandes', data, function() { closeModal(); loadCommandes(); });
 }
-function editCommandeForm(data) { editCommande(editingId); }
 
 // ==================== SUPPRIMER COMMANDE ====================
 function deleteCommande(cid) {
-    if (!confirm('⚠️ Supprimer cette commande ?\n\nCette action est irréversible.')) return;
-    db.collection('commandes').doc(cid).delete().then(function() {
-        alert('✅ Commande supprimée.');
-        loadCommandes();
-    }).catch(function(err) { alert('Erreur: ' + err.message); });
+    if (!confirm('⚠️ Supprimer cette commande ?')) return;
+    db.collection('commandes').doc(cid).delete().then(function() { alert('✅ Supprimée'); loadCommandes(); });
 }
 
-// ==================== VALIDER / PAYER / ANNULER COMMANDE ====================
+// ==================== VALIDER COMMANDE ====================
 async function validateCommande(cid) {
     if (!confirm('Valider cette commande ?')) return;
     var vendeur = window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin';
     await db.collection('commandes').doc(cid).update({ statut: 'valide', source: 'en_ligne', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: vendeur });
     alert('✅ Validée !'); loadCommandes();
 }
+
+// ==================== PAYER COMMANDE (MODAL) ====================
 async function payCommande(cid) {
-    if (!confirm('Payer cette commande ? Redirection vers POS...')) return;
-    var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) return;
+    var dc = await db.collection('commandes').doc(cid).get();
+    if (!dc.exists) { alert('Commande introuvable'); return; }
     var cmd = dc.data();
-    localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total, source: 'en_ligne' }));
-    navigateTo('pos');
+    window.currentPaiementCommandeId = cid;
+    window.currentPaiementCommandeData = cmd;
+    showCommandePaymentModal(cmd, cid);
 }
+
+function showCommandePaymentModal(cmd, cid) {
+    var subtotal = cmd.total || 0;
+    var discountMAD = 0;
+    var total = subtotal - discountMAD;
+    
+    var articlesHtml = '';
+    if (cmd.items) {
+        cmd.items.forEach(function(it) {
+            var opts = '';
+            if (it.sauces && it.sauces.length > 0) opts += ' 🥫' + it.sauces.join(',');
+            if (it.interdits && it.interdits.length > 0) opts += ' 🚫' + it.interdits.join(',');
+            if (it.epice && it.epice !== 'Normal') opts += ' 🌶️' + it.epice;
+            if (it.sel && it.sel !== 'Normal') opts += ' 🧂' + it.sel;
+            articlesHtml += '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;"><span><strong>' + it.quantite + 'x</strong> ' + it.nom + '<small>' + opts + '</small></span><span>' + ((it.prixVente || it.prixUnitaire || 0) * it.quantite).toFixed(2) + ' MAD</span></div>';
+        });
+    }
+    
+    var vendeur = window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : '';
+    
+    var h = '<div id="commandePaymentModal">';
+    h += '<div id="cmdPaymentStep1">';
+    h += '<div style="background:#f8fafc;padding:15px;border-radius:12px;margin-bottom:15px;">';
+    h += '<p><strong>👤 Client:</strong> ' + (cmd.clientName || 'N/A') + '</p>';
+    h += '<p><strong>📧 Email:</strong> ' + (cmd.clientEmail || '-') + '</p>';
+    h += '<p><strong>📱 Tél:</strong> ' + (cmd.clientTelephone || '-') + '</p>';
+    h += '</div>';
+    h += '<h4 style="margin-bottom:10px;">📦 Articles commandés</h4>';
+    h += '<div style="max-height:200px;overflow-y:auto;margin-bottom:15px;">' + articlesHtml + '</div>';
+    h += '<div style="background:#f8fafc;padding:15px;border-radius:12px;margin-bottom:15px;">';
+    h += '<div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span>Sous-total</span><span>' + subtotal.toFixed(2) + ' MAD</span></div>';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><span>Remise (MAD)</span><input type="number" id="cmdDiscount" value="0" min="0" step="0.01" onchange="updateCmdTotal()" style="width:100px;padding:6px;border:1px solid #e2e8f0;border-radius:6px;text-align:right;"></div>';
+    h += '<div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:700;"><span>Total</span><span id="cmdTotalDisplay">' + total.toFixed(2) + ' MAD</span></div>';
+    h += '</div>';
+    h += '<button class="pos-validate-btn" onclick="goToCmdPaymentStep2()" style="width:100%;">Suivant <i class="fas fa-arrow-right"></i></button>';
+    h += '</div>';
+    
+    h += '<div id="cmdPaymentStep2" style="display:none;">';
+    h += '<div class="pos-payment-section"><label>Méthode de paiement</label><div class="pos-payment-methods">';
+    h += '<button class="pos-payment-btn active" id="cmdPayEspece" onclick="setCmdPaymentMethod(\'espece\')"><i class="fas fa-money-bill-wave"></i> Espèces</button>';
+    h += '<button class="pos-payment-btn" id="cmdPayCredit" onclick="setCmdPaymentMethod(\'credit\')"><i class="fas fa-credit-card"></i> Crédit</button>';
+    h += '</div></div>';
+    h += '<div class="pos-payment-section" id="cmdAmountSection"><label>Montant donné</label><input type="number" id="cmdAmountGiven" placeholder="0.00" value="" onkeyup="calculateCmdChange()" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;font-size:1rem;"><div id="cmdChangeDisplay"></div></div>';
+    h += '<div style="display:flex;gap:10px;">';
+    h += '<button class="btn-cancel" onclick="goToCmdPaymentStep1()" style="flex:1;">Retour</button>';
+    h += '<button class="btn-save" onclick="finalizeCmdPayment()" style="flex:1;">Valider le paiement</button>';
+    h += '</div>';
+    h += '</div>';
+    h += '</div>';
+    
+    openModal('💵 Paiement Commande En Ligne', h);
+    window.cmdPaymentMethod = 'espece';
+    window.cmdAmountGiven = 0;
+}
+
+function updateCmdTotal() {
+    var discount = parseFloat(document.getElementById('cmdDiscount').value) || 0;
+    var subtotal = window.currentPaiementCommandeData.total || 0;
+    var total = subtotal - discount;
+    document.getElementById('cmdTotalDisplay').textContent = total.toFixed(2) + ' MAD';
+}
+
+function goToCmdPaymentStep2() {
+    document.getElementById('cmdPaymentStep1').style.display = 'none';
+    document.getElementById('cmdPaymentStep2').style.display = 'block';
+}
+
+function goToCmdPaymentStep1() {
+    document.getElementById('cmdPaymentStep1').style.display = 'block';
+    document.getElementById('cmdPaymentStep2').style.display = 'none';
+}
+
+function setCmdPaymentMethod(method) {
+    window.cmdPaymentMethod = method;
+    document.getElementById('cmdPayEspece').className = method === 'espece' ? 'pos-payment-btn active' : 'pos-payment-btn';
+    document.getElementById('cmdPayCredit').className = method === 'credit' ? 'pos-payment-btn active' : 'pos-payment-btn';
+    var amountSection = document.getElementById('cmdAmountSection');
+    if (method === 'espece') { amountSection.style.display = 'block'; }
+    else { amountSection.style.display = 'none'; document.getElementById('cmdChangeDisplay').innerHTML = ''; }
+}
+
+function calculateCmdChange() {
+    var amountGiven = parseFloat(document.getElementById('cmdAmountGiven').value) || 0;
+    var discount = parseFloat(document.getElementById('cmdDiscount').value) || 0;
+    var total = (window.currentPaiementCommandeData.total || 0) - discount;
+    window.cmdAmountGiven = amountGiven;
+    var change = amountGiven - total;
+    var display = document.getElementById('cmdChangeDisplay');
+    if (amountGiven > 0) {
+        if (change >= 0) { display.innerHTML = '<div class="pos-change-positive"><span>Rendu</span><span>' + change.toFixed(2) + ' MAD</span></div>'; }
+        else { display.innerHTML = '<div class="pos-change-negative"><span>Manquant</span><span>' + Math.abs(change).toFixed(2) + ' MAD</span></div>'; }
+    } else { display.innerHTML = ''; }
+}
+
+async function finalizeCmdPayment() {
+    var cmd = window.currentPaiementCommandeData;
+    var cid = window.currentPaiementCommandeId;
+    var discount = parseFloat(document.getElementById('cmdDiscount').value) || 0;
+    var total = cmd.total - discount;
+    var method = window.cmdPaymentMethod;
+    var amountGiven = method === 'espece' ? (parseFloat(document.getElementById('cmdAmountGiven').value) || 0) : total;
+    var change = method === 'espece' ? Math.max(0, amountGiven - total) : 0;
+    var paid = method === 'espece';
+    var remaining = method === 'credit' ? total : 0;
+    
+    if (method === 'espece' && amountGiven < total) { alert('Le montant donné est insuffisant.'); return; }
+    
+    var vendeur = window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin';
+    
+    try {
+        var fcs = await db.collection('ventes').get();
+        var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0');
+        var profitTotal = 0;
+        if (cmd.items) { cmd.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || it.prixUnitaire || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; profitTotal += (pvr - pa) * (it.quantite || 1); }); }
+        
+        await db.collection('ventes').add({ factureNum: fn, items: cmd.items, subtotal: cmd.total, discountMAD: discount, total: total, clientId: cmd.clientId, clientName: cmd.clientName, clientEmail: cmd.clientEmail, clientTelephone: cmd.clientTelephone, vendeur: vendeur, paymentMethod: method, statutPaiement: paid ? 'payé' : 'crédit', amountGiven: amountGiven, change: change, paid: paid, remainingAmount: remaining, profitTotal: profitTotal, source: 'en_ligne', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        if (!paid) { await db.collection('credits').add({ factureNum: fn, items: cmd.items, total: total, clientId: cmd.clientId, clientName: cmd.clientName, vendeur: vendeur, paymentMethod: method, amountGiven: amountGiven, paid: false, remainingAmount: remaining, createdAt: firebase.firestore.FieldValue.serverTimestamp() }); }
+        await db.collection('commandes').doc(cid).update({ statut: 'payé', factureNum: fn, paidAt: firebase.firestore.FieldValue.serverTimestamp() });
+        if (cmd.clientId && paid) { try { var cr = await db.collection('clients').doc(cmd.clientId).get(); if (cr.exists) { var cd = cr.data(); await db.collection('clients').doc(cmd.clientId).update({ ca: (cd.ca || 0) + total, profit: (cd.profit || 0) + profitTotal, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }); } } catch(e) {} }
+        alert('✅ Paiement effectué !\nFacture: ' + fn + '\nTotal: ' + total.toFixed(2) + ' MAD' + (change > 0 ? '\nRendu: ' + change.toFixed(2) + ' MAD' : ''));
+        closeModal(); loadCommandes();
+    } catch(e) { alert('Erreur: ' + e.message); }
+}
+
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
 // ==================== VENTES ====================
