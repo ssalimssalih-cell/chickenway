@@ -64,21 +64,7 @@ function clientConfirmOptions() {
     var ex = clientCart.find(function(x) { return x.id === clientCurrentProductId; });
     if (ex) { if (p.stock !== undefined && ex.quantite >= p.stock) { alert('Stock insuffisant'); closeModal(); return; } ex.quantite += 1; }
     else { var pr = p.prixPromo && p.prixPromo > 0 ? p.prixPromo : p.prixVente; clientCart.push({id: p.id, nom: p.nom, prixUnitaire: pr, quantite: 1, categorie: p.categorie||'', sauces: sauces, interdits: interdits, epice: epice, sel: sel}); }
-    if (interdits.length > 0 && window.currentUserData && window.currentUserData.uid) { saveClientPreferencesFromOrder(window.currentUserData.uid, interdits, sauces, epice, sel); }
     closeModal(); renderClientPOS();
-}
-
-async function saveClientPreferencesFromOrder(clientId, interdits, sauces, epice, sel) {
-    try {
-        var cr = await db.collection('clients').where('email', '==', window.currentUserData.userData.email).get();
-        if (!cr.empty) {
-            var clientDoc = cr.docs[0]; var cd = clientDoc.data();
-            var existingInterdits = cd.interdits || []; var existingAime = cd.aime || [];
-            interdits.forEach(function(i) { if (existingInterdits.indexOf(i) === -1) existingInterdits.push(i); });
-            sauces.forEach(function(s) { if (existingAime.indexOf(s) === -1) existingAime.push(s); });
-            await db.collection('clients').doc(clientDoc.id).update({ interdits: existingInterdits, aime: existingAime, epicePrefere: epice, selPrefere: sel, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-        }
-    } catch(e) { console.error('Erreur sauvegarde préférences:', e); }
 }
 
 function renderClientPOS() {
@@ -129,39 +115,84 @@ async function loadClientHistoriquePage() {
     if (!c) return;
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-history"></i> Mon historique</h3></div><div id="clientOrdersList" style="text-align:center;padding:20px;">Chargement...</div></div>';
     
-    setTimeout(async function() {
-        if (!window.currentUserData) {
-            var cont = document.getElementById('clientOrdersList');
-            if (cont) cont.innerHTML = '<p style="padding:40px;">Non connecté</p>';
-            return;
+    if (!window.currentUserData) {
+        document.getElementById('clientOrdersList').innerHTML = '<p style="padding:40px;">Non connecté</p>';
+        return;
+    }
+    
+    var uid = window.currentUserData.uid;
+    var clientName = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
+    var clientEmail = window.currentUserData.userData.email;
+    var clientTelephone = window.currentUserData.userData.telephone;
+    
+    try {
+        // Récupérer les commandes du client (par clientId)
+        var cmdSnap = await db.collection('commandes').where('clientId', '==', uid).orderBy('createdAt', 'desc').limit(50).get();
+        
+        // Récupérer les ventes du client (par clientName OU clientEmail OU clientTelephone)
+        var venteSnap = await db.collection('ventes')
+            .orderBy('createdAt', 'desc')
+            .limit(200)
+            .get();
+        
+        var all = [];
+        
+        // Ajouter les commandes
+        cmdSnap.forEach(function(d) { 
+            all.push({type: 'commande', data: d.data(), date: d.data().createdAt}); 
+        });
+        
+        // Filtrer les ventes pour ce client (par nom, email ou téléphone)
+        venteSnap.forEach(function(d) {
+            var v = d.data();
+            var matchName = v.clientName && clientName && v.clientName.toLowerCase() === clientName.toLowerCase();
+            var matchEmail = v.clientEmail && clientEmail && v.clientEmail.toLowerCase() === clientEmail.toLowerCase();
+            var matchTel = v.clientTelephone && clientTelephone && v.clientTelephone === clientTelephone;
+            
+            if (matchName || matchEmail || matchTel) {
+                all.push({type: 'vente', data: v, date: v.createdAt});
+            }
+        });
+        
+        // Trier par date
+        all.sort(function(a, b) { return (b.date?.seconds || 0) - (a.date?.seconds || 0); });
+        
+        var cont = document.getElementById('clientOrdersList');
+        if (!cont) return;
+        
+        if (all.length === 0) { 
+            cont.innerHTML = '<p style="padding:40px;color:#94a3b8;"><i class="fas fa-inbox" style="font-size:2rem;display:block;margin-bottom:10px;"></i>Aucun historique</p>'; 
+            return; 
         }
-        var uid = window.currentUserData.uid;
-        var uname = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
-        try {
-            var cmdSnap = await db.collection('commandes').where('clientId','==',uid).orderBy('createdAt','desc').limit(30).get();
-            var venteSnap = await db.collection('ventes').where('clientName','==',uname).orderBy('createdAt','desc').limit(30).get();
-            var all = []; cmdSnap.forEach(function(d) { all.push({type:'commande', data:d.data(), date:d.data().createdAt}); }); venteSnap.forEach(function(d) { all.push({type:'vente', data:d.data(), date:d.data().createdAt}); });
-            all.sort(function(a,b) { return (b.date?.seconds||0) - (a.date?.seconds||0); });
-            var cont = document.getElementById('clientOrdersList');
-            if (!cont) return;
-            if (all.length===0) { cont.innerHTML = '<p style="padding:40px;color:#94a3b8;">Aucun historique</p>'; return; }
-            var h = '<div class="table-container"><table class="data-table"><thead><tr><th>Date</th><th>Type</th><th>Articles</th><th>Total</th><th>Vendeur</th><th>Statut</th></tr></thead><tbody>';
-            all.forEach(function(item) {
-                var d = item.data;
-                var date = d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleString('fr-FR') : '';
-                var type = item.type==='commande' ? '🛒 Commande' : '💰 Vente';
-                var arts = d.items ? d.items.length : 0;
-                var vendeur = d.vendeur || d.createdBy || '-';
-                var statut = item.type==='commande' ? (d.statut==='valide'?'✅ Validée':d.statut==='payé'?'💵 Payée':'⏳ En attente') : (d.paid?'✅ Payé':'❌ Impayé');
-                var sc = (statut.includes('✅')||statut.includes('💵')) ? '#16a34a' : '#d97706';
-                h += '<tr><td>'+date+'</td><td>'+type+'</td><td>'+arts+'</td><td><strong>'+(d.total||0).toFixed(2)+' MAD</strong></td><td>'+vendeur+'</td><td><span style="color:'+sc+';">'+statut+'</span></td></tr>';
-            });
-            h += '</tbody></table></div>'; cont.innerHTML = h;
-        } catch(e) {
-            var cont2 = document.getElementById('clientOrdersList');
-            if (cont2) cont2.innerHTML = '<p style="padding:40px;color:#ef4444;">Erreur de chargement</p>';
-        }
-    }, 200);
+        
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.8rem;"><thead><tr><th>Date</th><th>Type</th><th>N° Facture</th><th>Articles</th><th>Total</th><th>Vendeur</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>';
+        all.forEach(function(item) {
+            var d = item.data;
+            var date = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
+            var type = item.type === 'commande' ? '<span class="status-warning">🛒 Commande</span>' : '<span style="color:#4f46e5;">💰 Vente</span>';
+            var facture = d.factureNum || '-';
+            var arts = d.items ? d.items.map(function(it) { return it.quantite + 'x ' + it.nom; }).join('<br>') : '-';
+            var vendeur = d.vendeur || d.createdBy || '-';
+            var paiement = d.paymentMethod === 'espece' ? 'Espèces' : d.paymentMethod === 'credit' ? 'Crédit' : d.paymentMethod === 'partiel' ? 'Partiel' : '-';
+            
+            var statut = '';
+            if (item.type === 'commande') {
+                statut = d.statut === 'valide' ? '✅ Validée' : d.statut === 'payé' ? '💵 Payée' : '⏳ En attente';
+            } else {
+                statut = d.paid ? '✅ Payé' : '❌ Impayé';
+            }
+            var sc = (statut.includes('✅') || statut.includes('💵')) ? '#16a34a' : '#d97706';
+            
+            h += '<tr><td>' + date + '</td><td>' + type + '</td><td><small>' + facture + '</small></td><td><small>' + arts + '</small></td><td><strong>' + (d.total || 0).toFixed(2) + ' MAD</strong></td><td>' + vendeur + '</td><td>' + paiement + '</td><td><span style="color:' + sc + ';">' + statut + '</span></td></tr>';
+        });
+        h += '</tbody></table></div>';
+        cont.innerHTML = h;
+        
+    } catch(e) {
+        console.error('Erreur historique:', e);
+        var cont2 = document.getElementById('clientOrdersList');
+        if (cont2) cont2.innerHTML = '<p style="padding:40px;color:#ef4444;">Erreur de chargement: ' + e.message + '</p>';
+    }
 }
 
 function loadClientParametresPage() {
