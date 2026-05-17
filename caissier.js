@@ -6,213 +6,192 @@ var posInterditsList = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade'
 var posEpicesList = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var posSelList = ['Normal','Moins de sel','Sans sel'];
 
-// Commandes des tables (menu tactile)
-var posCommandesTables = [];
-var posCommandesTablesCount = 0;
+// ==================== OPTIONS CAISSIER ====================
+function loadOptionsPageCaissier(c) {
+    if (!window.currentUserData) { c.innerHTML = '<div class="content-card"><p>Non connecté</p></div>'; return; }
+    
+    var userData = window.currentUserData.userData;
+    var dateCreated = userData.createdAt ? new Date(userData.createdAt.seconds * 1000).toLocaleString('fr-FR') : 'N/A';
+    
+    var h = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-user-circle"></i> Mon Profil</h3></div>';
+    h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.9rem;">';
+    h += '<div><strong>ID:</strong> ' + (window.currentUserData.uid ? window.currentUserData.uid.substring(0, 8) : 'N/A') + '</div>';
+    h += '<div><strong>Nom:</strong> ' + (userData.nom || '') + '</div>';
+    h += '<div><strong>Prénom:</strong> ' + (userData.prenom || '') + '</div>';
+    h += '<div><strong>Username:</strong> @' + (userData.username || '') + '</div>';
+    h += '<div><strong>Email:</strong> ' + (userData.email || '') + '</div>';
+    h += '<div><strong>Téléphone:</strong> ' + (userData.telephone || '-') + '</div>';
+    h += '<div><strong>Rôle:</strong> <span class="status-warning">' + (userData.role || '') + '</span></div>';
+    h += '<div><strong>Date créé:</strong> ' + dateCreated + '</div>';
+    h += '</div>';
+    
+    h += '<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">';
+    h += '<button class="btn-add" onclick="caissierOpenEditProfile()"><i class="fas fa-edit"></i> Modifier mon profil</button>';
+    h += '<button class="btn-save" onclick="caissierOpenChangePassword()"><i class="fas fa-lock"></i> Changer mot de passe</button>';
+    h += '</div>';
+    h += '</div>';
+    
+    c.innerHTML = h;
+}
 
+// ==================== MODIFIER PROFIL CAISSIER ====================
+function caissierOpenEditProfile() {
+    var data = window.currentUserData.userData;
+    var h = '';
+    h += '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="caissEditNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Prénom *</label><input type="text" id="caissEditPrenom" value="' + (data.prenom || '') + '" required></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Téléphone</label><input type="text" id="caissEditTel" value="' + (data.telephone || '') + '"></div><div class="form-group"><label>Username</label><input type="text" id="caissEditUsername" value="' + (data.username || '') + '"></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="caissierSaveProfile()">Enregistrer</button>';
+    openModal('✏️ Modifier mon profil', h);
+}
+
+async function caissierSaveProfile() {
+    var nom = document.getElementById('caissEditNom').value.trim();
+    var prenom = document.getElementById('caissEditPrenom').value.trim();
+    if (!nom || !prenom) { alert('Nom et Prénom obligatoires'); return; }
+    
+    var updatedData = {
+        nom: nom,
+        prenom: prenom,
+        telephone: document.getElementById('caissEditTel').value,
+        username: document.getElementById('caissEditUsername').value,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    try {
+        await db.collection('users').doc(window.currentUserData.uid).update(updatedData);
+        window.currentUserData.userData.nom = nom;
+        window.currentUserData.userData.prenom = prenom;
+        window.currentUserData.userData.telephone = updatedData.telephone;
+        window.currentUserData.userData.username = updatedData.username;
+        updateSidebarUserInfo();
+        alert('✅ Profil mis à jour !');
+        closeModal();
+        navigateTo('options');
+    } catch(e) { alert('Erreur: ' + e.message); }
+}
+
+// ==================== CHANGER MOT DE PASSE CAISSIER ====================
+function caissierOpenChangePassword() {
+    var h = '<div class="form-row"><div class="form-group"><label>Mot de passe actuel</label><input type="password" id="caissOldPassword" required></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Nouveau mot de passe</label><input type="password" id="caissNewPassword" required minlength="6"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Confirmer nouveau mot de passe</label><input type="password" id="caissConfirmPassword" required minlength="6"></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="caissierChangePassword()">Changer le mot de passe</button>';
+    openModal('🔒 Changer mot de passe', h);
+}
+
+async function caissierChangePassword() {
+    var oldPass = document.getElementById('caissOldPassword').value;
+    var newPass = document.getElementById('caissNewPassword').value;
+    var confirmPass = document.getElementById('caissConfirmPassword').value;
+    
+    if (!oldPass || !newPass || !confirmPass) { alert('Tous les champs sont obligatoires'); return; }
+    if (newPass.length < 6) { alert('6 caractères minimum'); return; }
+    if (newPass !== confirmPass) { alert('Les mots de passe ne correspondent pas'); return; }
+    
+    var user = auth.currentUser;
+    if (!user) { alert('Non connecté'); return; }
+    
+    var credential = firebase.auth.EmailAuthProvider.credential(user.email, oldPass);
+    try {
+        await user.reauthenticateWithCredential(credential);
+        await user.updatePassword(newPass);
+        alert('✅ Mot de passe changé !');
+        closeModal();
+    } catch(e) {
+        if (e.code === 'auth/wrong-password') { alert('❌ Mot de passe actuel incorrect'); }
+        else { alert('Erreur: ' + e.message); }
+    }
+}
+
+// ==================== CHARGEMENT POS ====================
 async function loadPosPage(c) {
     posResetCart(); posStep = 1;
-    // Charger catégories, produits et clients
+    var commandeData = localStorage.getItem('posCommandeData');
+    var payerVenteData = localStorage.getItem('posPayerVente');
     try {
         var cs = await db.collection('categories').get(); posCategoriesList = []; cs.forEach(function(d) { posCategoriesList.push({id:d.id,nom:d.data().nom,imageBase64:d.data().imageBase64}); });
         var ps = await db.collection('products').get(); posProductsList = []; ps.forEach(function(d) { var dd = d.data(); if (dd.disponible !== false) { posProductsList.push({id:d.id,nom:dd.nom,prixVente:dd.prixVente||0,prixPromo:dd.prixPromo||0,prixAchat:dd.prixAchat||0,stock:dd.stock,categorie:dd.categorie||'',imageBase64:dd.imageBase64||''}); } });
         var cl = await db.collection('clients').orderBy('nom').get(); posAllClients = []; posFilteredClients = []; cl.forEach(function(d) { posAllClients.push({id:d.id,nom:d.data().nom,prenom:d.data().prenom,telephone:d.data().telephone}); }); posFilteredClients = posAllClients.slice();
     } catch(e) { console.error('Erreur POS:', e); }
-
-    // Charger les commandes tables en attente
-    await posChargerCommandesTables();
+    
+    if (commandeData) {
+        var cmd = JSON.parse(commandeData); localStorage.removeItem('posCommandeData');
+        posCart = []; if (cmd.items) { cmd.items.forEach(function(item) { posCart.push({id:item.id,nom:item.nom,prixUnitaire:item.prixVente||item.prixUnitaire||0,prixAchat:item.prixAchat||0,prixPromo:item.prixPromo||0,prixVente:item.prixVente||item.prixUnitaire||0,quantite:item.quantite||1,categorie:item.categorie||'',imageBase64:item.imageBase64||'',sauces:item.sauces||[],interdits:item.interdits||[],epice:item.epice||'Normal',sel:item.sel||'Normal'}); }); }
+        if (cmd.clientId && cmd.clientName) { posCurrentClient = {id: cmd.clientId, name: cmd.clientName}; }
+        posStep = 2; posDiscountMAD = 0; posPaymentMethod = 'espece';
+        window.posCommandeId = cmd.commandeId; window.posCommandeSource = cmd.source || 'en_ligne';
+        renderPOS(); return;
+    }
+    if (payerVenteData) {
+        var v = JSON.parse(payerVenteData); localStorage.removeItem('posPayerVente');
+        posCart = []; if (v.items) { v.items.forEach(function(item) { posCart.push({id:item.id,nom:item.nom,prixUnitaire:item.prixVente||0,prixAchat:item.prixAchat||0,prixPromo:item.prixPromo||0,prixVente:item.prixVente||0,quantite:item.quantite||1,categorie:'',imageBase64:'',sauces:item.sauces||[],interdits:item.interdits||[],epice:item.epice||'Normal',sel:item.sel||'Normal'}); }); }
+        if (v.clientId && v.clientName) { posCurrentClient = {id: v.clientId, name: v.clientName}; }
+        posStep = 2; posDiscountMAD = 0; posPaymentMethod = 'espece';
+        window.posVenteId = v.venteId;
+        renderPOS(); return;
+    }
     renderPOS();
 }
 
-async function posChargerCommandesTables() {
-    try {
-        var snap = await db.collection('commandes')
-            .where('statut', '==', 'en_attente')
-            .where('source', '==', 'menu_tactile')   // uniquement celles du menu tactile
-            .get();
-        posCommandesTables = [];
-        snap.forEach(function(doc) {
-            var data = doc.data();
-            data.id = doc.id;
-            posCommandesTables.push(data);
-        });
-        posCommandesTablesCount = posCommandesTables.length;
-    } catch(e) {
-        console.error('Erreur chargement commandes tables', e);
-        posCommandesTablesCount = 0;
-    }
+function posResetCart() { posCart=[]; posStep=1; posSelectedCategory='all'; posCurrentClient=null; posCurrentTable=''; posPaymentMethod='espece'; posAmountGiven=0; posDiscountMAD=0; posFilteredClients = posAllClients.slice(); delete window.posCommandeId; delete window.posVenteId; delete window.posCommandeSource; }
+
+function posSearchClient(query) {
+    var q = query.toLowerCase().trim(); posCurrentClient = null;
+    if (!q) { posFilteredClients = posAllClients.slice(); var d = document.getElementById('posClientDropdown'); if(d)d.style.display='none'; }
+    else { posFilteredClients = posAllClients.filter(function(c) { return (c.nom||'').toLowerCase().indexOf(q)!==-1||(c.prenom||'').toLowerCase().indexOf(q)!==-1||(c.telephone||'').toLowerCase().indexOf(q)!==-1; }); renderClientDropdown(); }
 }
+function renderClientDropdown() { var d=document.getElementById('posClientDropdown');if(!d)return;var h='';if(posFilteredClients.length===0)h='<div style="padding:10px;color:#94a3b8;text-align:center;">Aucun</div>';else{posFilteredClients.forEach(function(c){h+='<div onclick="posSelectClientFromDropdown(\''+c.id+'\',\''+c.nom.replace(/'/g,"\\'")+' '+c.prenom.replace(/'/g,"\\'")+'\')" style="padding:10px;cursor:pointer;border-bottom:1px solid #f1f5f9;">'+c.nom+' '+c.prenom+' <span style="color:#94a3b8;font-size:0.7rem;">('+(c.telephone||'')+')</span></div>';});}d.innerHTML=h;d.style.display='block';}
+function posSelectClientFromDropdown(cid,cn){posCurrentClient={id:cid,name:cn};posCurrentTable='';var s=document.getElementById('posClientSearchInput'),t=document.getElementById('posTableNum'),d=document.getElementById('posClientDropdown');if(s)s.value=cn;if(t)t.value='';if(d)d.style.display='none';updatePaymentButtons();}
+document.addEventListener('click',function(e){var d=document.getElementById('posClientDropdown'),s=document.getElementById('posClientSearchInput');if(d&&s&&!s.contains(e.target)&&!d.contains(e.target))d.style.display='none';});
+function updatePaymentButtons(){setTimeout(function(){var cb=document.getElementById('posCreditBtn'),pb=document.getElementById('posPartielBtn'),cc=posCurrentClient&&posCurrentClient.id;if(cb){cb.disabled=!cc;cb.style.opacity=cc?'1':'0.4';cb.style.cursor=cc?'pointer':'not-allowed';}if(pb){pb.disabled=!cc;pb.style.opacity=cc?'1':'0.4';pb.style.cursor=cc?'pointer':'not-allowed';}},300);}
+function posSetTable(v){posCurrentTable=v.trim();if(posCurrentTable){posCurrentClient=null;posPaymentMethod='espece';var s=document.getElementById('posClientSearchInput');if(s)s.value='';}}
 
-function posResetCart() {
-    posCart = []; posStep = 1; posSelectedCategory = 'all';
-    posCurrentClient = null; posCurrentTable = '';
-    posPaymentMethod = 'espece'; posAmountGiven = 0; posDiscountMAD = 0;
-    posFilteredClients = posAllClients.slice();
-    delete window.posCommandeId; delete window.posVenteId;
+function posOpenOptionsModal(pid){var p=posProductsList.find(function(x){return x.id===pid;});if(!p)return;if(p.stock!==undefined&&p.stock<=0){alert('Rupture');return;}posCurrentProductId=pid;var h='<h4>'+p.nom+'</h4>';h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Sauces:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';posSaucesList.forEach(function(s){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-sauce-check" value="'+s+'"> '+s+'</label>';});h+='</div></div>';h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🚫 Interdits:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';posInterditsList.forEach(function(s){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-interdit-check" value="'+s+'"> '+s+'</label>';});h+='</div></div>';h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';posEpicesList.forEach(function(s,idx){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="pos-epice" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';});h+='</div></div>';h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🧂 Sel:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';posSelList.forEach(function(s,idx){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="pos-sel" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';});h+='</div></div>';h+='<div style="text-align:right;"><button class="btn-cancel" onclick="closeModal()" style="float:none;margin-right:8px;">Annuler</button><button class="btn-save" onclick="posConfirmOptions()" style="float:none;">Ajouter</button></div>';openModal('Personnaliser',h);}
+function posConfirmOptions(){var sauces=[];document.querySelectorAll('.pos-sauce-check:checked').forEach(function(cb){sauces.push(cb.value);});var interdits=[];document.querySelectorAll('.pos-interdit-check:checked').forEach(function(cb){interdits.push(cb.value);});var epice=document.querySelector('input[name="pos-epice"]:checked');epice=epice?epice.value:'Normal';var sel=document.querySelector('input[name="pos-sel"]:checked');sel=sel?sel.value:'Normal';var p=posProductsList.find(function(x){return x.id===posCurrentProductId;});if(!p){closeModal();return;}var ex=posCart.find(function(x){return x.id===posCurrentProductId;});if(ex){if(p.stock!==undefined&&ex.quantite>=p.stock){alert('Stock insuffisant');closeModal();return;}ex.quantite+=1;}else{var pr=p.prixPromo&&p.prixPromo>0?p.prixPromo:p.prixVente;posCart.push({id:p.id,nom:p.nom,prixUnitaire:pr,prixAchat:p.prixAchat||0,prixPromo:p.prixPromo||0,prixVente:p.prixVente||0,quantite:1,categorie:p.categorie||'',imageBase64:p.imageBase64||'',sauces:sauces,interdits:interdits,epice:epice,sel:sel});}closeModal();renderPOS();}
+
+function renderPOS(){var c=document.getElementById('dynamicContent');if(!c)return;var st=posCalculateTotal();var t=st-posDiscountMAD;var h='<div class="pos-container"><div class="pos-products-panel"><div class="pos-categories-bar"><button class="pos-cat-btn '+(posSelectedCategory==='all'?'active':'')+'" onclick="posFilterCategory(\'all\')"><i class="fas fa-th-large"></i> Tous</button>';for(var i=0;i<posCategoriesList.length;i++){var ca=posCategoriesList[i];var ac=posSelectedCategory===ca.nom?'active':'';var ih=ca.imageBase64?'<img src="'+ca.imageBase64+'" alt="">':'<i class="fas fa-folder"></i>';h+='<button class="pos-cat-btn '+ac+'" onclick="posFilterCategory(\''+ca.nom.replace(/'/g,"\\'")+'\')">'+ih+' '+ca.nom+'</button>';}h+='</div><div class="pos-products-grid">';var f=posProductsList;if(posSelectedCategory!=='all')f=posProductsList.filter(function(p){return p.categorie===posSelectedCategory;});if(f.length===0){h+='<div style="grid-column:1/-1;text-align:center;padding:40px;">Aucun</div>';}else{for(var j=0;j<f.length;j++){var p=f[j];var pr=p.prixPromo&&p.prixPromo>0?p.prixPromo:p.prixVente;var hp=p.prixPromo&&p.prixPromo>0;var sc='',stt='';if(p.stock!==undefined){if(p.stock<=0){sc='pos-out-of-stock';stt=' (Rupture)';}else if(p.stock<=5){stt=' ('+p.stock+' rest.)';}}h+='<div class="pos-product-card '+sc+'" onclick="posOpenOptionsModal(\''+p.id+'\')">';if(p.imageBase64)h+='<div class="pos-product-img"><img src="'+p.imageBase64+'" alt=""></div>';else h+='<div class="pos-product-img pos-product-placeholder"><i class="fas fa-utensils"></i></div>';h+='<div class="pos-product-info"><span class="pos-product-name">'+p.nom+stt+'</span><span class="pos-product-price">';if(hp)h+='<span class="pos-old-price">'+p.prixVente.toFixed(2)+'</span> <span class="pos-promo-price">'+pr.toFixed(2)+' MAD</span>';else h+=pr.toFixed(2)+' MAD';h+='</span></div></div>';}}h+='</div></div><div class="pos-cart-panel">';if(posStep===1){h+='<div class="pos-cart-header"><h3><i class="fas fa-shopping-cart"></i> Panier <span class="pos-cart-badge">'+posCart.length+'</span></h3><button class="pos-clear-btn" onclick="posResetCart()"><i class="fas fa-trash-alt"></i> Vider</button></div><div class="pos-cart-items">';if(posCart.length===0){h+='<div class="pos-cart-empty"><i class="fas fa-shopping-basket"></i><p>Vide</p></div>';}else{for(var k=0;k<posCart.length;k++){var it=posCart[k];var opts='';if(it.sauces&&it.sauces.length>0)opts+=' <span style="color:#f39c12;font-size:0.6rem;">🥫'+it.sauces.join(',')+'</span>';if(it.interdits&&it.interdits.length>0)opts+=' <span style="color:#ef4444;font-size:0.6rem;">🚫'+it.interdits.join(',')+'</span>';if(it.epice&&it.epice!=='Normal')opts+=' <span style="color:#d97706;font-size:0.6rem;">🌶️'+it.epice+'</span>';if(it.sel&&it.sel!=='Normal')opts+=' <span style="color:#4f46e5;font-size:0.6rem;">🧂'+it.sel+'</span>';h+='<div class="pos-cart-item"><div class="pos-cart-item-info"><span class="pos-cart-item-name">'+it.nom+opts+'</span><span class="pos-cart-item-price">'+it.prixUnitaire.toFixed(2)+' MAD/u</span></div><div class="pos-cart-item-actions"><button class="pos-qty-btn" onclick="posUpdateQty('+k+',-1)"><i class="fas fa-minus"></i></button><span class="pos-qty-value">'+it.quantite+'</span><button class="pos-qty-btn" onclick="posUpdateQty('+k+',1)"><i class="fas fa-plus"></i></button><button class="pos-remove-btn" onclick="posRemoveItem('+k+')"><i class="fas fa-times"></i></button></div><span class="pos-cart-item-total">'+(it.prixUnitaire*it.quantite).toFixed(2)+' MAD</span></div>';}}h+='</div><div style="padding:10px 0;display:flex;gap:10px;align-items:center;"><label>Remise (MAD):</label><input type="number" id="posDiscountMAD" value="'+posDiscountMAD+'" min="0" step="0.01" onchange="posUpdateDiscountMAD(this.value)" style="width:100px;padding:8px;border:2px solid #e2e8f0;border-radius:8px;"></div><div class="pos-cart-footer">';if(posDiscountMAD>0)h+='<div style="display:flex;justify-content:space-between;font-size:0.85rem;"><span>Sous-total</span><span>'+st.toFixed(2)+'</span></div><div style="display:flex;justify-content:space-between;font-size:0.85rem;color:#ef4444;"><span>Remise</span><span>-'+posDiscountMAD.toFixed(2)+'</span></div>';h+='<div class="pos-cart-total-row"><span>Total</span><span>'+t.toFixed(2)+' MAD</span></div><button class="pos-validate-btn" onclick="posGoToStep2()" '+(posCart.length===0?'disabled':'')+'><i class="fas fa-check-circle"></i> Valider</button></div>';}else if(posStep===2){var canCredit=posCurrentClient&&posCurrentClient.id;h+='<div class="pos-cart-header"><h3><i class="fas fa-credit-card"></i> Paiement</h3><button class="pos-back-btn" onclick="posGoToStep1()"><i class="fas fa-arrow-left"></i> Retour</button></div><div class="pos-payment-form">';h+='<div class="pos-payment-section"><label>Client</label><div style="position:relative;"><input type="text" id="posClientSearchInput" placeholder="🔍 Cliquez et tapez pour rechercher..." onkeyup="posSearchClient(this.value)" onfocus="if(this.value)posSearchClient(this.value)" autocomplete="off" value="'+(posCurrentClient?posCurrentClient.name:'')+'" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"><div id="posClientDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #e2e8f0;border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,0.15);"></div></div></div>';h+='<div class="pos-or-divider">— OU —</div><div class="pos-payment-section"><label>Table</label><input type="text" id="posTableNum" value="'+posCurrentTable+'" onchange="posSetTable(this.value)" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"></div>';h+='<div class="pos-payment-section"><div class="pos-summary-box"><div class="pos-summary-row"><span>Articles</span><span>'+posCart.length+'</span></div>';if(posDiscountMAD>0)h+='<div class="pos-summary-row"><span>Remise</span><span style="color:#ef4444;">-'+posDiscountMAD.toFixed(2)+'</span></div>';h+='<div class="pos-summary-total"><span>Total</span><span>'+t.toFixed(2)+' MAD</span></div></div></div>';h+='<div class="pos-payment-section"><label>Vendeur</label><input type="text" id="posVendeur" value="'+(window.currentUserData?window.currentUserData.userData.prenom+' '+window.currentUserData.userData.nom:'')+'" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"></div>';h+='<div class="pos-payment-section"><label>Paiement</label><div class="pos-payment-methods"><button class="pos-payment-btn '+(posPaymentMethod==='espece'?'active':'')+'" onclick="posSetPaymentMethod(\'espece\')"><i class="fas fa-money-bill-wave"></i> Espèces</button><button class="pos-payment-btn '+(posPaymentMethod==='credit'?'active':'')+'" onclick="posSetPaymentMethod(\'credit\')" id="posCreditBtn" '+(canCredit?'':'disabled style="opacity:0.4;cursor:not-allowed;"')+'><i class="fas fa-credit-card"></i> Crédit</button><button class="pos-payment-btn '+(posPaymentMethod==='partiel'?'active':'')+'" onclick="posSetPaymentMethod(\'partiel\')" id="posPartielBtn" '+(canCredit?'':'disabled style="opacity:0.4;cursor:not-allowed;"')+'><i class="fas fa-hand-holding-usd"></i> Partiel</button></div></div>';if(posPaymentMethod==='espece'||posPaymentMethod==='partiel')h+='<div class="pos-payment-section"><label>Montant donné</label><input type="number" id="posAmountGiven" placeholder="0.00" value="'+(posAmountGiven>0?posAmountGiven:'')+'" onkeyup="posCalculateChange()"><div id="posChangeDisplay"></div></div>';h+='<button class="pos-finalize-btn" onclick="posFinalizeSale()"><i class="fas fa-check-circle"></i> Finaliser</button></div>';}h+='</div></div>';c.innerHTML=h;if(posStep===2)setTimeout(posCalculateChange,200);}
+
+function posFilterCategory(ca){posSelectedCategory=ca;renderPOS();}
+function posUpdateDiscountMAD(v){posDiscountMAD=parseFloat(v)||0;if(posDiscountMAD<0)posDiscountMAD=0;renderPOS();}
+function posUpdateQty(i,ch){var it=posCart[i];if(!it)return;var p=posProductsList.find(function(x){return x.id===it.id;});var nq=it.quantite+ch;if(nq<=0)posCart.splice(i,1);else{if(p&&p.stock!==undefined&&nq>p.stock){alert('Max: '+p.stock);return;}it.quantite=nq;}renderPOS();}
+function posRemoveItem(i){posCart.splice(i,1);renderPOS();}
+function posCalculateTotal(){var t=0;for(var i=0;i<posCart.length;i++)t+=posCart[i].prixUnitaire*posCart[i].quantite;return t;}
+function posGoToStep2(){if(posCart.length===0){alert('Panier vide');return;}posStep=2;renderPOS();}
+function posGoToStep1(){posStep=1;delete window.posCommandeId;delete window.posVenteId;renderPOS();}
+function posSetPaymentMethod(m){if((m==='credit'||m==='partiel')&&(!posCurrentClient||!posCurrentClient.id)){alert('Client requis pour crédit/partiel.');return;}posPaymentMethod=m;posAmountGiven=0;renderPOS();}
+function posCalculateChange(){var ai=document.getElementById('posAmountGiven'),cd=document.getElementById('posChangeDisplay');if(!ai||!cd)return;var st=posCalculateTotal();var t=st-posDiscountMAD;posAmountGiven=parseFloat(ai.value)||0;var c=posAmountGiven-t;if(posAmountGiven>0){cd.innerHTML=c>=0?'<div class="pos-change-positive"><span>Rendu</span><span>'+c.toFixed(2)+' MAD</span></div>':'<div class="pos-change-negative"><span>Manquant</span><span>'+Math.abs(c).toFixed(2)+' MAD</span></div>';}else{cd.innerHTML='';}}
+
+async function posFinalizeSale(){
+    var st=posCalculateTotal();var t=st-posDiscountMAD;
+    if(!posCurrentClient&&!posCurrentTable){alert('Client ou table requis.');return;}
+    if(posCurrentTable&&(posPaymentMethod==='credit'||posPaymentMethod==='partiel')){alert('Table = espèces uniquement.');return;}
+    if((posPaymentMethod==='credit'||posPaymentMethod==='partiel')&&!posCurrentClient){alert('Client requis pour crédit/partiel.');return;}
+    if(posPaymentMethod==='espece'){posAmountGiven=parseFloat(document.getElementById('posAmountGiven').value)||0;if(posAmountGiven<t){alert('Montant insuffisant.');return;}}
+    var vendeur=document.getElementById('posVendeur').value.trim()||(window.currentUserData?window.currentUserData.userData.prenom+' '+window.currentUserData.userData.nom:'');
+    try{
+        var fcs=await db.collection('ventes').get();var fn='FACT-'+new Date().getFullYear()+'-'+String(fcs.size+1).padStart(5,'0');
+        var remaining=0,paid=true,statutPaiement='payé',change=0;
+        if(posPaymentMethod==='credit'){paid=false;remaining=t;statutPaiement='crédit';}
+        else if(posPaymentMethod==='partiel'){posAmountGiven=parseFloat(document.getElementById('posAmountGiven').value)||0;remaining=t-posAmountGiven;paid=false;statutPaiement='partiel';change=Math.max(0,posAmountGiven-t);}
+        else{posAmountGiven=parseFloat(document.getElementById('posAmountGiven').value)||0;change=posAmountGiven-t;paid=true;statutPaiement='payé';}
+        if(posCurrentTable&&!posCurrentClient){paid=false;statutPaiement='en_attente';remaining=t;}
+        var profitTotal=0;
+        var itemsDetail=posCart.map(function(it){var pa=it.prixAchat||0,pvn=it.prixVente||0,pp=it.prixPromo||0,pvr=(pp>0)?pp:pvn;var prof=(pvr-pa)*it.quantite;profitTotal+=prof;return{id:it.id,nom:it.nom,quantite:it.quantite,prixVente:pvr,prixAchat:pa,prixPromo:pp,profit:prof,sauces:it.sauces||[],interdits:it.interdits||[],epice:it.epice||'Normal',sel:it.sel||'Normal'};});
+        var sd={factureNum:fn,items:itemsDetail,subtotal:st,discountMAD:posDiscountMAD,total:t,clientId:posCurrentClient?posCurrentClient.id:null,clientName:posCurrentClient?posCurrentClient.name:null,table:posCurrentTable||null,vendeur:vendeur,paymentMethod:posPaymentMethod,statutPaiement:statutPaiement,amountGiven:posAmountGiven,change:change,paid:paid,remainingAmount:remaining,profitTotal:profitTotal,source:window.posCommandeSource||'pos',createdAt:firebase.firestore.FieldValue.serverTimestamp()};
+        if(!paid)await db.collection('credits').add(sd);
+        await db.collection('ventes').add(sd);
+        if(window.posCommandeId){await db.collection('commandes').doc(window.posCommandeId).update({statut:'payé',factureNum:fn,amountGiven:posAmountGiven,change:change,paidAt:firebase.firestore.FieldValue.serverTimestamp()});delete window.posCommandeId;}
+        if(window.posVenteId){await db.collection('ventes').doc(window.posVenteId).update({paid:true,statutPaiement:'payé',remainingAmount:0,paidAt:firebase.firestore.FieldValue.serverTimestamp()});var vd=await db.collection('ventes').doc(window.posVenteId).get();if(vd.exists){db.collection('credits').where('factureNum','==',vd.data().factureNum).get().then(function(sn){sn.forEach(function(d){d.ref.update({paid:true,remainingAmount:0});});});}delete window.posVenteId;}
+        for(var i=0;i<posCart.length;i++){var it=posCart[i];try{var pr=await db.collection('products').doc(it.id).get();if(pr.exists){var pd=pr.data();await db.collection('products').doc(it.id).update({stock:Math.max(0,(pd.stock||0)-it.quantite),vendues:(pd.vendues||0)+it.quantite,ca:(pd.ca||0)+(it.prixUnitaire*it.quantite),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});}}catch(e){}}
+        if(posCurrentClient&&posCurrentClient.id&&paid){try{var cr=await db.collection('clients').doc(posCurrentClient.id).get();if(cr.exists){var cd=cr.data();await db.collection('clients').doc(posCurrentClient.id).update({ca:(cd.ca||0)+t,profit:(cd.profit||0)+profitTotal,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});}}catch(e){}}
+        var msg='✅ Vente: '+fn+'\n💰 Total: '+t.toFixed(2)+' MAD';
+        if(posPaymentMethod==='espece'&&posAmountGiven>t)msg+='\n💵 Rendu: '+change.toFixed(2)+' MAD';
+        if(statutPaiement==='crédit')msg+='\n📋 Crédit enregistré.';
+        if(statutPaiement==='partiel')msg+='\n📋 Reste: '+remaining.toFixed(2)+' MAD';
+        if(statutPaiement==='en_attente')msg+='\n⏳ En attente de paiement.';
+        alert(msg);posResetCart();renderPOS();
+    }catch(e){alert('Erreur: '+e.message);}
 }
-
-// ==================== RECHERCHE CLIENT DYNAMIQUE ====================
-function posSearchClient(query) { /* ... (inchangé) ... */ }
-function posSelectClientFromDropdown(clientId, clientName) { /* ... */ }
-function posSetTable(value) { /* ... */ }
-// ... (toutes les fonctions existantes de la recherche client restent inchangées)
-
-// ==================== OPTIONS PRODUIT (inchangé) ====================
-function posOpenOptionsModal(pid) { /* ... */ }
-function posConfirmOptions() { /* ... */ }
-
-// ==================== RENDU POS ====================
-function renderPOS() {
-    var c = document.getElementById('dynamicContent'); if (!c) return;
-    var st = posCalculateTotal(); var t = st - posDiscountMAD;
-    var h = '<div class="pos-container"><div class="pos-products-panel">';
-
-    // --- Barre supérieure avec le bouton Commandes tables ---
-    h += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">';
-    h += '<div class="pos-categories-bar" style="margin-bottom:0;">'; // on garde la barre de catégories ici
-    h += '<button class="pos-cat-btn ' + (posSelectedCategory === 'all' ? 'active' : '') + '" onclick="posFilterCategory(\'all\')"><i class="fas fa-th-large"></i> Tous</button>';
-    for (var i = 0; i < posCategoriesList.length; i++) {
-        var ca = posCategoriesList[i];
-        var ac = posSelectedCategory === ca.nom ? 'active' : '';
-        var ih = ca.imageBase64 ? '<img src="' + ca.imageBase64 + '" alt="">' : '<i class="fas fa-folder"></i>';
-        h += '<button class="pos-cat-btn ' + ac + '" onclick="posFilterCategory(\'' + ca.nom.replace(/'/g, "\\'") + '\')">' + ih + ' ' + ca.nom + '</button>';
-    }
-    h += '</div>'; // fin barre catégories
-
-    // Bouton Commandes tables avec badge
-    h += '<button onclick="posAfficherCommandesTables()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
-    h += '<i class="fas fa-utensils"></i> Commandes tables';
-    if (posCommandesTablesCount > 0) {
-        h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesTablesCount + '</span>';
-    }
-    h += '</button>';
-    h += '</div>'; // fin barre supérieure
-
-    // Grille produits
-    h += '<div class="pos-products-grid">';
-    var f = posProductsList; if (posSelectedCategory !== 'all') f = posProductsList.filter(function(p) { return p.categorie === posSelectedCategory; });
-    if (f.length === 0) { h += '<div style="grid-column:1/-1;text-align:center;padding:40px;">Aucun</div>'; }
-    else {
-        for (var j = 0; j < f.length; j++) {
-            var p = f[j];
-            var pr = p.prixPromo && p.prixPromo > 0 ? p.prixPromo : p.prixVente;
-            var hp = p.prixPromo && p.prixPromo > 0;
-            var sc = '', stt = '';
-            if (p.stock !== undefined) { if (p.stock <= 0) { sc = 'pos-out-of-stock'; stt = ' (Rupture)'; } else if (p.stock <= 5) { stt = ' (' + p.stock + ' rest.)'; } }
-            h += '<div class="pos-product-card ' + sc + '" onclick="posOpenOptionsModal(\'' + p.id + '\')">';
-            if (p.imageBase64) h += '<div class="pos-product-img"><img src="' + p.imageBase64 + '" alt=""></div>';
-            else h += '<div class="pos-product-img pos-product-placeholder"><i class="fas fa-utensils"></i></div>';
-            h += '<div class="pos-product-info"><span class="pos-product-name">' + p.nom + stt + '</span><span class="pos-product-price">';
-            if (hp) h += '<span class="pos-old-price">' + p.prixVente.toFixed(2) + '</span> <span class="pos-promo-price">' + pr.toFixed(2) + ' MAD</span>';
-            else h += pr.toFixed(2) + ' MAD';
-            h += '</span></div></div>';
-        }
-    }
-    h += '</div></div>'; // fin panneau produits
-
-    // Panneau panier
-    h += '<div class="pos-cart-panel">';
-    if (posStep === 1) {
-        h += '<div class="pos-cart-header"><h3><i class="fas fa-shopping-cart"></i> Panier <span class="pos-cart-badge">' + posCart.length + '</span></h3><button class="pos-clear-btn" onclick="posResetCart()"><i class="fas fa-trash-alt"></i> Vider</button></div><div class="pos-cart-items">';
-        if (posCart.length === 0) { h += '<div class="pos-cart-empty"><i class="fas fa-shopping-basket"></i><p>Vide</p></div>'; }
-        else {
-            for (var k = 0; k < posCart.length; k++) {
-                var it = posCart[k];
-                var opts = '';
-                if (it.sauces && it.sauces.length > 0) opts += ' <span style="color:#f39c12;font-size:0.6rem;">🥫' + it.sauces.join(',') + '</span>';
-                if (it.interdits && it.interdits.length > 0) opts += ' <span style="color:#ef4444;font-size:0.6rem;">🚫' + it.interdits.join(',') + '</span>';
-                if (it.epice && it.epice !== 'Normal') opts += ' <span style="color:#d97706;font-size:0.6rem;">🌶️' + it.epice + '</span>';
-                if (it.sel && it.sel !== 'Normal') opts += ' <span style="color:#4f46e5;font-size:0.6rem;">🧂' + it.sel + '</span>';
-                h += '<div class="pos-cart-item"><div class="pos-cart-item-info"><span class="pos-cart-item-name">' + it.nom + opts + '</span><span class="pos-cart-item-price">' + it.prixUnitaire.toFixed(2) + ' MAD/u</span></div><div class="pos-cart-item-actions"><button class="pos-qty-btn" onclick="posUpdateQty(' + k + ',-1)"><i class="fas fa-minus"></i></button><span class="pos-qty-value">' + it.quantite + '</span><button class="pos-qty-btn" onclick="posUpdateQty(' + k + ',1)"><i class="fas fa-plus"></i></button><button class="pos-remove-btn" onclick="posRemoveItem(' + k + ')"><i class="fas fa-times"></i></button></div><span class="pos-cart-item-total">' + (it.prixUnitaire * it.quantite).toFixed(2) + ' MAD</span></div>';
-            }
-        }
-        h += '</div>';
-        h += '<div style="padding:10px 0;display:flex;gap:10px;align-items:center;"><label>Remise (MAD):</label><input type="number" id="posDiscountMAD" value="' + posDiscountMAD + '" min="0" step="0.01" onchange="posUpdateDiscountMAD(this.value)" style="width:100px;padding:8px;border:2px solid #e2e8f0;border-radius:8px;"></div>';
-        h += '<div class="pos-cart-footer">';
-        if (posDiscountMAD > 0) h += '<div style="display:flex;justify-content:space-between;font-size:0.85rem;"><span>Sous-total</span><span>' + st.toFixed(2) + '</span></div><div style="display:flex;justify-content:space-between;font-size:0.85rem;color:#ef4444;"><span>Remise</span><span>-' + posDiscountMAD.toFixed(2) + '</span></div>';
-        h += '<div class="pos-cart-total-row"><span>Total</span><span>' + t.toFixed(2) + ' MAD</span></div><button class="pos-validate-btn" onclick="posGoToStep2()" ' + (posCart.length === 0 ? 'disabled' : '') + '><i class="fas fa-check-circle"></i> Valider</button></div>';
-    }
-    else if (posStep === 2) { /* ... tout le code existant de l'étape 2, inchangé ... */ }
-
-    h += '</div></div>'; // fin pos-container
-    c.innerHTML = h;
-    if (posStep === 2) setTimeout(posCalculateChange, 200);
-}
-
-// ==================== AFFICHAGE COMMANDES TABLES ====================
-function posAfficherCommandesTables() {
-    if (posCommandesTables.length === 0) {
-        alert('Aucune commande table en attente.');
-        return;
-    }
-
-    var html = '<div style="max-height:70vh;overflow-y:auto;">';
-    html += '<table class="data-table" style="width:100%;font-size:0.8rem;">';
-    html += '<thead><tr><th>Table</th><th>Produits</th><th>Total</th><th>Action</th></tr></thead><tbody>';
-
-    posCommandesTables.forEach(function(cmd) {
-        var table = cmd.table || '?';
-        var articles = cmd.items ? cmd.items.map(function(it) {
-            var opt = '';
-            if (it.sauces && it.sauces.length > 0) opt += ' 🥫' + it.sauces.join(',');
-            if (it.interdits && it.interdits.length > 0) opt += ' 🚫' + it.interdits.join(',');
-            if (it.epice && it.epice !== 'Normal') opt += ' 🌶️' + it.epice;
-            if (it.sel && it.sel !== 'Normal') opt += ' 🧂' + it.sel;
-            return it.quantite + 'x ' + it.nom + (opt ? ' <small>(' + opt + ')</small>' : '');
-        }).join('<br>') : '-';
-
-        html += '<tr>';
-        html += '<td><strong>Table ' + table + '</strong></td>';
-        html += '<td>' + articles + '</td>';
-        html += '<td>' + cmd.total.toFixed(2) + ' MAD</td>';
-        html += '<td><button class="btn-add" style="padding:4px 10px;font-size:0.75rem;" onclick="posChargerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-arrow-right"></i> Charger</button></td>';
-        html += '</tr>';
-    });
-
-    html += '</tbody></table></div>';
-    openModal('🛎️ Commandes tables en attente', html);
-}
-
-function posChargerCommandeTable(commandeId) {
-    var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
-    if (!cmd) return;
-
-    // Placer les articles dans le panier
-    posCart = [];
-    cmd.items.forEach(function(item) {
-        posCart.push({
-            id: item.id,
-            nom: item.nom,
-            prixUnitaire: item.prixUnitaire || item.prixVente || 0,
-            prixAchat: item.prixAchat || 0,
-            prixPromo: item.prixPromo || 0,
-            prixVente: item.prixVente || item.prixUnitaire || 0,
-            quantite: item.quantite || 1,
-            categorie: item.categorie || '',
-            imageBase64: item.imageBase64 || '',
-            sauces: item.sauces || [],
-            interdits: item.interdits || [],
-            epice: item.epice || 'Normal',
-            sel: item.sel || 'Normal'
-        });
-    });
-
-    // Définir la table comme client
-    posCurrentTable = 'Table ' + (cmd.table || '?');
-    posCurrentClient = null; // pas de client nommé
-    posPaymentMethod = 'espece';
-    posDiscountMAD = 0;
-
-    // Stocker l'ID de la commande pour mise à jour après paiement
-    window.posCommandeId = commandeId;
-
-    closeModal();
-    posStep = 2;
-    renderPOS();
-}
-
-// ==================== FONCTIONS EXISTANTES (inchangées) ====================
-// Toutes les autres fonctions (posFilterCategory, posUpdateQty, posRemoveItem, posCalculateTotal, posGoToStep2, posGoToStep1, posSetPaymentMethod, posCalculateChange, posFinalizeSale, etc.) restent identiques à votre version précédente.
-// Assurez-vous simplement que posFinalizeSale gère window.posCommandeId (déjà présent dans la version précédente) pour marquer la commande comme payée.
-
+function posSearchClients(q){}
+function posAddToCart(pid){posOpenOptionsModal(pid);}
 console.log('Caissier JS OK');
