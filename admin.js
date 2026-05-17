@@ -4,16 +4,6 @@ var selectedCategoryFilter = '';
 var sortOrders = {};
 var clientSearchQuery = '';
 
-// Catégories pour les fournisseurs (inchangé)
-var fournisseurCategoriesList = ['Viande', 'Légume', 'Fruit', 'Épicerie', 'Boisson', 'Surgelé', 'Produit laitier', 'Boulangerie', 'Emballage', 'Autre'];
-
-// Catégories pour les dépenses d'un restaurant
-var depenseCategoriesList = [
-    'Électricité', 'Internet', 'Publicité', 'Viande', 'Poulet', 'Fruits',
-    'Légumes', 'Boissons', 'Emballage', 'Entretien', 'Loyer', 'Salaire',
-    'Transport', 'Autre'
-];
-
 // ==================== DASHBOARD ====================
 function loadDashboardPage(c) {
     c.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon"><i class="fas fa-utensils"></i></div><div class="stat-info"><span class="stat-label">Produits</span><span class="stat-value" id="productsCount">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-info"><span class="stat-label">Clients</span><span class="stat-value" id="clientsCount">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-info"><span class="stat-label">Catégories</span><span class="stat-value" id="categoriesCount">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-cart"></i></div><div class="stat-info"><span class="stat-label">Ventes</span><span class="stat-value" id="ventesCount">0</span></div></div></div><div class="content-card"><div class="card-header"><h3><i class="fas fa-bell"></i> Inscriptions en attente</h3><button class="btn-add" onclick="loadPendingRegistrations()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="pendingRegistrations">Chargement...</div></div>';
@@ -87,7 +77,8 @@ function saveFournisseur() { var nom = document.getElementById('fourNom').value;
 function editFournisseur(id) { db.collection('fournisseurs').doc(id).get().then(function(doc) { if (doc.exists) { editingId = id; currentCollection = 'fournisseurs'; openFournisseurForm(doc.data()); } }); }
 function deleteFournisseur(id) { if (confirm('Supprimer ce fournisseur ?')) { db.collection('fournisseurs').doc(id).delete().then(function() { alert('Supprimé'); loadFournisseurs(); }); } }
 
-// ==================== DEPENSES (NOUVELLE VERSION) ====================
+// ==================== DEPENSES ====================
+var depenseCategoriesList = ['Électricité', 'Internet', 'Publicité', 'Viande', 'Poulet', 'Fruits', 'Légumes', 'Boissons', 'Emballage', 'Entretien', 'Loyer', 'Salaire', 'Transport', 'Autre'];
 function loadDepensesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-money-bill-wave"></i> Dépenses</h3><button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="depensesTable" style="font-size:0.65rem;"><thead><tr>' +
         makeSortableHeader('depenses','id','ID','loadDepenses') +
@@ -99,124 +90,17 @@ function loadDepensesPage(c) {
         '<th>Actions</th></tr></thead><tbody></tbody></table></div></div>';
     loadDepenses();
 }
-async function loadDepenses() {
-    var tb = document.querySelector('#depensesTable tbody'); if (!tb) return;
-    try {
-        var sn = await db.collection('depenses').get();
-        var data = []; sn.forEach(function(d) { var dd = d.data(); dd.id = d.id; data.push(dd); });
-        data = applySort('depenses', data, 'date');
-        tb.innerHTML = '';
-        if (data.length === 0) { tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">Aucune dépense</td></tr>'; return; }
-        for (var i = 0; i < data.length; i++) {
-            var d = data[i];
-            var dateCreated = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleDateString('fr-FR') + ' ' + new Date(d.createdAt.seconds * 1000).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '-';
-            var categories = d.categories ? d.categories.join(', ') : '-';
-            var row = '<tr>';
-            row += '<td><small>' + (d.id || '').substring(0, 6) + '</small></td>';
-            row += '<td><strong>' + (d.titre || d.description || '-') + '</strong></td>';
-            row += '<td><small>' + categories + '</small></td>';
-            row += '<td style="color:#ef4444;font-weight:700;">' + (d.montant || 0).toFixed(2) + ' MAD</td>';
-            row += '<td><small>' + (d.description || '-') + '</small></td>';
-            row += '<td><small>' + dateCreated + '</small></td>';
-            row += '<td><button class="btn-edit" onclick="editDepense(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDepense(\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td>';
-            row += '</tr>';
-            tb.innerHTML += row;
-        }
-    } catch (e) { tb.innerHTML = '<tr><td colspan="7">Erreur</td></tr>'; }
-}
-function openDepenseForm(data) {
-    data = data || {};
-    var selectedCategories = data.categories || [];
-    var h = '';
-    h += '<div class="form-row"><div class="form-group"><label>Titre *</label><input type="text" id="depTitre" value="' + (data.titre || '') + '" required></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="' + (data.montant || 0) + '" step="0.01" required></div></div>';
-    h += '<div class="form-row"><div class="form-group" style="min-width:100%;"><label>Catégories (plusieurs choix possibles)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;">';
-    depenseCategoriesList.forEach(function(cat) {
-        var checked = selectedCategories.indexOf(cat) !== -1 ? 'checked' : '';
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.8rem;"><input type="checkbox" class="dep-cat-check" value="' + cat + '" ' + checked + '> ' + cat + '</label>';
-    });
-    h += '</div></div></div>';
-    h += '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="' + (data.date || new Date().toISOString().split('T')[0]) + '"></div></div>';
-    h += '<div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">' + (data.description || '') + '</textarea></div></div>';
-    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>';
-    currentCollection = 'depenses';
-    openModal(editingId ? 'Modifier Dépense' : 'Nouvelle Dépense', h);
-}
-function saveDepense() {
-    var titre = document.getElementById('depTitre').value.trim();
-    var montant = parseFloat(document.getElementById('depMontant').value) || 0;
-    if (!titre) { alert('Le titre est obligatoire'); return; }
-    if (!montant) { alert('Le montant est obligatoire'); return; }
-    var categories = [];
-    document.querySelectorAll('.dep-cat-check:checked').forEach(function(cb) { categories.push(cb.value); });
-    var d = {
-        titre: titre,
-        montant: montant,
-        categories: categories,
-        date: document.getElementById('depDate').value,
-        description: document.getElementById('depDesc').value
-    };
-    if (!editingId) { d.createdAt = firebase.firestore.FieldValue.serverTimestamp(); }
-    saveDocument('depenses', d, function() { closeModal(); loadDepenses(); });
-}
-function editDepense(id) {
-    db.collection('depenses').doc(id).get().then(function(doc) {
-        if (doc.exists) { editingId = id; currentCollection = 'depenses'; openDepenseForm(doc.data()); }
-    });
-}
-function deleteDepense(id) {
-    if (confirm('Supprimer cette dépense ?')) {
-        db.collection('depenses').doc(id).delete().then(function() { alert('Supprimée'); loadDepenses(); });
-    }
-}
+async function loadDepenses() { var tb = document.querySelector('#depensesTable tbody'); if (!tb) return; try { var sn = await db.collection('depenses').get(); var data = []; sn.forEach(function(d) { var dd = d.data(); dd.id = d.id; data.push(dd); }); data = applySort('depenses', data, 'date'); tb.innerHTML = ''; if (data.length === 0) { tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">Aucune dépense</td></tr>'; return; } for (var i = 0; i < data.length; i++) { var d = data[i]; var dateCreated = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleDateString('fr-FR') + ' ' + new Date(d.createdAt.seconds * 1000).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}) : '-'; var categories = d.categories ? d.categories.join(', ') : '-'; var row = '<tr>'; row += '<td><small>' + (d.id || '').substring(0, 6) + '</small></td>'; row += '<td><strong>' + (d.titre || d.description || '-') + '</strong></td>'; row += '<td><small>' + categories + '</small></td>'; row += '<td style="color:#ef4444;font-weight:700;">' + (d.montant || 0).toFixed(2) + ' MAD</td>'; row += '<td><small>' + (d.description || '-') + '</small></td>'; row += '<td><small>' + dateCreated + '</small></td>'; row += '<td><button class="btn-edit" onclick="editDepense(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDepense(\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td>'; row += '</tr>'; tb.innerHTML += row; } } catch (e) { tb.innerHTML = '<tr><td colspan="7">Erreur</td></tr>'; } }
+function openDepenseForm(data) { data = data || {}; var selectedCategories = data.categories || []; var h = ''; h += '<div class="form-row"><div class="form-group"><label>Titre *</label><input type="text" id="depTitre" value="' + (data.titre || '') + '" required></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="' + (data.montant || 0) + '" step="0.01" required></div></div>'; h += '<div class="form-row"><div class="form-group" style="min-width:100%;"><label>Catégories (plusieurs choix possibles)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;">'; depenseCategoriesList.forEach(function(cat) { var checked = selectedCategories.indexOf(cat) !== -1 ? 'checked' : ''; h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.8rem;"><input type="checkbox" class="dep-cat-check" value="' + cat + '" ' + checked + '> ' + cat + '</label>'; }); h += '</div></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="' + (data.date || new Date().toISOString().split('T')[0]) + '"></div></div>'; h += '<div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">' + (data.description || '') + '</textarea></div></div>'; h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>'; currentCollection = 'depenses'; openModal(editingId ? 'Modifier Dépense' : 'Nouvelle Dépense', h); }
+function saveDepense() { var titre = document.getElementById('depTitre').value.trim(); var montant = parseFloat(document.getElementById('depMontant').value) || 0; if (!titre) { alert('Le titre est obligatoire'); return; } if (!montant) { alert('Le montant est obligatoire'); return; } var categories = []; document.querySelectorAll('.dep-cat-check:checked').forEach(function(cb) { categories.push(cb.value); }); var d = { titre: titre, montant: montant, categories: categories, date: document.getElementById('depDate').value, description: document.getElementById('depDesc').value }; if (!editingId) { d.createdAt = firebase.firestore.FieldValue.serverTimestamp(); } saveDocument('depenses', d, function() { closeModal(); loadDepenses(); }); }
+function editDepense(id) { db.collection('depenses').doc(id).get().then(function(doc) { if (doc.exists) { editingId = id; currentCollection = 'depenses'; openDepenseForm(doc.data()); } }); }
+function deleteDepense(id) { if (confirm('Supprimer cette dépense ?')) { db.collection('depenses').doc(id).delete().then(function() { alert('Supprimée'); loadDepenses(); }); } }
 
 // ==================== COMMANDES EN LIGNE ====================
 function loadCommandesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><button class="btn-add" onclick="loadCommandes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="commandesTableContainer">Chargement...</div></div>'; loadCommandes(); }
-function loadCommandes() {
-    var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
-    db.collection('commandes').orderBy('createdAt', 'desc').limit(50).get().then(function(sn) {
-        if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; }
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
-        sn.forEach(function(dc) {
-            var d = dc.data();
-            var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
-            var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '';
-            var opts = d.items ? d.items.map(function(it) {
-                var o = [];
-                if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>');
-                if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>');
-                if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>');
-                if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>');
-                return o.length > 0 ? o.join(' | ') : '-';
-            }).join('<br>') : '-';
-            var sc = d.statut === 'payé' ? '#4f46e5' : d.statut === 'valide' ? '#16a34a' : '#d97706';
-            var sl = d.statut === 'payé' ? '💵 Payée' : d.statut === 'valide' ? '✅ Validée' : '⏳ En attente';
-            var act = '';
-            if (d.statut === 'en_attente') {
-                act = '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="validateCommande(\'' + dc.id + '\')"><i class="fas fa-check"></i> Valider</button>';
-                act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + dc.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button>';
-                act += '<button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="cancelCommande(\'' + dc.id + '\')"><i class="fas fa-times"></i> Annuler</button>';
-            } else if (d.statut === 'valide') {
-                act = '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;" onclick="payCommande(\'' + dc.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button>';
-            } else {
-                act = '<small style="color:#4f46e5;">Payée</small>';
-            }
-            h += '<tr><td>' + dt + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td>' + opts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>';
-        });
-        h += '</tbody></table></div>'; cont.innerHTML = h;
-    });
-}
-async function validateCommande(cid) {
-    if (!confirm('Valider cette commande ? Le statut passera à "Validée".')) return;
-    await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin' });
-    alert('✅ Validée !'); loadCommandes();
-}
-async function payCommande(cid) {
-    if (!confirm('Payer cette commande ? Redirection vers le POS...')) return;
-    var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) { alert('Introuvable'); return; }
-    var cmd = dc.data();
-    localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total }));
-    navigateTo('pos');
-}
+function loadCommandes() { var cont = document.getElementById('commandesTableContainer'); if (!cont) return; db.collection('commandes').orderBy('createdAt', 'desc').limit(50).get().then(function(sn) { if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; } var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>'; sn.forEach(function(dc) { var d = dc.data(); var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : ''; var opts = d.items ? d.items.map(function(it) { var o = []; if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>'); if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>'); if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>'); if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>'); return o.length > 0 ? o.join(' | ') : '-'; }).join('<br>') : '-'; var sc = d.statut === 'payé' ? '#4f46e5' : d.statut === 'valide' ? '#16a34a' : '#d97706'; var sl = d.statut === 'payé' ? '💵 Payée' : d.statut === 'valide' ? '✅ Validée' : '⏳ En attente'; var act = ''; if (d.statut === 'en_attente') { act = '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="validateCommande(\'' + dc.id + '\')"><i class="fas fa-check"></i> Valider</button>'; act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + dc.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button>'; act += '<button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="cancelCommande(\'' + dc.id + '\')"><i class="fas fa-times"></i> Annuler</button>'; } else if (d.statut === 'valide') { act = '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;" onclick="payCommande(\'' + dc.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button>'; } else { act = '<small style="color:#4f46e5;">Payée</small>'; } h += '<tr><td>' + dt + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td>' + opts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>'; }); h += '</tbody></table></div>'; cont.innerHTML = h; }); }
+async function validateCommande(cid) { if (!confirm('Valider cette commande ? Le statut passera à "Validée".')) return; await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin' }); alert('✅ Validée !'); loadCommandes(); }
+async function payCommande(cid) { if (!confirm('Payer cette commande ? Redirection vers le POS...')) return; var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) { alert('Introuvable'); return; } var cmd = dc.data(); localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total })); navigateTo('pos'); }
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
 // ==================== VENTES ====================
@@ -232,9 +116,7 @@ function loadVentes() {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
         var data = [];
         sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; data.push(d); });
-        if (!isAdmin) {
-            data = data.filter(function(d) { return d.vendeur === vendeurCaissier; });
-        }
+        if (!isAdmin) { data = data.filter(function(d) { return d.vendeur === vendeurCaissier; }); }
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
         var tv = 0;
         var h = '<div class="table-container"><table class="data-table" style="font-size:0.6rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client/Table</th><th>Articles</th><th>Options</th>' + (isAdmin ? '<th>Achat</th><th>Profit</th>' : '') + '<th>Total</th><th>Remise</th><th>Vendeur</th><th>Paiement</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
@@ -242,16 +124,8 @@ function loadVentes() {
             var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
             var cl = d.clientName || d.table || '-';
             var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '-';
-            var opts = d.items ? d.items.map(function(it) {
-                var o = [];
-                if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>');
-                if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>');
-                if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>');
-                if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>');
-                return o.length > 0 ? o.join(' | ') : '-';
-            }).join('<br>') : '-';
-            var achat = 0, profit = 0;
-            if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; achat += pa * q; profit += (pvr - pa) * q; }); }
+            var opts = d.items ? d.items.map(function(it) { var o = []; if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>'); if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>'); if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>'); if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>'); return o.length > 0 ? o.join(' | ') : '-'; }).join('<br>') : '-';
+            var achat = 0, profit = 0; if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; achat += pa * q; profit += (pvr - pa) * q; }); }
             tv += d.total || 0;
             var statutLabel = d.statutPaiement || (d.paid ? 'payé' : 'impayé');
             var statutColor = statutLabel === 'payé' ? '#16a34a' : statutLabel === 'crédit' ? '#f39c12' : statutLabel === 'partiel' ? '#d97706' : '#ef4444';
@@ -267,11 +141,51 @@ function loadVentes() {
         cont.innerHTML = h;
     });
 }
-function editVente(did) { /* idem que précédemment */ }
-function saveEditVente() { /* idem */ }
-function deleteVente(did) { /* idem */ }
-async function payerVente(did) { /* idem */ }
-function printFacture(did) { /* idem */ }
+function editVente(did) {
+    db.collection('ventes').doc(did).get().then(function(doc) {
+        if (doc.exists) {
+            editingId = did; currentCollection = 'ventes';
+            var d = doc.data();
+            var h = '<div class="form-row"><div class="form-group"><label>Statut paiement</label><select id="editStatut"><option value="payé" '+(d.statutPaiement==='payé'?'selected':'')+'>Payé</option><option value="crédit" '+(d.statutPaiement==='crédit'?'selected':'')+'>Crédit</option><option value="partiel" '+(d.statutPaiement==='partiel'?'selected':'')+'>Partiel</option><option value="en_attente" '+(d.statutPaiement==='en_attente'?'selected':'')+'>En attente</option></select></div><div class="form-group"><label>Reste à payer</label><input type="number" id="editRemaining" value="'+(d.remainingAmount||0)+'" step="0.01"></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditVente()">Enregistrer</button>';
+            openModal('Modifier vente '+d.factureNum, h);
+        }
+    });
+}
+function saveEditVente() {
+    var statut = document.getElementById('editStatut').value;
+    var remaining = parseFloat(document.getElementById('editRemaining').value)||0;
+    var data = { statutPaiement: statut, paid: statut === 'payé', remainingAmount: statut === 'payé' ? 0 : remaining, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    saveDocument('ventes', data, function() { closeModal(); loadVentes(); });
+}
+function deleteVente(did) {
+    if (confirm('Supprimer définitivement cette vente ? Les stocks ne seront pas restaurés.')) {
+        db.collection('ventes').doc(did).delete().then(function() { alert('Supprimé'); loadVentes(); });
+    }
+}
+async function payerVente(did) {
+    if (!confirm('Payer cette vente ? Redirection vers le POS...')) return;
+    var dc = await db.collection('ventes').doc(did).get(); if (!dc.exists) { alert('Introuvable'); return; }
+    var d = dc.data();
+    localStorage.setItem('posPayerVente', JSON.stringify({ venteId: did, clientId: d.clientId, clientName: d.clientName, items: d.items, total: d.total }));
+    navigateTo('pos');
+}
+function printFacture(did) {
+    db.collection('ventes').doc(did).get().then(function(dc) {
+        if (dc.exists) imprimerFacture(dc.data(), dc.id);
+        else {
+            db.collection('credits').doc(did).get().then(function(cd) {
+                if (cd.exists) imprimerFacture(cd.data(), cd.id);
+            });
+        }
+    });
+}
+function imprimerFacture(d, id) {
+    var ih = ''; if (d.items) { d.items.forEach(function(it) { var o = ''; if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(','); if (it.permis && it.permis.length > 0) o += ' ✅' + it.permis.join(','); if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice; ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + (it.prixVente || 0).toFixed(2) + '</td><td>' + ((it.prixVente || 0) * it.quantite).toFixed(2) + '</td></tr>'; }); }
+    var w = window.open('', '_blank', 'width=400,height=600');
+    w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discountMAD > 0 ? '<p>Remise: ' + d.discountMAD.toFixed(2) + ' MAD</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>');
+    w.document.close();
+    setTimeout(function() { w.print(); }, 500);
+}
 
 // ==================== CREDITS ====================
 function loadCreditsPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-credit-card"></i> Crédits</h3><button class="btn-add" onclick="loadCredits()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="creditsTableContainer">Chargement...</div></div>'; loadCredits(); }
@@ -279,22 +193,16 @@ function loadCredits() {
     var cont = document.getElementById('creditsTableContainer'); if (!cont) return;
     var isAdmin = window.currentUserData && window.currentUserData.userData.role === 'admin';
     var vendeurCaissier = '';
-    if (!isAdmin && window.currentUserData) {
-        vendeurCaissier = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom;
-    }
+    if (!isAdmin && window.currentUserData) { vendeurCaissier = window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom; }
     db.collection('credits').orderBy('createdAt', 'desc').limit(100).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun crédit</p>'; return; }
-        var data = [];
-        sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; data.push(d); });
-        if (!isAdmin) {
-            data = data.filter(function(d) { return d.vendeur === vendeurCaissier; });
-        }
+        var data = []; sn.forEach(function(dc) { var d = dc.data(); d.id = dc.id; data.push(d); });
+        if (!isAdmin) { data = data.filter(function(d) { return d.vendeur === vendeurCaissier; }); }
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucun crédit</p>'; return; }
         var tc = 0;
         var h = '<div class="table-container"><table class="data-table" style="font-size:0.7rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client</th><th>Total</th><th>Payé</th><th>Restant</th><th>Vendeur</th><th>Actions</th></tr></thead><tbody>';
         data.forEach(function(d) {
-            var reste = d.remainingAmount || d.total || 0;
-            if (!d.paid) tc += reste;
+            var reste = d.remainingAmount || d.total || 0; if (!d.paid) tc += reste;
             var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
             var actions = '<button class="btn-edit" onclick="printFacture(\'' + d.id + '\')"><i class="fas fa-print"></i></button> ';
             if (!d.paid) actions += '<button class="btn-add" style="padding:4px 8px;font-size:0.65rem;" onclick="markCreditPaid(\'' + d.id + '\')">Payer</button> ';
@@ -308,10 +216,32 @@ function loadCredits() {
         cont.innerHTML = h;
     });
 }
-function editCredit(did) { /* idem */ }
-function saveEditCredit() { /* idem */ }
-function deleteCredit(did) { /* idem */ }
-function markCreditPaid(cid) { if (confirm('Marquer comme payé ?')) { db.collection('credits').doc(cid).update({ paid: true, remainingAmount: 0, paidAt: firebase.firestore.FieldValue.serverTimestamp() }).then(function() { alert('✅ Payé'); loadCredits(); }); } }
+function editCredit(did) {
+    db.collection('credits').doc(did).get().then(function(doc) {
+        if (doc.exists) {
+            editingId = did; currentCollection = 'credits';
+            var d = doc.data();
+            var h = '<div class="form-row"><div class="form-group"><label>Statut</label><select id="editCreditStatut"><option value="payé" '+(d.paid?'selected':'')+'>Payé</option><option value="impayé" '+(!d.paid?'selected':'')+'>Impayé</option></select></div><div class="form-group"><label>Reste à payer</label><input type="number" id="editCreditRemaining" value="'+(d.remainingAmount||d.total||0)+'" step="0.01"></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditCredit()">Enregistrer</button>';
+            openModal('Modifier crédit', h);
+        }
+    });
+}
+function saveEditCredit() {
+    var paid = document.getElementById('editCreditStatut').value === 'payé';
+    var remaining = parseFloat(document.getElementById('editCreditRemaining').value)||0;
+    var data = { paid: paid, remainingAmount: paid ? 0 : remaining, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    saveDocument('credits', data, function() { closeModal(); loadCredits(); });
+}
+function deleteCredit(did) {
+    if (confirm('Supprimer ce crédit ?')) {
+        db.collection('credits').doc(did).delete().then(function() { alert('Supprimé'); loadCredits(); });
+    }
+}
+function markCreditPaid(cid) {
+    if (confirm('Marquer comme payé ?')) {
+        db.collection('credits').doc(cid).update({ paid: true, remainingAmount: 0, paidAt: firebase.firestore.FieldValue.serverTimestamp() }).then(function() { alert('✅ Payé'); loadCredits(); });
+    }
+}
 
 // ==================== OPTIONS ====================
 function loadOptionsPage(c) { if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') { c.innerHTML = '<p>Accès refusé</p>'; return; } c.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-clock" style="color:#d97706;"></i></div><div class="stat-info"><span>En attente</span><span class="stat-value" id="pendingCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div><div class="stat-info"><span>Autorisés</span><span class="stat-value" id="authorizedCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span>Total</span><span class="stat-value" id="totalUsers">0</span></div></div></div><div class="content-card"><div class="card-header"><h3>Utilisateurs</h3><button class="btn-add" onclick="loadUsersList()">Actualiser</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div></div>'; loadUsersList(); }
