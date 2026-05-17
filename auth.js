@@ -57,6 +57,8 @@ function hideLoginError() {
 
 function handleRegister(event) {
     event.preventDefault();
+    console.log('▶️ Début inscription...');
+
     var nom = document.getElementById('regNom').value.trim();
     var prenom = document.getElementById('regPrenom').value.trim();
     var username = document.getElementById('regUsername').value.trim();
@@ -66,39 +68,41 @@ function handleRegister(event) {
     var password = document.getElementById('regPassword').value;
     var btn = document.getElementById('registerBtn');
 
-    // Créer ou récupérer la boîte de message (succès/erreur)
+    // Création du conteneur de message (une seule fois)
     var msgBox = document.getElementById('registerMsgBox');
     if (!msgBox) {
+        console.log('📦 Création du conteneur de message');
         msgBox = document.createElement('div');
         msgBox.id = 'registerMsgBox';
         msgBox.style.cssText = 'padding:12px 15px;border-radius:12px;margin-bottom:15px;font-size:0.9rem;text-align:center;display:none;';
         var container = document.querySelector('#registerContainer .register-form');
         if (container) container.insertBefore(msgBox, container.firstChild);
     }
-    // Cacher tout message précédent
     msgBox.style.display = 'none';
+    console.log('✅ Champs récupérés');
 
-    // Validation des champs
     if (!nom || !prenom || !username || !email || !telephone || !role || !password) {
+        console.warn('⚠️ Champs manquants');
         msgBox.style.background = '#fee2e2'; msgBox.style.color = '#991b1b'; msgBox.style.border = '2px solid #fecaca';
         msgBox.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Tous les champs sont obligatoires';
         msgBox.style.display = 'block';
         return false;
     }
     if (password.length < 6) {
+        console.warn('⚠️ Mot de passe trop court');
         msgBox.style.background = '#fee2e2'; msgBox.style.color = '#991b1b'; msgBox.style.border = '2px solid #fecaca';
         msgBox.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Le mot de passe doit contenir au moins 6 caractères';
         msgBox.style.display = 'block';
         return false;
     }
 
-    // Désactiver le bouton et lancer la création
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Création...';
+    console.log('⏳ Création en cours...');
 
     auth.createUserWithEmailAndPassword(email, password)
         .then(function(uc) {
-            // Enregistrer les infos supplémentaires dans Firestore
+            console.log('✅ Compte Firebase créé, écriture Firestore...');
             return db.collection('users').doc(uc.user.uid).set({
                 nom: nom,
                 prenom: prenom,
@@ -111,22 +115,25 @@ function handleRegister(event) {
             });
         })
         .then(function() {
-            // ✅ Succès : message vert + bouton réactivé immédiatement
+            console.log('✅ Firestore OK, affichage succès');
+            // Réactiver le bouton immédiatement
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-user-plus"></i> Créer mon compte';
 
+            // Message vert
             msgBox.style.background = '#dcfce7'; msgBox.style.color = '#16a34a'; msgBox.style.border = '2px solid #bbf7d0';
             msgBox.innerHTML = '✅ Compte créé avec succès !<br>En attente de validation par l\'administrateur.<br>Redirection vers la connexion...';
             msgBox.style.display = 'block';
             document.getElementById('registerForm').reset();
 
-            // Rediriger vers le formulaire de connexion après 2 secondes
+            // Redirection après 2 secondes
             setTimeout(function() {
+                console.log('🔄 Redirection vers login');
                 showLogin();
             }, 2000);
         })
         .catch(function(error) {
-            // ❌ Erreur : bouton réactivé + message rouge
+            console.error('❌ Erreur :', error.code, error.message);
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-user-plus"></i> Créer mon compte';
 
