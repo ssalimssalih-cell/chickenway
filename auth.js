@@ -66,7 +66,7 @@ function handleRegister(event) {
     var password = document.getElementById('regPassword').value;
     var btn = document.getElementById('registerBtn');
 
-    // Conteneur de messages (créé une seule fois)
+    // Créer ou récupérer la boîte de message (succès/erreur)
     var msgBox = document.getElementById('registerMsgBox');
     if (!msgBox) {
         msgBox = document.createElement('div');
@@ -75,9 +75,10 @@ function handleRegister(event) {
         var container = document.querySelector('#registerContainer .register-form');
         if (container) container.insertBefore(msgBox, container.firstChild);
     }
-    // Cacher le message précédent
+    // Cacher tout message précédent
     msgBox.style.display = 'none';
 
+    // Validation des champs
     if (!nom || !prenom || !username || !email || !telephone || !role || !password) {
         msgBox.style.background = '#fee2e2'; msgBox.style.color = '#991b1b'; msgBox.style.border = '2px solid #fecaca';
         msgBox.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Tous les champs sont obligatoires';
@@ -91,11 +92,13 @@ function handleRegister(event) {
         return false;
     }
 
+    // Désactiver le bouton et lancer la création
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Création...';
 
     auth.createUserWithEmailAndPassword(email, password)
         .then(function(uc) {
+            // Enregistrer les infos supplémentaires dans Firestore
             return db.collection('users').doc(uc.user.uid).set({
                 nom: nom,
                 prenom: prenom,
@@ -108,22 +111,22 @@ function handleRegister(event) {
             });
         })
         .then(function() {
-            // Succès → message vert, bouton débloqué immédiatement
+            // ✅ Succès : message vert + bouton réactivé immédiatement
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-user-plus"></i> Créer mon compte';
 
             msgBox.style.background = '#dcfce7'; msgBox.style.color = '#16a34a'; msgBox.style.border = '2px solid #bbf7d0';
-            msgBox.innerHTML = '✅ Compte créé avec succès ! Vous allez être redirigé vers la connexion...';
+            msgBox.innerHTML = '✅ Compte créé avec succès !<br>En attente de validation par l\'administrateur.<br>Redirection vers la connexion...';
             msgBox.style.display = 'block';
             document.getElementById('registerForm').reset();
 
-            // Redirection après 2 secondes
+            // Rediriger vers le formulaire de connexion après 2 secondes
             setTimeout(function() {
                 showLogin();
             }, 2000);
         })
         .catch(function(error) {
-            // Réactiver le bouton même en cas d'erreur
+            // ❌ Erreur : bouton réactivé + message rouge
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-user-plus"></i> Créer mon compte';
 
@@ -131,7 +134,7 @@ function handleRegister(event) {
             if (error.code === 'auth/email-already-in-use') msg = 'Cet email est déjà utilisé';
             else if (error.code === 'auth/weak-password') msg = 'Mot de passe trop faible (6 caractères minimum)';
             else if (error.code === 'auth/invalid-email') msg = 'Email invalide';
-            else if (error.code === 'auth/operation-not-allowed') msg = 'Inscription par email/mot de passe désactivée. Contactez l\'administrateur.';
+            else if (error.code === 'auth/operation-not-allowed') msg = 'L\'inscription par email/mot de passe n\'est pas activée. Contactez l\'administrateur.';
             msgBox.style.background = '#fee2e2'; msgBox.style.color = '#991b1b'; msgBox.style.border = '2px solid #fecaca';
             msgBox.innerHTML = '<i class="fas fa-exclamation-triangle"></i> ' + msg;
             msgBox.style.display = 'block';
