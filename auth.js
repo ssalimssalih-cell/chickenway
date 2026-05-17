@@ -68,7 +68,6 @@ function handleRegister(event) {
     var password = document.getElementById('regPassword').value;
     var btn = document.getElementById('registerBtn');
 
-    // Création du conteneur de message (une seule fois)
     var msgBox = document.getElementById('registerMsgBox');
     if (!msgBox) {
         console.log('📦 Création du conteneur de message');
@@ -79,7 +78,6 @@ function handleRegister(event) {
         if (container) container.insertBefore(msgBox, container.firstChild);
     }
     msgBox.style.display = 'none';
-    console.log('✅ Champs récupérés');
 
     if (!nom || !prenom || !username || !email || !telephone || !role || !password) {
         console.warn('⚠️ Champs manquants');
@@ -103,7 +101,7 @@ function handleRegister(event) {
     auth.createUserWithEmailAndPassword(email, password)
         .then(function(uc) {
             console.log('✅ Compte Firebase créé, écriture Firestore...');
-            return db.collection('users').doc(uc.user.uid).set({
+            var userDoc = db.collection('users').doc(uc.user.uid).set({
                 nom: nom,
                 prenom: prenom,
                 username: username,
@@ -113,20 +111,29 @@ function handleRegister(event) {
                 authorized: 'no',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
+            // Race : si Firestore met trop de temps, on affiche quand même le succès après 5 secondes
+            var timeout = new Promise(function(resolve) {
+                setTimeout(function() {
+                    console.warn('⚠️ Firestore lent, affichage forcé du succès');
+                    resolve('timeout');
+                }, 5000);
+            });
+            return Promise.race([userDoc, timeout]);
         })
-        .then(function() {
-            console.log('✅ Firestore OK, affichage succès');
-            // Réactiver le bouton immédiatement
+        .then(function(result) {
+            if (result === 'timeout') {
+                console.warn('⚠️ Firestore n\'a pas répondu dans les temps');
+            } else {
+                console.log('✅ Firestore OK');
+            }
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-user-plus"></i> Créer mon compte';
 
-            // Message vert
             msgBox.style.background = '#dcfce7'; msgBox.style.color = '#16a34a'; msgBox.style.border = '2px solid #bbf7d0';
             msgBox.innerHTML = '✅ Compte créé avec succès !<br>En attente de validation par l\'administrateur.<br>Redirection vers la connexion...';
             msgBox.style.display = 'block';
             document.getElementById('registerForm').reset();
 
-            // Redirection après 2 secondes
             setTimeout(function() {
                 console.log('🔄 Redirection vers login');
                 showLogin();
