@@ -103,7 +103,7 @@ async function validateCommande(cid) { if (!confirm('Valider cette commande ? Le
 async function payCommande(cid) { if (!confirm('Payer cette commande ? Redirection vers le POS...')) return; var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) { alert('Introuvable'); return; } var cmd = dc.data(); localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total })); navigateTo('pos'); }
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
-// ==================== VENTES ====================
+// ==================== VENTES (avec Montant donné et rendu + modification complète) ====================
 function loadVentesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><button class="btn-add" onclick="loadVentes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="ventesTableContainer">Chargement...</div></div>'; loadVentes(); }
 function loadVentes() {
     var cont = document.getElementById('ventesTableContainer'); if (!cont) return;
@@ -119,7 +119,7 @@ function loadVentes() {
         if (!isAdmin) { data = data.filter(function(d) { return d.vendeur === vendeurCaissier; }); }
         if (data.length === 0) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune vente</p>'; return; }
         var tv = 0;
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.6rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client/Table</th><th>Articles</th><th>Options</th>' + (isAdmin ? '<th>Achat</th><th>Profit</th>' : '') + '<th>Total</th><th>Remise</th><th>Vendeur</th><th>Paiement</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.55rem;"><thead><tr><th>Facture</th><th>Date</th><th>Client/Table</th><th>Articles</th><th>Options</th>' + (isAdmin ? '<th>Achat</th><th>Profit</th>' : '') + '<th>Total</th><th>Remise</th><th>Donné</th><th>Rendu</th><th>Vendeur</th><th>Paiement</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
         data.forEach(function(d) {
             var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
             var cl = d.clientName || d.table || '-';
@@ -127,6 +127,8 @@ function loadVentes() {
             var opts = d.items ? d.items.map(function(it) { var o = []; if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>'); if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>'); if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>'); if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>'); return o.length > 0 ? o.join(' | ') : '-'; }).join('<br>') : '-';
             var achat = 0, profit = 0; if (d.items) { d.items.forEach(function(it) { var pa = it.prixAchat || 0; var pv = it.prixVente || 0; var pp = it.prixPromo || 0; var pvr = (pp > 0) ? pp : pv; var q = it.quantite || 1; achat += pa * q; profit += (pvr - pa) * q; }); }
             tv += d.total || 0;
+            var amountGiven = d.amountGiven || 0;
+            var change = d.change || 0;
             var statutLabel = d.statutPaiement || (d.paid ? 'payé' : 'impayé');
             var statutColor = statutLabel === 'payé' ? '#16a34a' : statutLabel === 'crédit' ? '#f39c12' : statutLabel === 'partiel' ? '#d97706' : '#ef4444';
             var actions = '<button class="btn-edit" onclick="printFacture(\'' + d.id + '\')"><i class="fas fa-print"></i></button> ';
@@ -135,7 +137,7 @@ function loadVentes() {
                 actions += '<button class="btn-edit" onclick="editVente(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> ';
                 actions += '<button class="btn-delete" onclick="deleteVente(\'' + d.id + '\')"><i class="fas fa-trash"></i></button>';
             }
-            h += '<tr><td><strong>' + (d.factureNum || d.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + arts + '</td><td>' + opts + '</td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discountMAD || 0).toFixed(2) + ' MAD</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + statutLabel + '</span></td><td>' + actions + '</td></tr>';
+            h += '<tr><td><strong>' + (d.factureNum || d.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + arts + '</td><td>' + opts + '</td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discountMAD || 0).toFixed(2) + '</td><td>' + amountGiven.toFixed(2) + '</td><td>' + change.toFixed(2) + '</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + statutLabel + '</span></td><td>' + actions + '</td></tr>';
         });
         h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
         cont.innerHTML = h;
@@ -146,15 +148,27 @@ function editVente(did) {
         if (doc.exists) {
             editingId = did; currentCollection = 'ventes';
             var d = doc.data();
-            var h = '<div class="form-row"><div class="form-group"><label>Statut paiement</label><select id="editStatut"><option value="payé" '+(d.statutPaiement==='payé'?'selected':'')+'>Payé</option><option value="crédit" '+(d.statutPaiement==='crédit'?'selected':'')+'>Crédit</option><option value="partiel" '+(d.statutPaiement==='partiel'?'selected':'')+'>Partiel</option><option value="en_attente" '+(d.statutPaiement==='en_attente'?'selected':'')+'>En attente</option></select></div><div class="form-group"><label>Reste à payer</label><input type="number" id="editRemaining" value="'+(d.remainingAmount||0)+'" step="0.01"></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditVente()">Enregistrer</button>';
+            var h = '<div class="form-row"><div class="form-group"><label>Statut paiement</label><select id="editStatut"><option value="payé" '+(d.statutPaiement==='payé'?'selected':'')+'>Payé</option><option value="crédit" '+(d.statutPaiement==='crédit'?'selected':'')+'>Crédit</option><option value="partiel" '+(d.statutPaiement==='partiel'?'selected':'')+'>Partiel</option><option value="en_attente" '+(d.statutPaiement==='en_attente'?'selected':'')+'>En attente</option></select></div><div class="form-group"><label>Montant donné</label><input type="number" id="editAmountGiven" value="'+(d.amountGiven||0)+'" step="0.01"></div></div>';
+            h += '<div class="form-row"><div class="form-group"><label>Montant rendu</label><input type="number" id="editChange" value="'+(d.change||0)+'" step="0.01"></div><div class="form-group"><label>Reste à payer</label><input type="number" id="editRemaining" value="'+(d.remainingAmount||0)+'" step="0.01"></div></div>';
+            h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditVente()">Enregistrer</button>';
             openModal('Modifier vente '+d.factureNum, h);
         }
     });
 }
 function saveEditVente() {
     var statut = document.getElementById('editStatut').value;
+    var amountGiven = parseFloat(document.getElementById('editAmountGiven').value)||0;
+    var change = parseFloat(document.getElementById('editChange').value)||0;
     var remaining = parseFloat(document.getElementById('editRemaining').value)||0;
-    var data = { statutPaiement: statut, paid: statut === 'payé', remainingAmount: statut === 'payé' ? 0 : remaining, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    var paid = (statut === 'payé');
+    var data = {
+        statutPaiement: statut,
+        amountGiven: amountGiven,
+        change: change,
+        remainingAmount: paid ? 0 : remaining,
+        paid: paid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
     saveDocument('ventes', data, function() { closeModal(); loadVentes(); });
 }
 function deleteVente(did) {
