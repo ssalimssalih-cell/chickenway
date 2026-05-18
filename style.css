@@ -1136,3 +1136,47 @@ img{max-width:100%;height:auto;display:block}
         font-size: 2rem;
     }
 }
+/* ==================== MENU TACTILE - LOGO FORCÉ AU CENTRE ==================== */
+#menuTactileContent > div:first-child {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}
+
+#menuTactileContent > div:first-child > div {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+}
+
+#menuTactileContent > div:first-child img {
+    display: block !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+/* ==================== MENU TACTILE - LOGO FORCÉ AU CENTRE ==================== */
+/* ==================== MENU TACTILE - LOGO FORCÉ AU CENTRE ==================== */
+#menuTactileContent > div:first-child {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+}
+
+#menuTactileContent > div:first-child > div {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+}
+
+#menuTactileContent > div:first-child img {
+    display: block !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
