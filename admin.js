@@ -100,7 +100,20 @@ function deleteDepense(id) { if (confirm('Supprimer cette dépense ?')) { db.col
 function loadCommandesPage(c) { c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><button class="btn-add" onclick="loadCommandes()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="commandesTableContainer">Chargement...</div></div>'; loadCommandes(); }
 function loadCommandes() { var cont = document.getElementById('commandesTableContainer'); if (!cont) return; db.collection('commandes').orderBy('createdAt', 'desc').limit(50).get().then(function(sn) { if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; } var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>'; sn.forEach(function(dc) { var d = dc.data(); var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : ''; var arts = d.items ? d.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : ''; var opts = d.items ? d.items.map(function(it) { var o = []; if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫' + it.sauces.join(',') + '</span>'); if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫' + it.interdits.join(',') + '</span>'); if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️' + it.epice + '</span>'); if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂' + it.sel + '</span>'); return o.length > 0 ? o.join(' | ') : '-'; }).join('<br>') : '-'; var sc = d.statut === 'payé' ? '#4f46e5' : d.statut === 'valide' ? '#16a34a' : '#d97706'; var sl = d.statut === 'payé' ? '💵 Payée' : d.statut === 'valide' ? '✅ Validée' : '⏳ En attente'; var act = ''; if (d.statut === 'en_attente') { act = '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="validateCommande(\'' + dc.id + '\')"><i class="fas fa-check"></i> Valider</button>'; act += '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;margin-right:2px;" onclick="payCommande(\'' + dc.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button>'; act += '<button class="btn-delete" style="padding:4px 6px;font-size:0.65rem;" onclick="cancelCommande(\'' + dc.id + '\')"><i class="fas fa-times"></i> Annuler</button>'; } else if (d.statut === 'valide') { act = '<button class="btn-save" style="padding:4px 6px;font-size:0.65rem;" onclick="payCommande(\'' + dc.id + '\')"><i class="fas fa-money-bill-wave"></i> Payer</button>'; } else { act = '<small style="color:#4f46e5;">Payée</small>'; } h += '<tr><td>' + dt + '</td><td><strong>' + (d.clientName || '') + '</strong></td><td>' + (d.clientEmail || '-') + '</td><td>' + (d.clientTelephone || '-') + '</td><td>' + arts + '</td><td>' + opts + '</td><td><strong>' + d.total.toFixed(2) + ' MAD</strong></td><td><span style="color:' + sc + ';">' + sl + '</span></td><td>' + act + '</td></tr>'; }); h += '</tbody></table></div>'; cont.innerHTML = h; }); }
 async function validateCommande(cid) { if (!confirm('Valider cette commande ? Le statut passera à "Validée".')) return; await db.collection('commandes').doc(cid).update({ statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin' }); alert('✅ Validée !'); loadCommandes(); }
-async function payCommande(cid) { if (!confirm('Payer cette commande ? Redirection vers le POS...')) return; var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) { alert('Introuvable'); return; } var cmd = dc.data(); localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total })); navigateTo('pos'); }
+async function payCommande(cid) {
+    if (!confirm('Payer cette commande ? Redirection vers le POS...')) return;
+    var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) { alert('Introuvable'); return; }
+    var cmd = dc.data();
+    localStorage.setItem('posCommandeData', JSON.stringify({
+        commandeId: cid,
+        clientId: cmd.clientId,
+        clientName: cmd.clientName,
+        items: cmd.items,
+        total: cmd.total,
+        table: cmd.table || ''      // ← ajout du numéro de table
+    }));
+    navigateTo('pos');
+}
 function cancelCommande(cid) { if (confirm('Annuler ?')) { db.collection('commandes').doc(cid).update({ statut: 'annule' }); alert('❌ Annulée'); loadCommandes(); } }
 
 // ==================== VENTES ====================
@@ -159,11 +172,24 @@ function saveEditVente() {
     saveDocument('ventes', data, function() { closeModal(); loadVentes(); });
 }
 function deleteVente(did) { if (confirm('Supprimer définitivement cette vente ? Les stocks ne seront pas restaurés.')) { db.collection('ventes').doc(did).delete().then(function() { alert('Supprimé'); loadVentes(); }); } }
-async function payerVente(did) { if (!confirm('Payer cette vente ? Redirection vers le POS...')) return; var dc = await db.collection('ventes').doc(did).get(); if (!dc.exists) { alert('Introuvable'); return; } var d = dc.data(); localStorage.setItem('posPayerVente', JSON.stringify({ venteId: did, clientId: d.clientId, clientName: d.clientName, items: d.items, total: d.total })); navigateTo('pos'); }
+async function payerVente(did) {
+    if (!confirm('Payer cette vente ? Redirection vers le POS...')) return;
+    var dc = await db.collection('ventes').doc(did).get(); if (!dc.exists) { alert('Introuvable'); return; }
+    var d = dc.data();
+    localStorage.setItem('posPayerVente', JSON.stringify({
+        venteId: did,
+        clientId: d.clientId,
+        clientName: d.clientName,
+        items: d.items,
+        total: d.total,
+        table: d.table || ''      // ← ajout du numéro de table
+    }));
+    navigateTo('pos');
+}
 function printFacture(did) { db.collection('ventes').doc(did).get().then(function(dc) { if (dc.exists) imprimerFacture(dc.data(), dc.id); else { db.collection('credits').doc(did).get().then(function(cd) { if (cd.exists) imprimerFacture(cd.data(), cd.id); }); } }); }
 function imprimerFacture(d, id) { var ih = ''; if (d.items) { d.items.forEach(function(it) { var o = ''; if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(','); if (it.permis && it.permis.length > 0) o += ' ✅' + it.permis.join(','); if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice; ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + (it.prixVente || 0).toFixed(2) + '</td><td>' + ((it.prixVente || 0) * it.quantite).toFixed(2) + '</td></tr>'; }); } var w = window.open('', '_blank', 'width=400,height=600'); w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discountMAD > 0 ? '<p>Remise: ' + d.discountMAD.toFixed(2) + ' MAD</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>'); w.document.close(); setTimeout(function() { w.print(); }, 500); }
 
-// ==================== CREDITS (LISTE ENRICHIE + MODIFICATION COMPLÈTE) ====================
+// ==================== CREDITS ====================
 function loadCreditsPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-credit-card"></i> Crédits</h3><button class="btn-add" onclick="loadCredits()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="creditsTableContainer">Chargement...</div></div>';
     loadCredits();
