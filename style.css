@@ -1692,3 +1692,13 @@ img{max-width:100%;height:auto;display:block}
         margin-bottom: 0;
     }
 }
+
+////
+/* Éviter le flash de la page auth pour le menu tactile */
+#menuTactilePage {
+    background: #f8fafc;
+    min-height: 100vh;
+    min-height: 100dvh;
+    position: relative;
+    z-index: 10;
+}
