@@ -1702,3 +1702,21 @@ img{max-width:100%;height:auto;display:block}
     position: relative;
     z-index: 10;
 }
+///
+/* Loader rapide POS */
+.pos-loader {
+    text-align: center;
+    padding: 60px 20px;
+    animation: fadeIn 0.2s ease;
+}
+
+.pos-loader i {
+    font-size: 2rem;
+    color: #f39c12;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
