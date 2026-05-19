@@ -12,27 +12,25 @@ var menuInterdits = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade'];
 var menuEpices = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var menuSel = ['Normal','Moins de sel','Sans sel'];
 
-// ==================== FERMETURE ====================
-function closeMenuTactile() {
-    window.location.href = window.location.pathname;
+// ==================== PLEIN ÉCRAN AU PREMIER TOUCHER ====================
+function enableFullscreenOnFirstTouch() {
+    const activateFullscreen = () => {
+        const elem = document.documentElement;
+        const requestMethod = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
+        if (requestMethod) {
+            requestMethod.call(elem).catch(err => console.log("Fullscreen error:", err));
+        }
+        document.removeEventListener('touchstart', activateFullscreen);
+        document.removeEventListener('click', activateFullscreen);
+    };
+    document.addEventListener('touchstart', activateFullscreen, { once: true });
+    document.addEventListener('click', activateFullscreen, { once: true });
 }
 
-// ==================== PLEIN ÉCRAN + CHARGEMENT ====================
-function requestFullscreenAndLoad() {
-    const elem = document.documentElement;
-    const requestMethod = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
-    if (requestMethod) {
-        requestMethod.call(elem).then(() => {
-            // Une fois le plein écran activé, on charge le menu
-            loadMenuData();
-        }).catch(err => {
-            console.warn("Erreur plein écran:", err);
-            // Même si le plein écran échoue, on charge quand même
-            loadMenuData();
-        });
-    } else {
-        loadMenuData();
-    }
+// ==================== FERMETURE ====================
+function closeMenuTactile() {
+    // Redirige vers la page d'accueil sans paramètre
+    window.location.href = window.location.pathname;
 }
 
 // ==================== INITIALISATION ====================
@@ -40,18 +38,15 @@ function initMenuTactile(tableNum) {
     menuTableNum = tableNum;
     console.log('🍽️ Menu tactile - Table', tableNum);
     
-    // Afficher un écran de bienvenue avec bouton pour passer en plein écran
-    var content = document.getElementById('menuTactileContent');
-    if (content) {
-        content.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh; text-align:center; padding:20px;">
-                <img src="logo.png" alt="Chicken Way" style="width:100px; height:100px; border-radius:50%; margin-bottom:20px;">
-                <h1 style="color:#f39c12;">Chicken Way</h1>
-                <p style="margin:10px 0; color:#1e293b;">Table n° ${menuTableNum}</p>
-                <button onclick="requestFullscreenAndLoad()" style="margin-top:30px; padding:15px 30px; background:linear-gradient(135deg,#f39c12,#e67e22); color:white; border:none; border-radius:50px; font-size:1.2rem; font-weight:bold; cursor:pointer;">📱 Plein écran & Commander</button>
-            </div>
-        `;
+    // Activer le plein écran au premier touch/click
+    enableFullscreenOnFirstTouch();
+    
+    // Attendre Firebase et le cache
+    if (typeof db === 'undefined' || typeof CacheDB === 'undefined') {
+        setTimeout(() => initMenuTactile(tableNum), 500);
+        return;
     }
+    loadMenuData();
 }
 
 // ==================== CHARGEMENT DEPUIS FIREBASE ====================
@@ -59,13 +54,16 @@ async function loadMenuData() {
     try {
         var content = document.getElementById('menuTactileContent');
         if (content) {
-            content.innerHTML = '<div style="text-align:center;padding:60px 20px;"><i class="fas fa-spinner fa-spin" style="font-size:3rem;color:#f39c12;"></i><p style="margin-top:15px;">Chargement du menu...</p></div>';
+            content.innerHTML = '<div style="text-align:center;padding:60px 20px;">' +
+                '<i class="fas fa-spinner fa-spin" style="font-size:3rem;color:#f39c12;"></i>' +
+                '<p style="margin-top:15px;">Chargement du menu...</p>' +
+                '</div>';
         }
 
-        // Charger les catégories
+        // Charger catégories
         var catSnap = await db.collection('categories').get();
         menuCategories = [];
-        catSnap.forEach(function(d) {
+        catSnap.forEach(d => {
             menuCategories.push({
                 id: d.id,
                 nom: d.data().nom || 'Sans nom',
@@ -73,10 +71,10 @@ async function loadMenuData() {
             });
         });
 
-        // Charger les produits disponibles
+        // Charger produits disponibles
         var prodSnap = await db.collection('products').get();
         menuProducts = [];
-        prodSnap.forEach(function(d) {
+        prodSnap.forEach(d => {
             var dd = d.data();
             if (dd.disponible !== false) {
                 menuProducts.push({
@@ -86,7 +84,6 @@ async function loadMenuData() {
                     prixPromo: dd.prixPromo || 0,
                     stock: dd.stock,
                     categorie: dd.categorie || '',
-                    description: dd.description || '',
                     imageBase64: dd.imageBase64 || ''
                 });
             }
@@ -97,7 +94,7 @@ async function loadMenuData() {
         console.error(e);
         var content = document.getElementById('menuTactileContent');
         if (content) {
-            content.innerHTML = '<div style="text-align:center;padding:50px;"><i class="fas fa-exclamation-circle" style="font-size:3rem;color:#ef4444;"></i><p>Erreur de chargement</p><button onclick="loadMenuData()" style="margin-top:20px;padding:10px 20px;background:#f39c12;border:none;border-radius:8px;">Réessayer</button></div>';
+            content.innerHTML = '<div style="text-align:center;padding:50px;"><i class="fas fa-exclamation-circle" style="font-size:3rem;color:#ef4444;"></i><p>Erreur de chargement</p><button onclick="loadMenuData()" style="padding:10px 20px;background:#f39c12;border:none;border-radius:8px;">Réessayer</button></div>';
         }
     }
 }
@@ -112,38 +109,39 @@ function renderMenuTactile() {
     
     // En-tête avec bouton X
     html += '<div style="position:relative; text-align:center; padding:25px 15px 20px 15px; background:linear-gradient(135deg,#f39c12,#e67e22); color:#fff; border-radius:0 0 24px 24px; margin-bottom:15px;">';
-    html += '<button onclick="closeMenuTactile()" style="position:absolute; top:10px; right:15px; background:rgba(0,0,0,0.3); border:none; color:white; font-size:1.8rem; cursor:pointer; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>';
+    html += '<button onclick="closeMenuTactile()" style="position:absolute; top:10px; right:15px; background:rgba(0,0,0,0.3); border:none; color:white; font-size:1.8rem; cursor:pointer; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:10;">&times;</button>';
     html += '<div style="display:flex; justify-content:center; margin-bottom:12px;"><img src="logo.png" style="width:80px; height:80px; border-radius:50%; border:4px solid #fff; object-fit:cover;"></div>';
     html += '<h1 style="margin:0; font-size:1.5rem;">Chicken <span style="color:#fff;">Way</span></h1>';
     html += '<p style="margin:8px 0 0;">🍽️ Table n° ' + menuTableNum + '</p>';
     html += '</div>';
     
-    // Catégories
-    html += '<div style="overflow-x:auto; white-space:nowrap; padding:10px;">';
-    html += '<button onclick="menuFilterCategory(\'all\')" style="display:inline-block; padding:10px 18px; margin:0 4px; border-radius:50px; border:2px solid ' + (menuSelectedCategory==='all'?'#f39c12':'#e2e8f0') + '; background:' + (menuSelectedCategory==='all'?'#f39c12':'#fff') + '; color:' + (menuSelectedCategory==='all'?'#fff':'#1e293b') + ';">📋 Tous</button>';
+    // Barre de catégories
+    html += '<div style="overflow-x:auto; white-space:nowrap; padding:10px; -webkit-overflow-scrolling:touch;">';
+    html += '<button onclick="menuFilterCategory(\'all\')" style="display:inline-block; padding:10px 18px; margin:0 4px; border-radius:50px; border:2px solid ' + (menuSelectedCategory==='all'?'#f39c12':'#e2e8f0') + '; background:' + (menuSelectedCategory==='all'?'#f39c12':'#fff') + '; color:' + (menuSelectedCategory==='all'?'#fff':'#1e293b') + '; font-weight:600;">📋 Tous</button>';
     for (var i=0; i<menuCategories.length; i++) {
         var cat = menuCategories[i];
         var active = menuSelectedCategory === cat.nom;
-        html += '<button onclick="menuFilterCategory(\''+cat.nom.replace(/'/g,"\\'")+'\')" style="display:inline-block; padding:10px 18px; margin:0 4px; border-radius:50px; border:2px solid '+(active?'#f39c12':'#e2e8f0')+'; background:'+(active?'#f39c12':'#fff')+'; color:'+(active?'#fff':'#1e293b')+';">'+cat.nom+'</button>';
+        html += '<button onclick="menuFilterCategory(\''+cat.nom.replace(/'/g,"\\'")+'\')" style="display:inline-block; padding:10px 18px; margin:0 4px; border-radius:50px; border:2px solid '+(active?'#f39c12':'#e2e8f0')+'; background:'+(active?'#f39c12':'#fff')+'; color:'+(active?'#fff':'#1e293b')+'; font-weight:600;">'+cat.nom+'</button>';
     }
     html += '</div>';
     
-    // Produits
+    // Grille produits
     var filtered = menuProducts;
     if (menuSelectedCategory !== 'all') filtered = menuProducts.filter(p => p.categorie === menuSelectedCategory);
     html += '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; padding:10px;">';
     if (filtered.length === 0) {
-        html += '<div style="grid-column:1/-1; text-align:center; padding:30px;">Aucun produit</div>';
+        html += '<div style="grid-column:1/-1; text-align:center; padding:30px;">Aucun produit dans cette catégorie</div>';
     } else {
         for (var j=0; j<filtered.length; j++) {
             var p = filtered[j];
             var price = (p.prixPromo && p.prixPromo>0) ? p.prixPromo : p.prixVente;
-            var out = p.stock !== undefined && p.stock <= 0;
-            html += '<div onclick="'+(out?'':'menuOpenOptions(\''+p.id+'\')')+'" style="background:#fff; border:2px solid '+(out?'#fecaca':'#e2e8f0')+'; border-radius:16px; padding:12px; cursor:'+(out?'not-allowed':'pointer')+'; opacity:'+(out?'0.5':'1')+'; text-align:center;">';
+            var outOfStock = p.stock !== undefined && p.stock <= 0;
+            html += '<div onclick="'+(outOfStock?'':'menuOpenOptions(\''+p.id+'\')')+'" style="background:#fff; border:2px solid '+(outOfStock?'#fecaca':'#e2e8f0')+'; border-radius:16px; padding:12px; cursor:'+(outOfStock?'not-allowed':'pointer')+'; opacity:'+(outOfStock?'0.5':'1')+'; text-align:center;">';
             if (p.imageBase64) html += '<div style="height:100px; border-radius:12px; overflow:hidden; margin-bottom:8px;"><img src="'+p.imageBase64+'" style="width:100%; height:100%; object-fit:cover;"></div>';
             else html += '<div style="height:100px; border-radius:12px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:2rem;">🍗</div>';
-            html += '<div style="font-weight:600;">'+p.nom+'</div><div style="font-weight:700; color:#e67e22;">'+price.toFixed(2)+' MAD</div>';
-            if (out) html += '<div style="font-size:0.7rem; color:#ef4444;">Rupture</div>';
+            html += '<div style="font-weight:600; margin:4px 0;">'+p.nom+'</div>';
+            html += '<div style="font-weight:700; color:#e67e22;">'+price.toFixed(2)+' MAD</div>';
+            if (outOfStock) html += '<div style="font-size:0.7rem; color:#ef4444;">⚠️ Rupture</div>';
             html += '</div>';
         }
     }
@@ -151,73 +149,145 @@ function renderMenuTactile() {
     
     // Panier sticky
     html += '<div style="position:sticky; bottom:0; background:#fff; padding:15px; border-radius:20px 20px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,0.1); margin-top:10px;">';
-    html += '<div style="display:flex; justify-content:space-between;"><strong>🛒 Mon panier</strong><span style="background:#f39c12; color:#fff; padding:2px 10px; border-radius:20px;">'+menuCart.length+' article(s)</span></div>';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><strong>🛒 Mon panier</strong><span style="background:#f39c12; color:#fff; padding:3px 10px; border-radius:20px;">'+menuCart.length+' article(s)</span></div>';
     if (menuCart.length === 0) {
-        html += '<p style="text-align:center; color:#94a3b8; margin:10px 0;">👆 Appuyez sur un produit</p>';
+        html += '<p style="text-align:center; color:#94a3b8; margin:10px 0;">👆 Appuyez sur un produit pour ajouter</p>';
     } else {
-        html += '<div style="max-height:150px; overflow-y:auto;">';
+        html += '<div style="max-height:150px; overflow-y:auto; margin-bottom:10px;">';
         for (var k=0; k<menuCart.length; k++) {
             var it = menuCart[k];
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #eee;">';
-            html += '<span>'+it.quantite+'x '+it.nom+'</span>';
-            html += '<div><button onclick="menuUpdateQty('+k+',-1)" style="width:26px;height:26px;border-radius:50%;border:1px solid #ccc;">-</button> <span style="min-width:24px;text-align:center;">'+it.quantite+'</span> <button onclick="menuUpdateQty('+k+',1)" style="width:26px;height:26px;border-radius:50%;border:1px solid #ccc;">+</button> <span style="min-width:60px;text-align:right;display:inline-block;">'+(it.prixUnitaire*it.quantite).toFixed(2)+'</span></div>';
-            html += '</div>';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f1f5f9;">';
+            html += '<span style="flex:2;">'+it.quantite+'x '+it.nom+'</span>';
+            html += '<div style="display:flex; align-items:center; gap:8px;">';
+            html += '<button onclick="menuUpdateQty('+k+',-1)" style="width:26px;height:26px;border-radius:50%; border:1px solid #e2e8f0; background:#fff;">-</button>';
+            html += '<span style="min-width:24px; text-align:center;">'+it.quantite+'</span>';
+            html += '<button onclick="menuUpdateQty('+k+',1)" style="width:26px;height:26px;border-radius:50%; border:1px solid #e2e8f0; background:#fff;">+</button>';
+            html += '<span style="min-width:65px; text-align:right; font-weight:600;">'+(it.prixUnitaire*it.quantite).toFixed(2)+' MAD</span>';
+            html += '</div></div>';
         }
         html += '</div>';
     }
-    html += '<div style="display:flex; justify-content:space-between; font-weight:700; margin:10px 0;"><span>Total</span><span style="color:#e67e22;">'+total.toFixed(2)+' MAD</span></div>';
-    html += '<button onclick="menuValiderCommande()" '+(menuCart.length===0?'disabled':'')+' style="width:100%; padding:12px; border:none; border-radius:12px; background:'+(menuCart.length===0?'#cbd5e1':'linear-gradient(135deg,#f39c12,#e67e22)')+'; color:#fff; font-weight:bold;">✅ Commander</button>';
-    if (menuCart.length>0) html += '<button onclick="menuClearCart()" style="width:100%; margin-top:8px; padding:8px; border:1px solid #ccc; background:#fff; border-radius:12px;">🗑️ Vider</button>';
+    html += '<div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.1rem; margin-bottom:10px;"><span>Total</span><span style="color:#e67e22;">'+total.toFixed(2)+' MAD</span></div>';
+    html += '<button onclick="menuValiderCommande()" '+(menuCart.length===0?'disabled':'')+' style="width:100%; padding:12px; border:none; border-radius:12px; background:'+(menuCart.length===0?'#cbd5e1':'linear-gradient(135deg,#f39c12,#e67e22)')+'; color:#fff; font-weight:700; font-size:1rem;">✅ Commander</button>';
+    if (menuCart.length>0) html += '<button onclick="menuClearCart()" style="width:100%; margin-top:8px; padding:8px; border:2px solid #e2e8f0; border-radius:12px; background:#fff; color:#64748b;">🗑️ Vider le panier</button>';
     html += '</div>';
     
     content.innerHTML = html;
 }
 
-function menuFilterCategory(cat) { menuSelectedCategory = cat; renderMenuTactile(); }
-function menuUpdateQty(idx, delta) { 
+// ==================== FONCTIONS UTILITAIRES ====================
+function menuFilterCategory(cat) {
+    menuSelectedCategory = cat;
+    renderMenuTactile();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function menuUpdateQty(idx, delta) {
     if (!menuCart[idx]) return;
     var newQ = menuCart[idx].quantite + delta;
     if (newQ <= 0) menuCart.splice(idx,1);
     else menuCart[idx].quantite = newQ;
     renderMenuTactile();
 }
-function menuClearCart() { if (confirm('Vider le panier ?')) { menuCart = []; renderMenuTactile(); } }
-function menuCalcTotal() { return menuCart.reduce((s,i)=>s+(i.prixUnitaire*i.quantite),0); }
 
-// Options produits (similaire à avant, mais plus concise)
-function menuOpenOptions(pid) {
-    var p = menuProducts.find(x=>x.id===pid);
-    if (!p || (p.stock!==undefined && p.stock<=0)) { alert('Produit indisponible'); return; }
-    var h = '<h4>'+p.nom+'</h4>';
-    h += '<div><label>🥫 Sauces</label><div>';
-    menuSauces.forEach(s=>{h+='<label style="margin:5px;"><input type="checkbox" class="menu-sauce" value="'+s+'"> '+s+'</label>';});
-    h += '</div></div><div><label>🚫 Interdits</label><div>';
-    menuInterdits.forEach(s=>{h+='<label style="margin:5px;"><input type="checkbox" class="menu-interdit" value="'+s+'"> '+s+'</label>';});
-    h += '</div></div><div><label>🌶️ Épices</label><div>';
-    menuEpices.forEach((s,i)=>{h+='<label><input type="radio" name="epice" value="'+s+'" '+(i===0?'checked':'')+'> '+s+'</label>';});
-    h += '</div></div><div><label>🧂 Sel</label><div>';
-    menuSel.forEach((s,i)=>{h+='<label><input type="radio" name="sel" value="'+s+'" '+(i===0?'checked':'')+'> '+s+'</label>';});
-    h += '</div></div><button class="btn-save" onclick="menuAddToCart(\''+pid+'\')">Ajouter</button>';
-    openModal('Personnaliser', h);
+function menuClearCart() {
+    if (confirm('Vider votre panier ?')) {
+        menuCart = [];
+        renderMenuTactile();
+    }
 }
-function menuAddToCart(pid) {
-    var sauces = Array.from(document.querySelectorAll('.menu-sauce:checked')).map(cb=>cb.value);
-    var interdits = Array.from(document.querySelectorAll('.menu-interdit:checked')).map(cb=>cb.value);
-    var epice = document.querySelector('input[name="epice"]:checked')?.value || 'Normal';
-    var sel = document.querySelector('input[name="sel"]:checked')?.value || 'Normal';
-    var p = menuProducts.find(x=>x.id===pid);
+
+function menuCalcTotal() {
+    return menuCart.reduce((sum, item) => sum + (item.prixUnitaire * item.quantite), 0);
+}
+
+// ==================== OPTIONS PRODUITS ====================
+function menuOpenOptions(pid) {
+    var p = menuProducts.find(x => x.id === pid);
+    if (!p) return;
+    if (p.stock !== undefined && p.stock <= 0) {
+        alert('⚠️ Rupture de stock.');
+        return;
+    }
+    menuCurrentProductId = pid;
+    var h = '<h4>'+p.nom+'</h4>';
+    
+    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Sauces :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    menuSauces.forEach(s => {
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;"><input type="checkbox" class="menu-sauce-check" value="'+s+'"> '+s+'</label>';
+    });
+    h += '</div></div>';
+    
+    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🚫 Interdits :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    menuInterdits.forEach(s => {
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;"><input type="checkbox" class="menu-interdit-check" value="'+s+'"> '+s+'</label>';
+    });
+    h += '</div></div>';
+    
+    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    menuEpices.forEach((s, idx) => {
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;"><input type="radio" name="menu-epice" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';
+    });
+    h += '</div></div>';
+    
+    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🧂 Sel :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    menuSel.forEach((s, idx) => {
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;"><input type="radio" name="menu-sel" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';
+    });
+    h += '</div></div>';
+    
+    h += '<div style="text-align:right; margin-top:15px;"><button class="btn-cancel" onclick="closeModal()">Annuler</button> <button class="btn-save" onclick="menuConfirmOptions()">Ajouter</button></div>';
+    openModal('Personnaliser - '+p.nom, h);
+}
+
+function menuConfirmOptions() {
+    var sauces = Array.from(document.querySelectorAll('.menu-sauce-check:checked')).map(cb => cb.value);
+    var interdits = Array.from(document.querySelectorAll('.menu-interdit-check:checked')).map(cb => cb.value);
+    var epice = document.querySelector('input[name="menu-epice"]:checked')?.value || 'Normal';
+    var sel = document.querySelector('input[name="menu-sel"]:checked')?.value || 'Normal';
+    var p = menuProducts.find(x => x.id === menuCurrentProductId);
     if (!p) { closeModal(); return; }
-    var existing = menuCart.find(x=>x.id===pid);
-    if (existing) existing.quantite++;
-    else menuCart.push({id:p.id, nom:p.nom, prixUnitaire: (p.prixPromo&&p.prixPromo>0?p.prixPromo:p.prixVente), quantite:1, sauces, interdits, epice, sel});
+    
+    var existing = menuCart.find(x => x.id === p.id);
+    if (existing) {
+        if (p.stock !== undefined && existing.quantite >= p.stock) {
+            alert('Stock insuffisant');
+            closeModal();
+            return;
+        }
+        existing.quantite++;
+    } else {
+        var price = (p.prixPromo && p.prixPromo > 0) ? p.prixPromo : p.prixVente;
+        menuCart.push({
+            id: p.id,
+            nom: p.nom,
+            prixUnitaire: price,
+            quantite: 1,
+            sauces: sauces,
+            interdits: interdits,
+            epice: epice,
+            sel: sel
+        });
+    }
     closeModal();
     renderMenuTactile();
+    // Animation du panier
+    setTimeout(() => {
+        var cart = document.querySelector('[style*="sticky"]');
+        if (cart) cart.style.transform = 'scale(1.02)';
+        setTimeout(() => { if (cart) cart.style.transform = ''; }, 150);
+    }, 50);
 }
 
+// ==================== VALIDATION COMMANDE ====================
 async function menuValiderCommande() {
-    if (menuCart.length===0) { alert('Panier vide'); return; }
+    if (menuCart.length === 0) {
+        alert('⚠️ Panier vide.');
+        return;
+    }
     var total = menuCalcTotal();
-    if (!confirm(`Confirmer la commande ?\nTable ${menuTableNum}\nTotal: ${total.toFixed(2)} MAD`)) return;
+    if (!confirm('📋 Confirmer votre commande ?\n\n🍽️ Table n° '+menuTableNum+'\n📦 '+menuCart.length+' article(s)\n💰 Total : '+total.toFixed(2)+' MAD\n\nVotre commande sera envoyée en cuisine.')) return;
+    
     try {
         await db.collection('commandes').add({
             items: JSON.parse(JSON.stringify(menuCart)),
@@ -228,8 +298,14 @@ async function menuValiderCommande() {
             source: 'menu_tactile',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        alert('✅ Commande envoyée !');
+        alert('✅ Commande envoyée avec succès !\n\n🍽️ Table n° '+menuTableNum+'\n💰 Total : '+total.toFixed(2)+' MAD\n\nVotre commande est en cours de préparation.\nBon appétit ! 🎉');
         menuCart = [];
         renderMenuTactile();
-    } catch(e) { alert('Erreur : '+e.message); }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch(e) {
+        console.error(e);
+        alert('❌ Erreur lors de l\'envoi de la commande.\nVeuillez réessayer.');
+    }
 }
+
+console.log('🍽️ Menu tactile - Prêt (plein écran au 1er touch, bouton X)');
