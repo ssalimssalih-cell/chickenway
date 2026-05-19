@@ -1180,3 +1180,515 @@ img{max-width:100%;height:auto;display:block}
     margin-left: auto !important;
     margin-right: auto !important;
 }
+/* ==================== AMÉLIORATIONS MOBILE GLOBALES ==================== */
+@media (max-width: 768px) {
+    /* Sidebar */
+    .sidebar {
+        width: 280px;
+        z-index: 150;
+    }
+    
+    .sidebar.open {
+        box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    }
+    
+    /* Main content */
+    .main-content {
+        margin-left: 0 !important;
+        padding: 12px 10px !important;
+    }
+    
+    /* Page header */
+    .page-header {
+        margin-bottom: 15px;
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .header-title {
+        gap: 8px;
+    }
+    
+    .header-title i {
+        font-size: 1.1rem;
+        padding: 8px;
+    }
+    
+    .header-title h2 {
+        font-size: 1.1rem;
+    }
+    
+    /* Cards */
+    .content-card {
+        padding: 14px;
+        border-radius: 16px;
+        margin-bottom: 12px;
+    }
+    
+    .card-header {
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .card-header h3 {
+        font-size: 0.95rem;
+    }
+    
+    /* Stats */
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    
+    .stat-card {
+        padding: 12px 14px;
+        gap: 10px;
+    }
+    
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .stat-icon i {
+        font-size: 1.1rem;
+    }
+    
+    .stat-value {
+        font-size: 1.2rem;
+    }
+    
+    .stat-label {
+        font-size: 0.7rem;
+    }
+    
+    /* Tables */
+    .table-container {
+        border-radius: 12px;
+    }
+    
+    .data-table {
+        min-width: auto;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 8px 10px;
+        font-size: 0.72rem;
+    }
+    
+    /* Buttons */
+    .btn-add {
+        padding: 8px 14px;
+        font-size: 0.78rem;
+        width: auto;
+    }
+    
+    .btn-edit,
+    .btn-delete {
+        padding: 5px 8px;
+        font-size: 0.8rem;
+    }
+    
+    /* Modal */
+    .modal {
+        padding: 10px;
+        align-items: flex-end;
+    }
+    
+    .modal-content {
+        width: 100%;
+        padding: 18px;
+        border-radius: 20px 20px 0 0;
+        max-height: 90vh;
+        max-height: 90dvh;
+        animation: slideUpMobile 0.3s ease;
+    }
+    
+    @keyframes slideUpMobile {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+    
+    .modal-header {
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+    }
+    
+    .modal-header h3 {
+        font-size: 1rem;
+    }
+    
+    .modal-body .form-group {
+        min-width: 100%;
+    }
+    
+    .modal-body .form-group input,
+    .modal-body .form-group select,
+    .modal-body .form-group textarea {
+        font-size: 0.85rem;
+        padding: 10px 12px;
+    }
+    
+    .btn-save,
+    .btn-cancel {
+        width: 100%;
+        float: none;
+        margin: 5px 0;
+        text-align: center;
+        padding: 12px;
+        font-size: 0.9rem;
+    }
+    
+    /* Login/Register */
+    .login-wrapper {
+        padding: 10px;
+    }
+    
+    .login-container,
+    .register-container {
+        flex-direction: column;
+        width: 100%;
+        border-radius: 20px;
+    }
+    
+    .login-brand,
+    .register-brand {
+        padding: 25px 20px;
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+    
+    .brand-icon {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .login-brand h1,
+    .register-brand h1 {
+        font-size: 1.3rem;
+    }
+    
+    .login-form,
+    .register-form {
+        padding: 25px 20px;
+    }
+    
+    .input-group {
+        margin-bottom: 10px;
+    }
+    
+    .input-group i {
+        padding: 0 10px;
+        min-width: 38px;
+        font-size: 0.85rem;
+    }
+    
+    .input-group input,
+    .input-group select {
+        padding: 12px 10px;
+        font-size: 0.9rem;
+    }
+    
+    .btn-login {
+        padding: 12px;
+        font-size: 0.9rem;
+    }
+}
+
+/* ==================== TRÈS PETIT MOBILE ==================== */
+@media (max-width: 480px) {
+    .main-content {
+        padding: 10px 8px !important;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .stat-card {
+        padding: 12px;
+    }
+    
+    .content-card {
+        padding: 12px;
+        border-radius: 14px;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 6px 8px;
+        font-size: 0.68rem;
+    }
+    
+    .btn-add {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ==================== POS MOBILE ==================== */
+@media (max-width: 768px) {
+    .pos-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .pos-products-panel {
+        padding: 12px;
+        min-width: 100%;
+    }
+    
+    .pos-categories-bar {
+        gap: 6px;
+        padding-bottom: 8px;
+    }
+    
+    .pos-cat-btn {
+        padding: 8px 14px;
+        font-size: 0.75rem;
+    }
+    
+    .pos-products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        max-height: 350px;
+        gap: 8px;
+    }
+    
+    .pos-product-card {
+        padding: 8px;
+        border-radius: 12px;
+    }
+    
+    .pos-product-img {
+        height: 75px;
+        border-radius: 8px;
+    }
+    
+    .pos-product-placeholder {
+        height: 75px;
+        font-size: 1.8rem;
+    }
+    
+    .pos-product-name {
+        font-size: 0.72rem;
+    }
+    
+    .pos-product-price {
+        font-size: 0.78rem;
+    }
+    
+    .pos-cart-panel {
+        width: 100%;
+        min-width: 100%;
+        padding: 12px;
+        max-height: none;
+    }
+    
+    .pos-cart-header h3 {
+        font-size: 0.95rem;
+    }
+    
+    .pos-cart-item {
+        padding: 8px 0;
+    }
+    
+    .pos-cart-item-name {
+        font-size: 0.8rem;
+    }
+    
+    .pos-qty-btn {
+        width: 26px;
+        height: 26px;
+    }
+    
+    .pos-payment-methods {
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .pos-payment-btn {
+        padding: 10px;
+        font-size: 0.8rem;
+    }
+    
+    .pos-validate-btn,
+    .pos-finalize-btn {
+        padding: 12px;
+        font-size: 0.85rem;
+    }
+    
+    .pos-payment-section input,
+    .pos-payment-section select {
+        padding: 10px;
+        font-size: 0.85rem;
+    }
+}
+
+/* ==================== MENU TACTILE MOBILE ==================== */
+@media (max-width: 768px) {
+    #menuTactileContent {
+        max-width: 100%;
+    }
+    
+    .menu-header {
+        padding: 20px 12px 15px 12px;
+        border-radius: 0 0 18px 18px;
+    }
+    
+    .menu-logo {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .menu-title {
+        font-size: 1.3rem;
+    }
+    
+    .menu-table-badge {
+        font-size: 0.8rem;
+        padding: 5px 12px;
+    }
+    
+    .menu-categories-bar {
+        padding: 8px 8px 12px 8px;
+    }
+    
+    .menu-cat-btn {
+        padding: 8px 14px;
+        font-size: 0.78rem;
+    }
+    
+    .menu-products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+        padding: 0 8px 8px 8px;
+    }
+    
+    .menu-product-card {
+        padding: 10px;
+        border-radius: 14px;
+    }
+    
+    .menu-product-img,
+    .menu-product-placeholder {
+        height: 90px;
+        border-radius: 10px;
+    }
+    
+    .menu-product-name {
+        font-size: 0.78rem;
+    }
+    
+    .menu-product-price {
+        font-size: 0.8rem;
+    }
+    
+    .menu-cart-sticky {
+        padding: 12px;
+        border-radius: 16px 16px 0 0;
+    }
+    
+    .menu-btn-commander {
+        padding: 12px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 400px) {
+    .menu-products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 6px;
+    }
+    
+    .menu-product-card {
+        padding: 8px;
+    }
+    
+    .menu-product-img,
+    .menu-product-placeholder {
+        height: 75px;
+    }
+    
+    .menu-product-name {
+        font-size: 0.72rem;
+    }
+    
+    .menu-product-price {
+        font-size: 0.75rem;
+    }
+}
+
+/* ==================== FIX MOBILE GÉNÉRAUX ==================== */
+/* Empêcher le zoom sur les inputs sur iOS */
+@media (max-width: 768px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="date"],
+    select,
+    textarea {
+        font-size: 16px !important; /* Évite le zoom automatique sur iOS */
+    }
+}
+
+/* Améliorer le tap sur mobile */
+@media (max-width: 768px) {
+    button,
+    .nav-item,
+    .pos-cat-btn,
+    .menu-cat-btn,
+    .pos-product-card,
+    .menu-product-card {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+    
+    button:active,
+    .nav-item:active {
+        transform: scale(0.96);
+    }
+}
+
+/* Scroll plus fluide sur mobile */
+@media (max-width: 768px) {
+    .pos-products-grid,
+    .menu-products-grid,
+    .sidebar,
+    .pos-cart-items,
+    .menu-cart-items {
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
+}
+
+/* Ajuster la hauteur pour les mobiles avec notch */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .menu-cart-sticky {
+        padding-bottom: calc(15px + env(safe-area-inset-bottom));
+    }
+    
+    .pos-cart-panel {
+        padding-bottom: calc(15px + env(safe-area-inset-bottom));
+    }
+    
+    .sidebar-footer {
+        padding-bottom: calc(15px + env(safe-area-inset-bottom));
+    }
+}
+
+/* Fix pour le clavier virtuel sur mobile */
+@media (max-width: 768px) {
+    .pos-container {
+        min-height: auto;
+    }
+    
+    .modal-content {
+        margin-bottom: 0;
+    }
+}
