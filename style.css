@@ -1158,31 +1158,8 @@ img{max-width:100%;height:auto;display:block}
     margin-right: auto !important;
 }
 
-/* ==================== MENU TACTILE - LOGO FORCÉ AU CENTRE ==================== */
-/* ==================== MENU TACTILE - LOGO FORCÉ AU CENTRE ==================== */
-#menuTactileContent > div:first-child {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    text-align: center !important;
-}
-
-#menuTactileContent > div:first-child > div {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    width: 100% !important;
-}
-
-#menuTactileContent > div:first-child img {
-    display: block !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-}
 /* ==================== AMÉLIORATIONS MOBILE GLOBALES ==================== */
 @media (max-width: 768px) {
-    /* Sidebar */
     .sidebar {
         width: 280px;
         z-index: 150;
@@ -1192,13 +1169,11 @@ img{max-width:100%;height:auto;display:block}
         box-shadow: 0 0 30px rgba(0,0,0,0.5);
     }
     
-    /* Main content */
     .main-content {
         margin-left: 0 !important;
         padding: 12px 10px !important;
     }
     
-    /* Page header */
     .page-header {
         margin-bottom: 15px;
         flex-direction: row;
@@ -1218,7 +1193,6 @@ img{max-width:100%;height:auto;display:block}
         font-size: 1.1rem;
     }
     
-    /* Cards */
     .content-card {
         padding: 14px;
         border-radius: 16px;
@@ -1236,7 +1210,6 @@ img{max-width:100%;height:auto;display:block}
         font-size: 0.95rem;
     }
     
-    /* Stats */
     .stats-grid {
         grid-template-columns: 1fr 1fr;
         gap: 10px;
@@ -1264,7 +1237,6 @@ img{max-width:100%;height:auto;display:block}
         font-size: 0.7rem;
     }
     
-    /* Tables */
     .table-container {
         border-radius: 12px;
     }
@@ -1279,7 +1251,6 @@ img{max-width:100%;height:auto;display:block}
         font-size: 0.72rem;
     }
     
-    /* Buttons */
     .btn-add {
         padding: 8px 14px;
         font-size: 0.78rem;
@@ -1292,7 +1263,6 @@ img{max-width:100%;height:auto;display:block}
         font-size: 0.8rem;
     }
     
-    /* Modal */
     .modal {
         padding: 10px;
         align-items: flex-end;
@@ -1342,7 +1312,6 @@ img{max-width:100%;height:auto;display:block}
         font-size: 0.9rem;
     }
     
-    /* Login/Register */
     .login-wrapper {
         padding: 10px;
     }
@@ -1398,7 +1367,6 @@ img{max-width:100%;height:auto;display:block}
     }
 }
 
-/* ==================== TRÈS PETIT MOBILE ==================== */
 @media (max-width: 480px) {
     .main-content {
         padding: 10px 8px !important;
@@ -1430,7 +1398,6 @@ img{max-width:100%;height:auto;display:block}
     }
 }
 
-/* ==================== POS MOBILE ==================== */
 @media (max-width: 768px) {
     .pos-container {
         flex-direction: column;
@@ -1528,7 +1495,6 @@ img{max-width:100%;height:auto;display:block}
     }
 }
 
-/* ==================== MENU TACTILE MOBILE ==================== */
 @media (max-width: 768px) {
     #menuTactileContent {
         max-width: 100%;
@@ -1622,8 +1588,6 @@ img{max-width:100%;height:auto;display:block}
     }
 }
 
-/* ==================== FIX MOBILE GÉNÉRAUX ==================== */
-/* Empêcher le zoom sur les inputs sur iOS */
 @media (max-width: 768px) {
     input[type="text"],
     input[type="email"],
@@ -1633,11 +1597,10 @@ img{max-width:100%;height:auto;display:block}
     input[type="date"],
     select,
     textarea {
-        font-size: 16px !important; /* Évite le zoom automatique sur iOS */
+        font-size: 16px !important;
     }
 }
 
-/* Améliorer le tap sur mobile */
 @media (max-width: 768px) {
     button,
     .nav-item,
@@ -1655,7 +1618,6 @@ img{max-width:100%;height:auto;display:block}
     }
 }
 
-/* Scroll plus fluide sur mobile */
 @media (max-width: 768px) {
     .pos-products-grid,
     .menu-products-grid,
@@ -1667,7 +1629,6 @@ img{max-width:100%;height:auto;display:block}
     }
 }
 
-/* Ajuster la hauteur pour les mobiles avec notch */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
     .menu-cart-sticky {
         padding-bottom: calc(15px + env(safe-area-inset-bottom));
@@ -1682,7 +1643,6 @@ img{max-width:100%;height:auto;display:block}
     }
 }
 
-/* Fix pour le clavier virtuel sur mobile */
 @media (max-width: 768px) {
     .pos-container {
         min-height: auto;
@@ -1693,8 +1653,6 @@ img{max-width:100%;height:auto;display:block}
     }
 }
 
-////
-/* Éviter le flash de la page auth pour le menu tactile */
 #menuTactilePage {
     background: #f8fafc;
     min-height: 100vh;
@@ -1702,8 +1660,7 @@ img{max-width:100%;height:auto;display:block}
     position: relative;
     z-index: 10;
 }
-///
-/* Loader rapide POS */
+
 .pos-loader {
     text-align: center;
     padding: 60px 20px;
