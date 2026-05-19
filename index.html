@@ -77,29 +77,18 @@
     <script src="menutactile.js"></script>
     <script src="caissier.js"></script>
 
-    <script>
-        // Enregistrement du Service Worker pour le mode hors ligne
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js').then(function(registration) {
-                    console.log('Service Worker enregistré avec succès:', registration.scope);
-                }).catch(function(error) {
-                    console.log('Échec enregistrement Service Worker:', error);
-                });
-            });
-        }
-
-        // Mode plein écran au premier clic/touch
-        function goFullscreen() {
-            const elem = document.documentElement;
-            if (elem.requestFullscreen) elem.requestFullscreen();
-            else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-            else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
-        }
-        document.addEventListener('click', function initFullscreen() {
-            goFullscreen();
-            document.removeEventListener('click', initFullscreen);
-        });
-    </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      // Chemin relatif pour que ça fonctionne dans un sous-dossier
+      navigator.serviceWorker.register('./sw.js', { scope: './' })
+        .then(reg => console.log('SW enregistré', reg.scope))
+        .catch(err => console.log('SW erreur', err));
+    });
+  }
+  // Plein écran au premier clic
+  function goFull() { document.documentElement.requestFullscreen?.(); }
+  document.addEventListener('click', function fn() { goFull(); document.removeEventListener('click', fn); });
+</script>
 </body>
 </html>
