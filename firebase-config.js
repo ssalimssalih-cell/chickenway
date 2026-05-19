@@ -8,8 +8,8 @@ if (typeof firebaseConfig === 'undefined') {
         appId: "1:734739564037:web:649d31ff5d5b561ae93e6c"
     };
     firebase.initializeApp(firebaseConfig);
+    var auth = firebase.auth();
+    var db = firebase.firestore();
+    var storage = firebase.storage();
+    console.log('Firebase OK');
 }
-var auth = firebase.auth();
-var db = firebase.firestore();
-var storage = firebase.storage();
-console.log('Firebase OK');
