@@ -1,4 +1,4 @@
-// ==================== ADMIN.JS AVEC CACHE OFFLINE ====================
+// ==================== ADMIN.JS AVEC CACHE OFFLINE & CORRECTIONS UNDEFINED ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
@@ -28,7 +28,7 @@ function loadPendingRegistrations() {
         if (s.empty) { d.innerHTML = '<p style="padding:30px;color:#16a34a;">Aucune inscription en attente</p>'; return; }
         var u = []; s.forEach(function(dc) { u.push({ id: dc.id, data: dc.data() }); });
         u.sort(function(a, b) { return (b.data.createdAt?.seconds || 0) - (a.data.createdAt?.seconds || 0); });
-        var h = '<div class="table-container"><table class="data-table"><thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Date</th><th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table"><thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Date</th><th>Actions</th></table></thead><tbody>';
         u.forEach(function(x) {
             var dd = x.data;
             var dt = dd.createdAt ? new Date(dd.createdAt.seconds * 1000).toLocaleDateString('fr-FR') : 'N/A';
@@ -218,7 +218,7 @@ async function renderCategoriesTable(data) {
         } catch (e) {}
         var im = d.imageBase64 ? '<img src="' + d.imageBase64 + '" style="width:35px;height:35px;object-fit:cover;border-radius:6px;">' : '<i class="fas fa-folder fa-2x" style="color:#f39c12;"></i>';
         var pcol = (d.profit || 0) >= 0 ? '#16a34a' : '#dc2626';
-        tb.innerHTML += '<tr><td>' + im + '</td><td><strong>' + d.nom + '</strong></td><td>' + (d.description || '-') + '</td><td>' + (d.ca || 0).toFixed(2) + ' MAD</td><td style="color:' + pcol + ';">' + (d.profit || 0).toFixed(2) + ' MAD</td><td>' + pc + '</td><td><button class="btn-edit" onclick="editDocument(\'categories\',\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'categories\',\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td></tr>';
+        tb.innerHTML += '<tr><td>' + im + '</td><td><strong>' + (d.nom || '') + '</strong></td><td>' + (d.description || '-') + '</td><td>' + (d.ca || 0).toFixed(2) + ' MAD</td><td style="color:' + pcol + ';">' + (d.profit || 0).toFixed(2) + ' MAD</td><td>' + pc + '</td><td><button class="btn-edit" onclick="editDocument(\'categories\',\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'categories\',\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td></tr>';
     }
 }
 
@@ -244,7 +244,7 @@ function saveCategory() {
 
 // ==================== PRODUITS ====================
 function loadProductsPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-utensils"></i> Produits</h3><div style="display:flex;gap:10px;flex-wrap:wrap;"><select id="categoryFilter" onchange="filterProducts()"><option value="">Toutes catégories</option></select><button class="btn-add" onclick="openProductForm()"><i class="fas fa-plus"></i> Nouveau</button></div></div><div class="table-container"><table class="data-table" id="productsTable" style="font-size:0.7rem;"><thead><tr><th>Img</th>' + makeSortableHeader('products', 'nom', 'Nom', 'loadProducts') + makeSortableHeader('products', 'categorie', 'Catégorie', 'loadProducts') + makeSortableHeader('products', 'prixAchat', 'Achat', 'loadProducts') + makeSortableHeader('products', 'prixVente', 'Vente', 'loadProducts') + makeSortableHeader('products', 'prixPromo', 'Promo', 'loadProducts') + makeSortableHeader('products', 'profit', 'Profit', 'loadProducts') + makeSortableHeader('products', 'stock', 'Stock', 'loadProducts') + makeSortableHeader('products', 'vendues', 'Vendues', 'loadProducts') + makeSortableHeader('products', 'ca', 'CA', 'loadProducts') + makeSortableHeader('products', 'disponible', 'Dispo', 'loadProducts') + '<th>Temps</th><th>Desc</th><th>Actions</th></tr></thead><tbody></tbody></table></div></div>';
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-utensils"></i> Produits</h3><div style="display:flex;gap:10px;flex-wrap:wrap;"><select id="categoryFilter" onchange="filterProducts()"><option value="">Toutes catégories</option></select><button class="btn-add" onclick="openProductForm()"><i class="fas fa-plus"></i> Nouveau</button></div></div><div class="table-container"><table class="data-table" id="productsTable" style="font-size:0.7rem;"><thead><tr><th>Img</th>' + makeSortableHeader('products', 'nom', 'Nom', 'loadProducts') + makeSortableHeader('products', 'categorie', 'Catégorie', 'loadProducts') + makeSortableHeader('products', 'prixAchat', 'Achat', 'loadProducts') + makeSortableHeader('products', 'prixVente', 'Vente', 'loadProducts') + makeSortableHeader('products', 'prixPromo', 'Promo', 'loadProducts') + makeSortableHeader('products', 'profit', 'Profit', 'loadProducts') + makeSortableHeader('products', 'stock', 'Stock', 'loadProducts') + makeSortableHeader('products', 'vendues', 'Vendues', 'loadProducts') + makeSortableHeader('products', 'ca', 'CA', 'loadProducts') + makeSortableHeader('products', 'disponible', 'Dispo', 'loadProducts') + '<th>Temps</th><th>Desc</th><th>Actions</th></tr></thead><tbody></tbody>}</div></div>';
     loadCategoriesInFilter(); loadProducts();
 }
 
@@ -271,7 +271,14 @@ async function loadProducts() {
         if (cached.length) renderProductsTable(cached);
         const snapshot = await db.collection('products').get();
         let data = [];
-        snapshot.forEach(d => { let dd = d.data(); dd.id = d.id; dd.profit = (dd.prixPromo && dd.prixPromo > 0 ? dd.prixPromo : (dd.prixVente || 0)) - (dd.prixAchat || 0); data.push(dd); });
+        snapshot.forEach(d => {
+            let dd = d.data();
+            dd.id = d.id;
+            // Calcul du profit avec valeurs par défaut
+            let prix = (dd.prixPromo && dd.prixPromo > 0) ? dd.prixPromo : (dd.prixVente || 0);
+            dd.profit = (prix - (dd.prixAchat || 0));
+            data.push(dd);
+        });
         for (let doc of data) await CacheDB.set('products', doc.id, doc);
         renderProductsTable(data);
     } catch (e) {
@@ -296,8 +303,9 @@ function renderProductsTable(data) {
         var d = data[i];
         var im = d.imageBase64 ? '<img src="' + d.imageBase64 + '" style="width:30px;height:30px;object-fit:cover;border-radius:4px;">' : '<i class="fas fa-utensils" style="color:#94a3b8;"></i>';
         var disp = d.disponible !== false ? '<span class="status-success">Oui</span>' : '<span class="status-danger">Non</span>';
-        var pc = d.profit >= 0 ? '#16a34a' : '#dc2626';
-        tb.innerHTML += '<tr><td>' + im + '</td><td><strong>' + d.nom + '</strong></td><td>' + (d.categorie || '-') + '</td><td>' + (d.prixAchat || 0).toFixed(2) + '</td><td>' + (d.prixVente || 0).toFixed(2) + '</td><td>' + (d.prixPromo || 0).toFixed(2) + '</td><td style="color:' + pc + ';">' + d.profit.toFixed(2) + '</td><td>' + (d.stock || 0) + '</td><td>' + (d.vendues || 0) + '</td><td>' + (d.ca || 0).toFixed(2) + '</td><td>' + disp + '</td><td>' + (d.tempsPrep || '-') + '</td><td>' + (d.description || '-') + '</td><td><button class="btn-edit" onclick="editDocument(\'products\',\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'products\',\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td></tr>';
+        var profitVal = (d.profit !== undefined && !isNaN(d.profit)) ? d.profit : 0;
+        var pc = profitVal >= 0 ? '#16a34a' : '#dc2626';
+        tb.innerHTML += '<tr><td>' + im + '</td><td><strong>' + (d.nom || '') + '</strong></td><td>' + (d.categorie || '-') + '</td><td>' + ((d.prixAchat || 0).toFixed(2)) + '</td><td>' + ((d.prixVente || 0).toFixed(2)) + '</td><td>' + ((d.prixPromo || 0).toFixed(2)) + '</td><td style="color:' + pc + ';">' + profitVal.toFixed(2) + '</td><td>' + (d.stock || 0) + '</td><td>' + (d.vendues || 0) + '</td><td>' + ((d.ca || 0).toFixed(2)) + '</td><td>' + disp + '</td><td>' + (d.tempsPrep || '-') + '</td><td>' + (d.description || '-') + '</td><td><button class="btn-edit" onclick="editDocument(\'products\',\'' + d.id + '\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'products\',\'' + d.id + '\')"><i class="fas fa-trash"></i></button></td></tr>';
     }
 }
 
@@ -332,7 +340,7 @@ function saveProduct() {
 function clientSearch(query) { clientSearchQuery = query.toLowerCase().trim(); loadClients(); }
 
 function loadClientsPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher (nom, prénom, email, tél)..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>' + makeSortableHeader('clients', 'id', 'ID', 'loadClients') + makeSortableHeader('clients', 'nom', 'Nom', 'loadClients') + makeSortableHeader('clients', 'prenom', 'Prénom', 'loadClients') + makeSortableHeader('clients', 'username', 'Username', 'loadClients') + makeSortableHeader('clients', 'genre', 'Genre', 'loadClients') + makeSortableHeader('clients', 'adresse', 'Adresse', 'loadClients') + makeSortableHeader('clients', 'email', 'Email', 'loadClients') + makeSortableHeader('clients', 'telephone', 'Tél', 'loadClients') + makeSortableHeader('clients', 'whatsapp', 'WhatsApp', 'loadClients') + makeSortableHeader('clients', 'facebook', 'Facebook', 'loadClients') + makeSortableHeader('clients', 'instagram', 'Instagram', 'loadClients') + makeSortableHeader('clients', 'ca', 'CA', 'loadClients') + makeSortableHeader('clients', 'profit', 'Profit', 'loadClients') + makeSortableHeader('clients', 'pointsFidelite', 'Points Fid', 'loadClients') + makeSortableHeader('clients', 'allergies', 'Allergies', 'loadClients') + makeSortableHeader('clients', 'aime', 'Aime', 'loadClients') + makeSortableHeader('clients', 'deteste', 'Déteste', 'loadClients') + makeSortableHeader('clients', 'createdAt', 'Date créé', 'loadClients') + '<th>Actions</th></tr></thead><tbody></tbody></table></div></div>';
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher (nom, prénom, email, tél)..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead></tr>' + makeSortableHeader('clients', 'id', 'ID', 'loadClients') + makeSortableHeader('clients', 'nom', 'Nom', 'loadClients') + makeSortableHeader('clients', 'prenom', 'Prénom', 'loadClients') + makeSortableHeader('clients', 'username', 'Username', 'loadClients') + makeSortableHeader('clients', 'genre', 'Genre', 'loadClients') + makeSortableHeader('clients', 'adresse', 'Adresse', 'loadClients') + makeSortableHeader('clients', 'email', 'Email', 'loadClients') + makeSortableHeader('clients', 'telephone', 'Tél', 'loadClients') + makeSortableHeader('clients', 'whatsapp', 'WhatsApp', 'loadClients') + makeSortableHeader('clients', 'facebook', 'Facebook', 'loadClients') + makeSortableHeader('clients', 'instagram', 'Instagram', 'loadClients') + makeSortableHeader('clients', 'ca', 'CA', 'loadClients') + makeSortableHeader('clients', 'profit', 'Profit', 'loadClients') + makeSortableHeader('clients', 'pointsFidelite', 'Points Fid', 'loadClients') + makeSortableHeader('clients', 'allergies', 'Allergies', 'loadClients') + makeSortableHeader('clients', 'aime', 'Aime', 'loadClients') + makeSortableHeader('clients', 'deteste', 'Déteste', 'loadClients') + makeSortableHeader('clients', 'createdAt', 'Date créé', 'loadClients') + '<th>Actions</th></thead><tbody></tbody>}</div></div>';
     loadClients();
 }
 
@@ -452,7 +460,7 @@ function deleteClient(id) {
 
 // ==================== FOURNISSEURS ====================
 function loadFournisseursPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-truck"></i> Fournisseurs</h3><button class="btn-add" onclick="openFournisseurForm()"><i class="fas fa-plus"></i> Ajouter</button></div><div class="table-container"><table class="data-table" id="fournisseursTable" style="font-size:0.6rem;"><thead><tr>' + makeSortableHeader('fournisseurs', 'id', 'ID', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'nom', 'Nom', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'prenom', 'Prénom', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'societe', 'Société', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'telephone', 'Tél', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'whatsapp', 'WhatsApp', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'email', 'Email', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'adresse', 'Adresse', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'description', 'Description', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'ca', 'CA', 'loadFournisseurs') + '<th>Catégories</th>' + makeSortableHeader('fournisseurs', 'createdAt', 'Date créé', 'loadFournisseurs') + '<th>Actions</th></tr></thead><tbody></tbody></table></div></div>';
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-truck"></i> Fournisseurs</h3><button class="btn-add" onclick="openFournisseurForm()"><i class="fas fa-plus"></i> Ajouter</button></div><div class="table-container"><table class="data-table" id="fournisseursTable" style="font-size:0.6rem;"><thead><tr>' + makeSortableHeader('fournisseurs', 'id', 'ID', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'nom', 'Nom', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'prenom', 'Prénom', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'societe', 'Société', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'telephone', 'Tél', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'whatsapp', 'WhatsApp', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'email', 'Email', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'adresse', 'Adresse', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'description', 'Description', 'loadFournisseurs') + makeSortableHeader('fournisseurs', 'ca', 'CA', 'loadFournisseurs') + '<th>Catégories</th>' + makeSortableHeader('fournisseurs', 'createdAt', 'Date créé', 'loadFournisseurs') + '<th>Actions</th></tr></thead><tbody></tbody>}</div></div>';
     loadFournisseurs();
 }
 
@@ -539,7 +547,7 @@ function deleteFournisseur(id) {
 
 // ==================== DÉPENSES ====================
 function loadDepensesPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-money-bill-wave"></i> Dépenses</h3><button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="depensesTable" style="font-size:0.65rem;"><thead><tr>' + makeSortableHeader('depenses', 'id', 'ID', 'loadDepenses') + makeSortableHeader('depenses', 'titre', 'Titre', 'loadDepenses') + '<th>Catégorie</th>' + makeSortableHeader('depenses', 'montant', 'Montant', 'loadDepenses') + makeSortableHeader('depenses', 'description', 'Description', 'loadDepenses') + makeSortableHeader('depenses', 'createdAt', 'Date', 'loadDepenses') + '<th>Actions</th></tr></thead><tbody></tbody></table></div></div>';
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-money-bill-wave"></i> Dépenses</h3><button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="depensesTable" style="font-size:0.65rem;"><thead><tr>' + makeSortableHeader('depenses', 'id', 'ID', 'loadDepenses') + makeSortableHeader('depenses', 'titre', 'Titre', 'loadDepenses') + '<th>Catégorie</th>' + makeSortableHeader('depenses', 'montant', 'Montant', 'loadDepenses') + makeSortableHeader('depenses', 'description', 'Description', 'loadDepenses') + makeSortableHeader('depenses', 'createdAt', 'Date', 'loadDepenses') + '<th>Actions</th></tr></thead><tbody></tbody>}</div></div>';
     loadDepenses();
 }
 
@@ -630,7 +638,7 @@ function loadCommandes() {
     var cont = document.getElementById('commandesTableContainer'); if (!cont) return;
     db.collection('commandes').orderBy('createdAt', 'desc').limit(50).get().then(function(sn) {
         if (sn.empty) { cont.innerHTML = '<p style="text-align:center;padding:40px;">Aucune commande</p>'; return; }
-        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead><tbody>';
+        var h = '<div class="table-container"><table class="data-table" style="font-size:0.65rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options</th><th>Total</th><th>Statut</th><th>Actions</th><tr></thead><tbody>';
         sn.forEach(function(dc) {
             var d = dc.data();
             var dt = d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
@@ -727,9 +735,9 @@ function loadVentes() {
             var actions = '<button class="btn-edit" onclick="printFacture(\'' + d.id + '\')"><i class="fas fa-print"></i></button> ';
             if (!d.paid) actions += '<button class="btn-add" style="padding:4px 6px;font-size:0.65rem;" onclick="payerVente(\'' + d.id + '\')"><i class="fas fa-check"></i> Payer</button> ';
             if (isAdmin) { actions += '<button class="btn-edit" onclick="editVente(\'' + d.id + '\')"><i class="fas fa-edit"></i></button> '; actions += '<button class="btn-delete" onclick="deleteVente(\'' + d.id + '\')"><i class="fas fa-trash"></i></button>'; }
-            h += '<tr><td><strong>' + (d.factureNum || d.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + arts + '</td><td>' + opts + '</td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discountMAD || 0).toFixed(2) + '</td><td>' + amountGiven.toFixed(2) + '</td><td>' + change.toFixed(2) + '</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + statutLabel + '</span></td><td>' + actions + '</td></tr>';
+            h += '<tr><td><strong>' + (d.factureNum || d.id.substring(0, 8)) + '</strong></td><td>' + dt + '</td><td>' + cl + '</td><td>' + arts + '</td><td>' + opts + '<td>' + (isAdmin ? '<td>' + achat.toFixed(2) + '</td><td style="color:#16a34a;">' + profit.toFixed(2) + '</td>' : '') + '<td><strong>' + (d.total || 0).toFixed(2) + '</strong></td><td>' + (d.discountMAD || 0).toFixed(2) + '</td><td>' + amountGiven.toFixed(2) + '</td><td>' + change.toFixed(2) + '</td><td>' + (d.vendeur || '-') + '</td><td>' + (d.paymentMethod || '-') + '</td><td><span style="color:' + statutColor + ';font-weight:600;">' + statutLabel + '</span></td><td>' + actions + '</td></tr>';
         });
-        h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
+        h += '</tbody>}</div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: ' + tv.toFixed(2) + ' MAD</strong></div>';
         cont.innerHTML = h;
     });
 }
@@ -824,7 +832,7 @@ function loadCredits() {
             }
             h += '<tr><td>' + (d.factureNum || d.id.substring(0, 8)) + '</td><td>' + dt + '</td><td>' + (d.clientName || d.table || '-') + '</td><td>' + d.total.toFixed(2) + '</td><td>' + amountPaid.toFixed(2) + '</td><td style="color:#ef4444;"><strong>' + reste.toFixed(2) + '</strong></td><td>' + mode + '</td><td>' + (d.vendeur || '-') + '</td><td>' + actions + '</td></tr>';
         });
-        h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#fef2f2;border-radius:12px;text-align:center;"><strong>Impayés: ' + tc.toFixed(2) + ' MAD</strong></div>';
+        h += '</tbody>}</div><div style="margin-top:15px;padding:15px;background:#fef2f2;border-radius:12px;text-align:center;"><strong>Impayés: ' + tc.toFixed(2) + ' MAD</strong></div>';
         cont.innerHTML = h;
     });
 }
@@ -867,7 +875,7 @@ async function markCreditPaid(cid) {
 // ==================== OPTIONS ====================
 function loadOptionsPage(c) {
     if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') { c.innerHTML = '<p>Accès refusé</p>'; return; }
-    c.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-clock" style="color:#d97706;"></i></div><div class="stat-info"><span>En attente</span><span class="stat-value" id="pendingCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div><div class="stat-info"><span>Autorisés</span><span class="stat-value" id="authorizedCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span>Total</span><span class="stat-value" id="totalUsers">0</span></div></div></div><div class="content-card"><div class="card-header"><h3>Utilisateurs</h3><button class="btn-add" onclick="loadUsersList()">Actualiser</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div></div>';
+    c.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-clock" style="color:#d97706;"></i></div><div class="stat-info"><span>En attente</span><span class="stat-value" id="pendingCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div><div class="stat-info"><span>Autorisés</span><span class="stat-value" id="authorizedCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span>Total</span><span class="stat-value" id="totalUsers">0</span></div></div></div><div class="content-card"><div class="card-header"><h3>Utilisateurs</h3><button class="btn-add" onclick="loadUsersList()">Actualiser</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody>}</div></div>';
     loadUsersList();
 }
 
@@ -902,4 +910,4 @@ function deleteUserPermanently(uid) {
     }
 }
 
-console.log('Admin JS avec cache offline OK');
+console.log('Admin JS avec cache offline et corrections OK');
