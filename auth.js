@@ -8,12 +8,13 @@ function handleLogin(event) {
     hideLoginError();
     auth.signInWithEmailAndPassword(email, password)
         .then(function(uc) { return db.collection('users').doc(uc.user.uid).get(); })
-        .then(function(doc) {
+        .then(async function(doc) {
             if (!doc.exists) { auth.signOut(); showLoginError('Compte introuvable'); return; }
             var userData = doc.data();
             if (userData.authorized !== 'yes') { auth.signOut(); showLoginError('Compte en attente de validation'); return; }
             window.currentUserData = { uid: doc.id, userData: userData };
             localStorage.setItem('currentUser', JSON.stringify(window.currentUserData));
+            await CacheDB.set('users', doc.id, window.currentUserData);
             if (userData.role === 'client') showClientPage(); else showDashboard();
         })
         .catch(function(error) {
@@ -44,7 +45,7 @@ function handleRegister(event) {
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Création...';
     auth.createUserWithEmailAndPassword(email, password)
         .then(function(uc) { return db.collection('users').doc(uc.user.uid).set({ nom:nom, prenom:prenom, username:username, email:email, telephone:telephone, role:role, authorized:'no', createdAt:firebase.firestore.FieldValue.serverTimestamp() }); })
-        .then(function() {
+        .then(async function() {
             btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> Créer mon compte';
             msgBox.style.background = '#dcfce7'; msgBox.style.color = '#16a34a'; msgBox.style.border = '2px solid #bbf7d0';
             msgBox.innerHTML = '✅ Compte créé avec succès ! En attente de validation.'; msgBox.style.display = 'block';
@@ -62,4 +63,4 @@ function handleRegister(event) {
 function handleLogout() { auth.signOut().then(function() { localStorage.removeItem('currentUser'); window.currentUser = null; window.currentUserData = null; showAuthPage(); }); }
 function showLogin() { document.getElementById('loginContainer').classList.remove('hidden'); document.getElementById('registerContainer').classList.add('hidden'); hideLoginError(); }
 function showRegister() { document.getElementById('loginContainer').classList.add('hidden'); document.getElementById('registerContainer').classList.remove('hidden'); hideLoginError(); }
-console.log('Auth JS OK');
+console.log('Auth JS avec cache OK');
