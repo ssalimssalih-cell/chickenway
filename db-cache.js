@@ -148,7 +148,6 @@ async function processPendingOperations() {
                 let ref;
                 if (op.type === 'add') {
                     ref = await db.collection(op.collection).add(op.data);
-                    // Mettre à jour le cache avec le nouvel ID généré
                     const newDoc = { id: ref.id, ...op.data };
                     await cacheSet(op.collection, ref.id, newDoc);
                 } else if (op.type === 'set') {
@@ -157,7 +156,6 @@ async function processPendingOperations() {
                     await cacheSet(op.collection, op.docId, newDoc);
                 } else if (op.type === 'update') {
                     await db.collection(op.collection).doc(op.docId).update(op.data);
-                    // Mettre à jour le cache : récupérer l'ancien + fusion
                     const existing = await cacheGet(op.collection, op.docId);
                     const updated = { ...existing, ...op.data };
                     await cacheSet(op.collection, op.docId, updated);
@@ -175,23 +173,19 @@ async function processPendingOperations() {
     }
 }
 
-// Détection de connexion et déclenchement
 window.addEventListener('online', () => {
     console.log('🟢 Connexion rétablie – synchronisation des opérations en attente');
     processPendingOperations();
 });
 
-// Pour forcer manuellement une synchro
 async function forceSync() {
     await processPendingOperations();
 }
 
-// Intercepter les appels Firestore pour mettre en file d'attente si hors ligne
 function isNetworkAvailable() {
     return navigator.onLine;
 }
 
-// Wrapper d'écriture avec fallback offline
 async function writeDocument(collection, docId, data, type = 'set') {
     if (isNetworkAvailable()) {
         try {
@@ -227,7 +221,6 @@ async function writeDocument(collection, docId, data, type = 'set') {
     }
 }
 
-// Exporter globalement
 window.CacheDB = {
     set: cacheSet,
     get: cacheGet,
