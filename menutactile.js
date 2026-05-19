@@ -13,23 +13,20 @@ var menuEpices = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var menuSel = ['Normal','Moins de sel','Sans sel'];
 
 // ==================== PLEIN ÉCRAN AU PREMIER TOUCHER ====================
-function enableFullscreenOnFirstTouch() {
-    const activateFullscreen = () => {
-        const elem = document.documentElement;
-        const requestMethod = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
-        if (requestMethod) {
-            requestMethod.call(elem).catch(err => console.log("Fullscreen error:", err));
-        }
-        document.removeEventListener('touchstart', activateFullscreen);
-        document.removeEventListener('click', activateFullscreen);
-    };
-    document.addEventListener('touchstart', activateFullscreen, { once: true });
-    document.addEventListener('click', activateFullscreen, { once: true });
+let fullscreenRequested = false;
+
+function requestFullscreenOnFirstTouch() {
+    if (fullscreenRequested) return;
+    const elem = document.documentElement;
+    const method = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
+    if (method) {
+        method.call(elem).catch(err => console.log("Fullscreen error:", err));
+        fullscreenRequested = true;
+    }
 }
 
 // ==================== FERMETURE ====================
 function closeMenuTactile() {
-    // Redirige vers la page d'accueil sans paramètre
     window.location.href = window.location.pathname;
 }
 
@@ -38,10 +35,14 @@ function initMenuTactile(tableNum) {
     menuTableNum = tableNum;
     console.log('🍽️ Menu tactile - Table', tableNum);
     
-    // Activer le plein écran au premier touch/click
-    enableFullscreenOnFirstTouch();
+    // Écouter le premier événement touch/click pour activer le plein écran
+    const events = ['touchstart', 'click'];
+    const activate = () => {
+        requestFullscreenOnFirstTouch();
+        events.forEach(ev => document.removeEventListener(ev, activate));
+    };
+    events.forEach(ev => document.addEventListener(ev, activate, { once: true, passive: false }));
     
-    // Attendre Firebase et le cache
     if (typeof db === 'undefined' || typeof CacheDB === 'undefined') {
         setTimeout(() => initMenuTactile(tableNum), 500);
         return;
@@ -271,7 +272,6 @@ function menuConfirmOptions() {
     }
     closeModal();
     renderMenuTactile();
-    // Animation du panier
     setTimeout(() => {
         var cart = document.querySelector('[style*="sticky"]');
         if (cart) cart.style.transform = 'scale(1.02)';
@@ -308,4 +308,4 @@ async function menuValiderCommande() {
     }
 }
 
-console.log('🍽️ Menu tactile - Prêt (plein écran au 1er touch, bouton X)');
+console.log('🍽️ Menu tactile - Plein écran automatique au premier toucher');
