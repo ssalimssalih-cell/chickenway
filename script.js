@@ -6,19 +6,16 @@ var currentUserData = null;
     var urlParams = new URLSearchParams(window.location.search);
     var tableParam = urlParams.get('table');
     if (tableParam) {
-        // Cacher TOUT sauf le menu tactile, immédiatement
         document.addEventListener('DOMContentLoaded', function() {
             var authPage = document.getElementById('authPage');
             var dashboardPage = document.getElementById('dashboardPage');
             var clientPage = document.getElementById('clientPage');
             var menuTactilePage = document.getElementById('menuTactilePage');
-            
             if (authPage) authPage.classList.add('hidden');
             if (dashboardPage) dashboardPage.classList.add('hidden');
             if (clientPage) clientPage.classList.add('hidden');
             if (menuTactilePage) menuTactilePage.classList.remove('hidden');
         });
-        // Marquer pour initApp
         window._menuTactileTable = tableParam;
     }
 })();
@@ -27,29 +24,29 @@ window.addEventListener('load', function() {
     setTimeout(function() { initApp(); }, 300);
 });
 
-function initApp() {
+async function initApp() {
     console.log('Chicken Way Started');
 
-    // ----- MENU TACTILE : détection prioritaire -----
     if (window._menuTactileTable) {
         var tableParam = window._menuTactileTable;
-        // S'assurer que la page menu tactile est visible
         document.getElementById('authPage').classList.add('hidden');
         document.getElementById('dashboardPage').classList.add('hidden');
         document.getElementById('clientPage').classList.add('hidden');
         document.getElementById('menuTactilePage').classList.remove('hidden');
         
-        // Attendre que Firebase soit prêt, puis initialiser
-        var checkFirebase = setInterval(function() {
-            if (typeof db !== 'undefined' && typeof initMenuTactile === 'function') {
-                clearInterval(checkFirebase);
+        let attempts = 0;
+        const waitForInit = setInterval(function() {
+            if (typeof db !== 'undefined' && typeof CacheDB !== 'undefined' && typeof initMenuTactile === 'function') {
+                clearInterval(waitForInit);
                 initMenuTactile(tableParam);
+            } else if (attempts++ > 100) {
+                clearInterval(waitForInit);
+                console.error('Timeout initialisation menu tactile');
             }
         }, 100);
         return;
     }
 
-    // --- Suite normale (auth) ---
     var authPage = document.getElementById('authPage'),
         dashboardPage = document.getElementById('dashboardPage'),
         clientPage = document.getElementById('clientPage');
@@ -63,23 +60,50 @@ function initApp() {
     clientPage.classList.add('hidden');
     authPage.classList.remove('hidden');
 
-    auth.onAuthStateChanged(function(user) {
-        if (user) {
-            db.collection('users').doc(user.uid).get().then(function(doc) {
-                if (!doc.exists) { auth.signOut(); showAuthPage(); return; }
-                var userData = doc.data();
-                if (userData.authorized !== 'yes') { auth.signOut(); showAuthPage(); return; }
-                window.currentUserData = { uid: doc.id, userData: userData };
-                localStorage.setItem('currentUser', JSON.stringify(window.currentUserData));
-                if (userData.role === 'client') showClientPage();
+    const cachedUser = await CacheDB.get('users', 'current');
+    if (cachedUser && cachedUser.uid) {
+        auth.onAuthStateChanged(user => {
+            if (user && user.uid === cachedUser.uid) {
+                currentUserData = cachedUser;
+                if (cachedUser.userData.role === 'client') showClientPage();
                 else showDashboard();
-            }).catch(function(err) { console.error(err); auth.signOut(); showAuthPage(); });
-        } else {
-            window.currentUserData = null;
-            localStorage.removeItem('currentUser');
-            showAuthPage();
-        }
-    });
+            } else {
+                auth.signOut();
+                showAuthPage();
+            }
+        });
+    } else {
+        auth.onAuthStateChanged(async function(user) {
+            if (user) {
+                try {
+                    let userData = await CacheDB.get('users', user.uid);
+                    if (!userData) {
+                        const doc = await db.collection('users').doc(user.uid).get();
+                        if (!doc.exists) throw new Error('No user doc');
+                        userData = { uid: doc.id, userData: doc.data() };
+                        await CacheDB.set('users', user.uid, userData);
+                    }
+                    if (userData.userData.authorized !== 'yes') {
+                        auth.signOut();
+                        showAuthPage();
+                        return;
+                    }
+                    window.currentUserData = userData;
+                    localStorage.setItem('currentUser', JSON.stringify(window.currentUserData));
+                    if (userData.userData.role === 'client') showClientPage();
+                    else showDashboard();
+                } catch(err) {
+                    console.error(err);
+                    auth.signOut();
+                    showAuthPage();
+                }
+            } else {
+                window.currentUserData = null;
+                localStorage.removeItem('currentUser');
+                showAuthPage();
+            }
+        });
+    }
 
     showLogin();
 }
@@ -227,4 +251,4 @@ function updateClientSidebarInfo() {
     } 
 }
 
-console.log('Script JS OK');
+console.log('Script JS avec cache OK');
