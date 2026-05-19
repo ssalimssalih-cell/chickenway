@@ -1,7 +1,6 @@
 var currentUser = null;
 var currentUserData = null;
 
-// ==================== DÉTECTION IMMÉDIATE DU MENU TACTILE ====================
 (function() {
     var urlParams = new URLSearchParams(window.location.search);
     var tableParam = urlParams.get('table');
