@@ -58,18 +58,20 @@
     <div id="modalOverlay" class="modal hidden" onclick="closeModal()"><div class="modal-content" onclick="event.stopPropagation()"><div class="modal-header"><h3 id="modalTitle"></h3><span class="modal-close" onclick="closeModal()">&times;</span></div><div class="modal-body" id="modalBody"></div></div></div>
 
     <!-- Firebase -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
-    
-    <!-- Scripts applicatifs (ordre important) -->
-    <script src="firebase-config.js"></script>
-    <script src="auth.js"></script>
-    <script src="script.js"></script>
-    <script src="admin.js"></script>
-    <script src="caissier.js"></script>
-    <script src="client.js"></script>
-    <script src="menutactile.js"></script>
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-storage-compat.js"></script>
+
+<!-- Scripts applicatifs -->
+<script src="firebase-config.js"></script>
+<script src="auth.js"></script>
+<script src="script.js"></script>
+<script src="admin.js"></script>
+<script src="pos.js"></script>        <!-- POS séparé -->
+<script src="caissier.js"></script>
+<script src="client.js"></script>
+<script src="menutactile.js"></script>
 </body>
 </html>
