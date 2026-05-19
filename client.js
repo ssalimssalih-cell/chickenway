@@ -1,3 +1,4 @@
+// ==================== CLIENT.JS AVEC CACHE OFFLINE ====================
 var clientCart = [];
 var clientCategoriesList = [];
 var clientProductsList = [];
@@ -25,11 +26,37 @@ function clientNavigate(page) {
 async function loadClientCommanderPage() {
     var c = document.getElementById('clientDynamicContent'); if (!c) return;
     clientCart = []; clientSelectedCategory = 'all';
-    try {
-        var cs = await db.collection('categories').get(); clientCategoriesList = []; cs.forEach(function(d) { clientCategoriesList.push({id: d.id, nom: d.data().nom, imageBase64: d.data().imageBase64}); });
-        var ps = await db.collection('products').get(); clientProductsList = []; ps.forEach(function(d) { var dd = d.data(); if (dd.disponible !== false) { clientProductsList.push({id: d.id, nom: dd.nom, prixVente: dd.prixVente||0, prixPromo: dd.prixPromo||0, stock: dd.stock, categorie: dd.categorie||'', imageBase64: dd.imageBase64||''}); } });
-    } catch(e) {}
+
+    // Chargement depuis le cache
+    let cachedCategories = await CacheDB.getAll('categories');
+    let cachedProducts = await CacheDB.getAll('products');
+    if (cachedCategories.length) clientCategoriesList = cachedCategories;
+    if (cachedProducts.length) clientProductsList = cachedProducts.filter(p => p.disponible !== false);
     renderClientPOS();
+
+    // Mise à jour depuis Firestore en arrière-plan
+    try {
+        const [cs, ps] = await Promise.all([
+            db.collection('categories').get(),
+            db.collection('products').get()
+        ]);
+        clientCategoriesList = [];
+        cs.forEach(d => {
+            let cat = { id: d.id, nom: d.data().nom, imageBase64: d.data().imageBase64 };
+            clientCategoriesList.push(cat);
+            CacheDB.set('categories', d.id, cat);
+        });
+        clientProductsList = [];
+        ps.forEach(d => {
+            const dd = d.data();
+            if (dd.disponible !== false) {
+                let prod = { id: d.id, nom: dd.nom, prixVente: dd.prixVente||0, prixPromo: dd.prixPromo||0, stock: dd.stock, categorie: dd.categorie||'', imageBase64: dd.imageBase64||'' };
+                clientProductsList.push(prod);
+                CacheDB.set('products', d.id, prod);
+            }
+        });
+        renderClientPOS();
+    } catch(e) { console.error('Erreur mise à jour catalogue client', e); }
 }
 
 function clientOpenOptionsModal(pid) {
@@ -92,11 +119,22 @@ function clientClearCart() { clientCart = []; renderClientPOS(); }
 async function clientValidateOrder() {
     if (clientCart.length === 0) { alert('Votre panier est vide'); return; }
     var total = clientCalculateTotal(); var ud = window.currentUserData ? window.currentUserData.userData : {};
-    try {
-        await db.collection('commandes').add({ items: JSON.parse(JSON.stringify(clientCart)), total: total, clientId: window.currentUserData ? window.currentUserData.uid : null, clientName: ud.prenom + ' ' + ud.nom, clientEmail: ud.email, clientTelephone: ud.telephone, statut: 'en_attente', source: 'client', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-        alert('✅ Commande envoyée !\nTotal: ' + total.toFixed(2) + ' MAD');
-        clientCart = []; renderClientPOS();
-    } catch(e) { alert('Erreur: ' + e.message); }
+    var orderData = {
+        items: JSON.parse(JSON.stringify(clientCart)),
+        total: total,
+        clientId: window.currentUserData ? window.currentUserData.uid : null,
+        clientName: ud.prenom + ' ' + ud.nom,
+        clientEmail: ud.email,
+        clientTelephone: ud.telephone,
+        statut: 'en_attente',
+        source: 'client',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await CacheDB.write('commandes', null, orderData, 'add');
+    alert('✅ Commande envoyée !\nTotal: ' + total.toFixed(2) + ' MAD');
+    clientCart = [];
+    renderClientPOS();
+    CacheDB.sync(); // Déclencher synchronisation si en ligne
 }
 
 // ==================== PAGE HISTORIQUE ====================
@@ -106,9 +144,19 @@ async function loadClientHistoriquePage() {
     if (!window.currentUserData) { var cont0 = document.getElementById('clientOrdersList'); if (cont0) cont0.innerHTML = '<p>Non connecté</p>'; return; }
     var uid = window.currentUserData.uid, clientName = (window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom).toLowerCase().trim(), clientEmail = (window.currentUserData.userData.email || '').toLowerCase().trim(), clientTelephone = (window.currentUserData.userData.telephone || '').trim();
     try {
-        var cmdSnap = await db.collection('commandes').get(), venteSnap = await db.collection('ventes').get(), all = [];
-        cmdSnap.forEach(function(d) { var cmd = d.data(); if (cmd.clientId === uid) { all.push({type: 'commande', data: cmd, date: cmd.createdAt}); } });
-        venteSnap.forEach(function(d) { var v = d.data(); var vName = (v.clientName || '').toLowerCase().trim(), vEmail = (v.clientEmail || '').toLowerCase().trim(), vTel = (v.clientTelephone || '').trim(); if ((clientName && vName === clientName) || (clientEmail && vEmail === clientEmail) || (clientTelephone && vTel === clientTelephone) || (v.clientId === uid)) { all.push({type: 'vente', data: v, date: v.createdAt}); } });
+        // Utiliser des requêtes ciblées plutôt que tout charger
+        let cmdSnap, venteSnap;
+        try {
+            cmdSnap = await db.collection('commandes').where('clientId', '==', uid).get();
+            venteSnap = await db.collection('ventes').where('clientId', '==', uid).get();
+        } catch(e) {
+            // Si pas d'index, on charge tout et on filtre (moins efficace mais robuste)
+            cmdSnap = await db.collection('commandes').get();
+            venteSnap = await db.collection('ventes').get();
+        }
+        var all = [];
+        cmdSnap.forEach(function(d) { var cmd = d.data(); if (cmd.clientId === uid) all.push({type: 'commande', data: cmd, date: cmd.createdAt}); });
+        venteSnap.forEach(function(d) { var v = d.data(); if (v.clientId === uid) all.push({type: 'vente', data: v, date: v.createdAt}); });
         all.sort(function(a, b) { return (b.date?.seconds || 0) - (a.date?.seconds || 0); }); all = all.slice(0, 50);
         var cont = document.getElementById('clientOrdersList'); if (!cont) return;
         if (all.length === 0) { cont.innerHTML = '<p style="padding:40px;color:#94a3b8;"><i class="fas fa-inbox" style="font-size:2rem;display:block;margin-bottom:10px;"></i>Aucun historique</p>'; return; }
@@ -118,36 +166,20 @@ async function loadClientHistoriquePage() {
     } catch(e) { var cont2 = document.getElementById('clientOrdersList'); if (cont2) cont2.innerHTML = '<p style="color:#ef4444;">Erreur</p>'; }
 }
 
-// ==================== PAGE PARAMÈTRES (PROFIL + MODIFICATION + MOT DE PASSE) ====================
+// ==================== PAGE PARAMÈTRES ====================
 async function loadClientParametresPage() {
     var c = document.getElementById('clientDynamicContent');
     if (!c) return;
-    
-    if (!window.currentUserData) {
-        c.innerHTML = '<div class="content-card"><p>Non connecté</p></div>';
-        return;
-    }
-    
-    // Chercher le client dans la collection clients
+    if (!window.currentUserData) { c.innerHTML = '<div class="content-card"><p>Non connecté</p></div>'; return; }
     var clientData = null;
     var clientDocId = null;
     var userEmail = window.currentUserData.userData.email;
-    
     try {
         var clientSnap = await db.collection('clients').where('email', '==', userEmail).get();
-        if (!clientSnap.empty) {
-            clientDocId = clientSnap.docs[0].id;
-            clientData = clientSnap.docs[0].data();
-        }
+        if (!clientSnap.empty) { clientDocId = clientSnap.docs[0].id; clientData = clientSnap.docs[0].data(); }
     } catch(e) { console.error('Erreur chargement profil:', e); }
-    
-    if (!clientData) {
-        // Utiliser les données de auth comme fallback
-        clientData = window.currentUserData.userData;
-    }
-    
+    if (!clientData) clientData = window.currentUserData.userData;
     var dateCreated = clientData.createdAt ? new Date(clientData.createdAt.seconds * 1000).toLocaleString('fr-FR') : 'N/A';
-    
     var h = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-user-circle"></i> Mon Profil</h3></div>';
     h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.9rem;">';
     h += '<div><strong>ID:</strong> ' + (clientDocId ? clientDocId.substring(0, 8) : 'N/A') + '</div>';
@@ -167,22 +199,16 @@ async function loadClientParametresPage() {
     h += '<div><strong>Déteste:</strong> ' + (clientData.deteste ? clientData.deteste.join(', ') : '-') + '</div>';
     h += '<div><strong>Date créé:</strong> ' + dateCreated + '</div>';
     h += '</div>';
-    
-    // Boutons
     h += '<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">';
     h += '<button class="btn-add" onclick="clientOpenEditProfile()"><i class="fas fa-edit"></i> Modifier mon profil</button>';
     h += '<button class="btn-save" onclick="clientOpenChangePassword()"><i class="fas fa-lock"></i> Changer mot de passe</button>';
     h += '</div>';
     h += '</div>';
-    
     c.innerHTML = h;
-    
-    // Stocker les données pour la modification
     window.clientProfileData = clientData;
     window.clientProfileDocId = clientDocId;
 }
 
-// ==================== MODIFIER PROFIL CLIENT ====================
 function clientOpenEditProfile() {
     var data = window.clientProfileData || window.currentUserData.userData;
     var h = '';
@@ -200,10 +226,8 @@ async function clientSaveProfile() {
     var nom = document.getElementById('clientEditNom').value.trim();
     var prenom = document.getElementById('clientEditPrenom').value.trim();
     if (!nom || !prenom) { alert('Nom et Prénom obligatoires'); return; }
-    
     var updatedData = {
-        nom: nom,
-        prenom: prenom,
+        nom: nom, prenom: prenom,
         genre: document.getElementById('clientEditGenre').value,
         adresse: document.getElementById('clientEditAdresse').value,
         telephone: document.getElementById('clientEditTel').value,
@@ -215,33 +239,28 @@ async function clientSaveProfile() {
         deteste: document.getElementById('clientEditDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
-    
     try {
         var docId = window.clientProfileDocId;
         if (docId) {
-            // Mettre à jour le document client existant
-            await db.collection('clients').doc(docId).update(updatedData);
-            // Mettre à jour aussi dans users
-            await db.collection('users').doc(window.currentUserData.uid).update({ nom: nom, prenom: prenom, telephone: updatedData.telephone });
+            await CacheDB.write('clients', docId, updatedData, 'update');
+            await CacheDB.write('users', window.currentUserData.uid, { nom: nom, prenom: prenom, telephone: updatedData.telephone }, 'update');
         } else {
-            // Créer un nouveau document client
             updatedData.email = window.currentUserData.userData.email;
             updatedData.username = window.currentUserData.userData.username;
             updatedData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-            var newDoc = await db.collection('clients').add(updatedData);
-            window.clientProfileDocId = newDoc.id;
+            var newDocId = await CacheDB.write('clients', null, updatedData, 'add');
+            window.clientProfileDocId = newDocId;
         }
-        // Mettre à jour les données locales
         window.currentUserData.userData.nom = nom;
         window.currentUserData.userData.prenom = prenom;
         window.clientProfileData = updatedData;
         alert('✅ Profil mis à jour !');
         closeModal();
         loadClientParametresPage();
+        CacheDB.sync();
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-// ==================== CHANGER MOT DE PASSE ====================
 function clientOpenChangePassword() {
     var h = '<div class="form-row"><div class="form-group"><label>Mot de passe actuel</label><input type="password" id="clientOldPassword" required></div></div>';
     h += '<div class="form-row"><div class="form-group"><label>Nouveau mot de passe</label><input type="password" id="clientNewPassword" required minlength="6"></div></div>';
@@ -254,29 +273,21 @@ async function clientChangePassword() {
     var oldPass = document.getElementById('clientOldPassword').value;
     var newPass = document.getElementById('clientNewPassword').value;
     var confirmPass = document.getElementById('clientConfirmPassword').value;
-    
     if (!oldPass || !newPass || !confirmPass) { alert('Tous les champs sont obligatoires'); return; }
     if (newPass.length < 6) { alert('Le nouveau mot de passe doit contenir au moins 6 caractères'); return; }
     if (newPass !== confirmPass) { alert('Les mots de passe ne correspondent pas'); return; }
-    
     var user = auth.currentUser;
     if (!user) { alert('Vous n\'êtes pas connecté'); return; }
-    
-    // Ré-authentifier l'utilisateur
     var credential = firebase.auth.EmailAuthProvider.credential(user.email, oldPass);
-    
     try {
         await user.reauthenticateWithCredential(credential);
         await user.updatePassword(newPass);
         alert('✅ Mot de passe changé avec succès !');
         closeModal();
     } catch(e) {
-        if (e.code === 'auth/wrong-password') {
-            alert('❌ Mot de passe actuel incorrect');
-        } else {
-            alert('Erreur: ' + e.message);
-        }
+        if (e.code === 'auth/wrong-password') alert('❌ Mot de passe actuel incorrect');
+        else alert('Erreur: ' + e.message);
     }
 }
 
-console.log('Client JS OK');
+console.log('Client JS avec cache offline OK');
