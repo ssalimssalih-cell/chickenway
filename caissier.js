@@ -30,8 +30,7 @@ async function loadPosPage(c) {
         posCart = [];
         if (cmd.items) { cmd.items.forEach(function(item) { posCart.push({id:item.id,nom:item.nom,prixUnitaire:item.prixVente||item.prixUnitaire||0,prixAchat:item.prixAchat||0,prixPromo:item.prixPromo||0,prixVente:item.prixVente||item.prixUnitaire||0,quantite:item.quantite||1,categorie:item.categorie||'',imageBase64:item.imageBase64||'',sauces:item.sauces||[],interdits:item.interdits||[],epice:item.epice||'Normal',sel:item.sel||'Normal'}); }); }
         if (cmd.clientId && cmd.clientName) { posCurrentClient = {id: cmd.clientId, name: cmd.clientName}; }
-        // --- NUMÉRO DE TABLE ---
-        posCurrentTable = cmd.table || '';   // table peut être "Table 5" ou "5"
+        posCurrentTable = cmd.table || '';
         posStep = 2; posDiscountMAD = 0; posPaymentMethod = 'espece';
         window.posCommandeId = cmd.commandeId;
         renderPOS();
@@ -44,7 +43,6 @@ async function loadPosPage(c) {
         posCart = [];
         if (v.items) { v.items.forEach(function(item) { posCart.push({id:item.id,nom:item.nom,prixUnitaire:item.prixVente||0,prixAchat:item.prixAchat||0,prixPromo:item.prixPromo||0,prixVente:item.prixVente||0,quantite:item.quantite||1,categorie:'',imageBase64:'',sauces:item.sauces||[],interdits:item.interdits||[],epice:item.epice||'Normal',sel:item.sel||'Normal'}); }); }
         if (v.clientId && v.clientName) { posCurrentClient = {id: v.clientId, name: v.clientName}; }
-        // --- NUMÉRO DE TABLE ---
         posCurrentTable = v.table || '';
         posStep = 2; posDiscountMAD = 0; posPaymentMethod = 'espece';
         window.posVenteId = v.venteId;
@@ -100,7 +98,7 @@ function posSetTable(v){posCurrentTable=v.trim();if(posCurrentTable){posCurrentC
 function posOpenOptionsModal(pid){var p=posProductsList.find(function(x){return x.id===pid;});if(!p)return;if(p.stock!==undefined&&p.stock<=0){alert('Rupture');return;}posCurrentProductId=pid;var h='<h4>'+p.nom+'</h4>';h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Sauces:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';posSaucesList.forEach(function(s){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-sauce-check" value="'+s+'"> '+s+'</label>';});h+='</div></div>';h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🚫 Interdits:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';posInterditsList.forEach(function(s){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-interdit-check" value="'+s+'"> '+s+'</label>';});h+='</div></div>';h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';posEpicesList.forEach(function(s,idx){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="pos-epice" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';});h+='</div></div>';h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🧂 Sel:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';posSelList.forEach(function(s,idx){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="pos-sel" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';});h+='</div></div>';h+='<div style="text-align:right;"><button class="btn-cancel" onclick="closeModal()" style="float:none;margin-right:8px;">Annuler</button><button class="btn-save" onclick="posConfirmOptions()" style="float:none;">Ajouter</button></div>';openModal('Personnaliser',h);}
 function posConfirmOptions(){var sauces=[];document.querySelectorAll('.pos-sauce-check:checked').forEach(function(cb){sauces.push(cb.value);});var interdits=[];document.querySelectorAll('.pos-interdit-check:checked').forEach(function(cb){interdits.push(cb.value);});var epice=document.querySelector('input[name="pos-epice"]:checked');epice=epice?epice.value:'Normal';var sel=document.querySelector('input[name="pos-sel"]:checked');sel=sel?sel.value:'Normal';var p=posProductsList.find(function(x){return x.id===posCurrentProductId;});if(!p){closeModal();return;}var ex=posCart.find(function(x){return x.id===posCurrentProductId;});if(ex){if(p.stock!==undefined&&ex.quantite>=p.stock){alert('Stock insuffisant');closeModal();return;}ex.quantite+=1;}else{var pr=p.prixPromo&&p.prixPromo>0?p.prixPromo:p.prixVente;posCart.push({id:p.id,nom:p.nom,prixUnitaire:pr,prixAchat:p.prixAchat||0,prixPromo:p.prixPromo||0,prixVente:p.prixVente||0,quantite:1,categorie:p.categorie||'',imageBase64:p.imageBase64||'',sauces:sauces,interdits:interdits,epice:epice,sel:sel});}closeModal();renderPOS();}
 
-// ==================== RENDU POS (avec bouton Commandes tables) ====================
+// ==================== RENDU POS ====================
 function renderPOS() {
     var c = document.getElementById('dynamicContent'); if (!c) return;
     var st = posCalculateTotal(); var t = st - posDiscountMAD;
@@ -118,6 +116,7 @@ function renderPOS() {
     }
     h += '</div>';
 
+    // Bouton Commandes tables avec badge
     h += '<button onclick="posAfficherCommandesTables()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap; margin-left:10px;">';
     h += '<i class="fas fa-utensils"></i> Commandes tables';
     if (posCommandesTablesCount > 0) {
@@ -187,27 +186,59 @@ function renderPOS() {
     if (posStep === 2) setTimeout(posCalculateChange, 200);
 }
 
-// ==================== AFFICHAGE COMMANDES TABLES ====================
+// ==================== AFFICHAGE COMMANDES TABLES (ENRICHIE) ====================
 function posAfficherCommandesTables() {
     if (posCommandesTables.length === 0) {
         alert('Aucune commande table en attente.');
         return;
     }
-    var html = '<div style="max-height:70vh;overflow-y:auto;"><table class="data-table" style="width:100%;font-size:0.8rem;"><thead><tr><th>Table</th><th>Produits</th><th>Total</th><th>Action</th></tr></thead><tbody>';
+
+    var html = '<div style="max-height:70vh;overflow-y:auto;">';
+    html += '<table class="data-table" style="width:100%;font-size:0.75rem;">';
+    html += '<thead><tr>';
+    html += '<th>ID Commande</th>';
+    html += '<th>N° Table</th>';
+    html += '<th>Produits</th>';
+    html += '<th>Options</th>';
+    html += '<th>Total</th>';
+    html += '<th>Date/Heure</th>';
+    html += '<th>Actions</th>';
+    html += '</tr></thead><tbody>';
+
     posCommandesTables.forEach(function(cmd) {
         var table = cmd.table || '?';
-        var articles = cmd.items ? cmd.items.map(function(it) {
-            var opt = '';
-            if (it.sauces && it.sauces.length > 0) opt += ' 🥫' + it.sauces.join(',');
-            if (it.interdits && it.interdits.length > 0) opt += ' 🚫' + it.interdits.join(',');
-            if (it.epice && it.epice !== 'Normal') opt += ' 🌶️' + it.epice;
-            if (it.sel && it.sel !== 'Normal') opt += ' 🧂' + it.sel;
-            return it.quantite + 'x ' + it.nom + (opt ? ' <small>(' + opt + ')</small>' : '');
+        var dateHeure = cmd.createdAt ? new Date(cmd.createdAt.seconds * 1000).toLocaleString('fr-FR') : 'N/A';
+        var commandeId = cmd.id ? cmd.id.substring(0, 8) : 'N/A';
+        
+        var produits = cmd.items ? cmd.items.map(function(it) {
+            return '<strong>' + it.quantite + 'x</strong> ' + it.nom;
         }).join('<br>') : '-';
-        html += '<tr><td><strong>Table ' + table + '</strong></td><td>' + articles + '</td><td>' + cmd.total.toFixed(2) + ' MAD</td><td><button class="btn-add" style="padding:4px 10px;font-size:0.75rem;" onclick="posChargerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-arrow-right"></i> Charger</button></td></tr>';
+        
+        var options = cmd.items ? cmd.items.map(function(it) {
+            var opts = [];
+            if (it.sauces && it.sauces.length > 0) opts.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
+            if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
+            if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
+            if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
+            return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
+        }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
+
+        html += '<tr>';
+        html += '<td><small style="font-weight:600;">#' + commandeId + '</small></td>';
+        html += '<td><strong>🍽️ Table ' + table + '</strong></td>';
+        html += '<td>' + produits + '</td>';
+        html += '<td><small>' + options + '</small></td>';
+        html += '<td><strong style="color:#e67e22;">' + cmd.total.toFixed(2) + ' MAD</strong></td>';
+        html += '<td><small>' + dateHeure + '</small></td>';
+        html += '<td style="white-space:nowrap;">';
+        html += '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:4px;" onclick="posChargerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-check"></i> Accepter</button>';
+        html += '<button class="btn-save" style="padding:4px 8px;font-size:0.7rem;" onclick="posPayerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-money-bill-wave"></i> Payé</button>';
+        html += '</td>';
+        html += '</tr>';
     });
+
     html += '</tbody></table></div>';
-    openModal('🛎️ Commandes tables en attente', html);
+    openModal('🛎️ Commandes tables en attente (' + posCommandesTables.length + ')', html);
 }
 
 function posChargerCommandeTable(commandeId) {
@@ -236,7 +267,28 @@ function posChargerCommandeTable(commandeId) {
     renderPOS();
 }
 
-// ==================== FONCTIONS AUXILIAIRES (inchangées) ====================
+// Payer directement une commande table (marquer comme payée sans passer par le POS)
+async function posPayerCommandeTable(commandeId) {
+    if (!confirm('Marquer cette commande comme payée ?')) return;
+    
+    try {
+        await db.collection('commandes').doc(commandeId).update({
+            statut: 'payé',
+            paidAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert('✅ Commande table marquée comme payée !');
+        
+        await posChargerCommandesTables();
+        closeModal();
+        renderPOS();
+    } catch(e) {
+        console.error('Erreur:', e);
+        alert('❌ Erreur: ' + e.message);
+    }
+}
+
+// ==================== FONCTIONS AUXILIAIRES ====================
 function posFilterCategory(ca){posSelectedCategory=ca;renderPOS();}
 function posUpdateDiscountMAD(v){posDiscountMAD=parseFloat(v)||0;if(posDiscountMAD<0)posDiscountMAD=0;renderPOS();}
 function posUpdateQty(i,ch){var it=posCart[i];if(!it)return;var p=posProductsList.find(function(x){return x.id===it.id;});var nq=it.quantite+ch;if(nq<=0)posCart.splice(i,1);else{if(p&&p.stock!==undefined&&nq>p.stock){alert('Max: '+p.stock);return;}it.quantite=nq;}renderPOS();}
@@ -266,7 +318,6 @@ async function posFinalizeSale() {
         var sd={factureNum:fn,items:itemsDetail,subtotal:st,discountMAD:posDiscountMAD,total:t,clientId:posCurrentClient?posCurrentClient.id:null,clientName:posCurrentClient?posCurrentClient.name:null,table:posCurrentTable||null,vendeur:vendeur,paymentMethod:posPaymentMethod,statutPaiement:statutPaiement,amountGiven:posAmountGiven,change:change,paid:paid,remainingAmount:remaining,profitTotal:profitTotal,createdAt:firebase.firestore.FieldValue.serverTimestamp()};
         if(!paid)await db.collection('credits').add(sd);
         await db.collection('ventes').add(sd);
-        // Mise à jour de la commande en ligne si paiement depuis commande
         if(window.posCommandeId){
             await db.collection('commandes').doc(window.posCommandeId).update({statut:'payé',paidAt:firebase.firestore.FieldValue.serverTimestamp(),factureNum:fn});
             delete window.posCommandeId;
