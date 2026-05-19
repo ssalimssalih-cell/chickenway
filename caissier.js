@@ -339,4 +339,79 @@ async function posFinalizeSale() {
 }
 function posSearchClients(q){}
 function posAddToCart(pid){posOpenOptionsModal(pid);}
-console.log('Caissier JS OK');
+// ==================== AFFICHAGE COMMANDES TABLES (ENRICHIE) ====================
+function posAfficherCommandesTables() {
+    if (typeof posCommandesTables === 'undefined' || posCommandesTables.length === 0) {
+        alert('Aucune commande table en attente.');
+        return;
+    }
+
+    var html = '<div style="max-height:70vh;overflow-y:auto;">';
+    html += '<table class="data-table" style="width:100%;font-size:0.75rem;">';
+    html += '<thead><tr>';
+    html += '<th>ID Commande</th>';
+    html += '<th>N° Table</th>';
+    html += '<th>Produits</th>';
+    html += '<th>Options</th>';
+    html += '<th>Total</th>';
+    html += '<th>Date/Heure</th>';
+    html += '<th>Actions</th>';
+    html += '</tr></thead><tbody>';
+
+    posCommandesTables.forEach(function(cmd) {
+        var table = cmd.table || '?';
+        var dateHeure = cmd.createdAt ? new Date(cmd.createdAt.seconds * 1000).toLocaleString('fr-FR') : 'N/A';
+        var commandeId = cmd.id ? cmd.id.substring(0, 8) : 'N/A';
+        
+        var produits = cmd.items ? cmd.items.map(function(it) {
+            return '<strong>' + it.quantite + 'x</strong> ' + it.nom;
+        }).join('<br>') : '-';
+        
+        var options = cmd.items ? cmd.items.map(function(it) {
+            var opts = [];
+            if (it.sauces && it.sauces.length > 0) opts.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
+            if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
+            if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
+            if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
+            return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
+        }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
+
+        html += '<tr>';
+        html += '<td><small style="font-weight:600;">#' + commandeId + '</small></td>';
+        html += '<td><strong>🍽️ Table ' + table + '</strong></td>';
+        html += '<td>' + produits + '</td>';
+        html += '<td><small>' + options + '</small></td>';
+        html += '<td><strong style="color:#e67e22;">' + cmd.total.toFixed(2) + ' MAD</strong></td>';
+        html += '<td><small>' + dateHeure + '</small></td>';
+        html += '<td style="white-space:nowrap;">';
+        html += '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:4px;" onclick="posChargerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-check"></i> Accepter</button>';
+        html += '<button class="btn-save" style="padding:4px 8px;font-size:0.7rem;" onclick="posPayerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-money-bill-wave"></i> Payé</button>';
+        html += '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    openModal('🛎️ Commandes tables en attente (' + posCommandesTables.length + ')', html);
+}
+
+// Payer directement une commande table
+async function posPayerCommandeTable(commandeId) {
+    if (!confirm('Marquer cette commande comme payée ?')) return;
+    
+    try {
+        await db.collection('commandes').doc(commandeId).update({
+            statut: 'payé',
+            paidAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        
+        alert('✅ Commande table marquée comme payée !');
+        
+        // Recharger les commandes tables
+        await posChargerCommandesTables();
+        closeModal();
+        renderPOS();
+    } catch(e) {
+        console.error('Erreur:', e);
+        alert('❌ Erreur: ' + e.message);
+    }
+}
