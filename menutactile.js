@@ -12,16 +12,34 @@ var menuInterdits = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade'];
 var menuEpices = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var menuSel = ['Normal','Moins de sel','Sans sel'];
 
-// ==================== PLEIN ÉCRAN AU PREMIER TOUCHER ====================
-let fullscreenRequested = false;
+// ==================== DÉTECTION iOS + MODE STANDALONE ====================
+function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
 
-function requestFullscreenOnFirstTouch() {
-    if (fullscreenRequested) return;
-    const elem = document.documentElement;
-    const method = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
-    if (method) {
-        method.call(elem).catch(err => console.log("Fullscreen error:", err));
-        fullscreenRequested = true;
+function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+// Affiche une bannière d'installation sur iOS si pas en standalone
+function showInstallBanner() {
+    if (isIOS() && !isStandalone()) {
+        var banner = document.createElement('div');
+        banner.id = 'iosInstallBanner';
+        banner.style.position = 'fixed';
+        banner.style.bottom = '20px';
+        banner.style.left = '10px';
+        banner.style.right = '10px';
+        banner.style.backgroundColor = '#f39c12';
+        banner.style.color = '#fff';
+        banner.style.padding = '12px';
+        banner.style.borderRadius = '12px';
+        banner.style.textAlign = 'center';
+        banner.style.zIndex = '1000';
+        banner.style.fontSize = '14px';
+        banner.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+        banner.innerHTML = '📱 Pour le plein écran, ajoutez cette application à l\'écran d\'accueil :<br><strong>Partager → Ajouter à l\'écran d\'accueil</strong> <button onclick="document.getElementById(\'iosInstallBanner\').remove()" style="background:white; border:none; border-radius:20px; padding:4px 12px; margin-left:10px;">OK</button>';
+        document.body.appendChild(banner);
     }
 }
 
@@ -35,13 +53,8 @@ function initMenuTactile(tableNum) {
     menuTableNum = tableNum;
     console.log('🍽️ Menu tactile - Table', tableNum);
     
-    // Écouter le premier événement touch/click pour activer le plein écran
-    const events = ['touchstart', 'click'];
-    const activate = () => {
-        requestFullscreenOnFirstTouch();
-        events.forEach(ev => document.removeEventListener(ev, activate));
-    };
-    events.forEach(ev => document.addEventListener(ev, activate, { once: true, passive: false }));
+    // Afficher la bannière iOS si besoin
+    showInstallBanner();
     
     if (typeof db === 'undefined' || typeof CacheDB === 'undefined') {
         setTimeout(() => initMenuTactile(tableNum), 500);
@@ -61,7 +74,6 @@ async function loadMenuData() {
                 '</div>';
         }
 
-        // Charger catégories
         var catSnap = await db.collection('categories').get();
         menuCategories = [];
         catSnap.forEach(d => {
@@ -72,7 +84,6 @@ async function loadMenuData() {
             });
         });
 
-        // Charger produits disponibles
         var prodSnap = await db.collection('products').get();
         menuProducts = [];
         prodSnap.forEach(d => {
@@ -308,4 +319,4 @@ async function menuValiderCommande() {
     }
 }
 
-console.log('🍽️ Menu tactile - Plein écran automatique au premier toucher');
+console.log('🍽️ Menu tactile - Prêt (avec bannière installation iOS)');
