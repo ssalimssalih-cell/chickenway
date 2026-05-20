@@ -1,4 +1,4 @@
-// ==================== MENU TACTILE CLIENT (QR CODE TABLE) ====================
+// ==================== MENU TACTILE CLIENT (VERSION MOBILE OPTIMISÉE) ====================
 var menuTableNum = null;
 var menuCart = [];
 var menuCategories = [];
@@ -16,14 +16,14 @@ function closeMenuTactile() {
     window.location.href = window.location.pathname;
 }
 
-// ==================== PLEIN ÉCRAN (Android/PC) ====================
+// ==================== PLEIN ÉCRAN ====================
 function requestFullscreen() {
     const elem = document.documentElement;
     const method = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
     if (method) {
         method.call(elem).catch(err => console.log("Fullscreen error:", err));
     } else {
-        alert("Sur iPhone : Partage → Ajouter à l'écran d'accueil pour le plein écran.");
+        alert("📱 Pour le plein écran sur iPhone :\n\nPartage → Ajouter à l'écran d'accueil");
     }
 }
 
@@ -31,20 +31,20 @@ function requestFullscreen() {
 function initMenuTactile(tableNum) {
     menuTableNum = tableNum;
     console.log('🍽️ Menu tactile - Table', tableNum);
-    
-    // Appliquer les styles pour une mise en page fixe et sans scroll horizontal
+
+    // Empêcher tout débordement horizontal
     document.body.style.overflowX = 'hidden';
     document.body.style.margin = '0';
     document.body.style.padding = '0';
     document.documentElement.style.overflowX = 'hidden';
+    document.documentElement.style.maxWidth = '100%';
     
-    const container = document.getElementById('menuTactilePage');
-    if (container) {
-        container.style.width = '100%';
-        container.style.maxWidth = '100%';
-        container.style.overflowX = 'hidden';
+    const page = document.getElementById('menuTactilePage');
+    if (page) {
+        page.style.overflowX = 'hidden';
+        page.style.maxWidth = '100%';
     }
-    
+
     if (typeof db === 'undefined' || typeof CacheDB === 'undefined') {
         setTimeout(() => initMenuTactile(tableNum), 500);
         return;
@@ -52,15 +52,12 @@ function initMenuTactile(tableNum) {
     loadMenuData();
 }
 
-// ==================== CHARGEMENT ====================
+// ==================== CHARGEMENT FIREBASE ====================
 async function loadMenuData() {
     try {
         var content = document.getElementById('menuTactileContent');
         if (content) {
-            content.innerHTML = '<div style="text-align:center;padding:60px 20px;">' +
-                '<i class="fas fa-spinner fa-spin" style="font-size:3rem;color:#f39c12;"></i>' +
-                '<p>Chargement du menu...</p>' +
-                '</div>';
+            content.innerHTML = '<div style="text-align:center;padding:60px 20px;"><i class="fas fa-spinner fa-spin" style="font-size:3rem;color:#f39c12;"></i><p>Chargement du menu...</p></div>';
         }
 
         var catSnap = await db.collection('categories').get();
@@ -95,12 +92,12 @@ async function loadMenuData() {
         console.error(e);
         var content = document.getElementById('menuTactileContent');
         if (content) {
-            content.innerHTML = '<div style="text-align:center;padding:50px;"><i class="fas fa-exclamation-circle" style="font-size:3rem;color:#ef4444;"></i><p>Erreur de chargement</p><button onclick="loadMenuData()" style="padding:10px 20px;background:#f39c12;border:none;border-radius:8px;">Réessayer</button></div>';
+            content.innerHTML = '<div style="text-align:center;padding:50px;"><i class="fas fa-exclamation-circle" style="font-size:3rem;color:#ef4444;"></i><p>Erreur de chargement</p><button onclick="loadMenuData()" style="padding:12px 24px;background:#f39c12;border:none;border-radius:30px;">Réessayer</button></div>';
         }
     }
 }
 
-// ==================== RENDU PRINCIPAL ====================
+// ==================== RENDU PRINCIPAL (MOBILE FRIENDLY) ====================
 function renderMenuTactile() {
     var content = document.getElementById('menuTactileContent');
     if (!content) return;
@@ -108,78 +105,81 @@ function renderMenuTactile() {
     var total = menuCalcTotal();
     var html = '';
     
-    // En-tête fixe avec bouton X
-    html += '<div style="position:sticky; top:0; z-index:20; background:linear-gradient(135deg,#f39c12,#e67e22); color:#fff; border-radius:0 0 24px 24px; margin-bottom:15px; text-align:center; padding:20px 15px;">';
-    html += '<button onclick="closeMenuTactile()" style="position:absolute; top:10px; right:15px; background:rgba(0,0,0,0.3); border:none; color:white; font-size:1.8rem; cursor:pointer; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>';
-    html += '<img src="logo.png" style="width:70px; height:70px; border-radius:50%; border:3px solid #fff; object-fit:cover; margin-bottom:8px;">';
-    html += '<h1 style="margin:0; font-size:1.4rem;">Chicken <span style="color:#fff;">Way</span></h1>';
-    html += '<p style="margin:5px 0 0;">🍽️ Table n° ' + menuTableNum + '</p>';
+    // ========== EN-TÊTE (sticky) ==========
+    html += '<div style="position:sticky; top:0; z-index:20; background:linear-gradient(135deg,#f39c12,#e67e22); color:#fff; text-align:center; padding:15px 10px; border-radius:0 0 20px 20px; margin-bottom:10px;">';
+    html += '<button onclick="closeMenuTactile()" style="position:absolute; top:8px; right:12px; background:rgba(0,0,0,0.3); border:none; color:white; font-size:1.6rem; cursor:pointer; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>';
+    html += '<img src="logo.png" style="width:55px; height:55px; border-radius:50%; border:3px solid #fff; object-fit:cover; margin-bottom:5px;">';
+    html += '<h2 style="margin:0; font-size:1.3rem;">Chicken <span style="color:#fff;">Way</span></h2>';
+    html += '<p style="margin:3px 0 0;">🍽️ Table n° ' + menuTableNum + '</p>';
     html += '</div>';
     
-    // Barre de catégories (scroll horizontal uniquement dans sa zone)
-    html += '<div style="overflow-x:auto; white-space:nowrap; padding:10px 10px 5px 10px; -webkit-overflow-scrolling:touch; scrollbar-width:thin;">';
-    html += '<button onclick="menuFilterCategory(\'all\')" style="display:inline-block; padding:8px 16px; margin:0 4px; border-radius:50px; border:2px solid ' + (menuSelectedCategory==='all'?'#f39c12':'#e2e8f0') + '; background:' + (menuSelectedCategory==='all'?'#f39c12':'#fff') + '; color:' + (menuSelectedCategory==='all'?'#fff':'#1e293b') + '; font-weight:600;">📋 Tous</button>';
+    // ========== CATÉGORIES (scroll horizontal uniquement ici) ==========
+    html += '<div style="overflow-x:auto; white-space:nowrap; padding:6px 8px; -webkit-overflow-scrolling:touch; margin-bottom:5px;">';
+    html += '<button onclick="menuFilterCategory(\'all\')" style="display:inline-block; padding:8px 18px; margin:0 4px; border-radius:40px; border:2px solid ' + (menuSelectedCategory==='all'?'#f39c12':'#e2e8f0') + '; background:' + (menuSelectedCategory==='all'?'#f39c12':'#fff') + '; color:' + (menuSelectedCategory==='all'?'#fff':'#1e293b') + '; font-weight:600;">📋 Tous</button>';
     for (var i=0; i<menuCategories.length; i++) {
         var cat = menuCategories[i];
         var active = menuSelectedCategory === cat.nom;
-        html += '<button onclick="menuFilterCategory(\''+cat.nom.replace(/'/g,"\\'")+'\')" style="display:inline-block; padding:8px 16px; margin:0 4px; border-radius:50px; border:2px solid '+(active?'#f39c12':'#e2e8f0')+'; background:'+(active?'#f39c12':'#fff')+'; color:'+(active?'#fff':'#1e293b')+'; font-weight:600;">'+cat.nom+'</button>';
+        html += '<button onclick="menuFilterCategory(\''+cat.nom.replace(/'/g,"\\'")+'\')" style="display:inline-block; padding:8px 18px; margin:0 4px; border-radius:40px; border:2px solid '+(active?'#f39c12':'#e2e8f0')+'; background:'+(active?'#f39c12':'#fff')+'; color:'+(active?'#fff':'#1e293b')+'; font-weight:600;">'+cat.nom+'</button>';
     }
     html += '</div>';
     
-    // Grille produits (responsive, pas de scroll horizontal global)
+    // ========== GRILLE PRODUITS (responsive, pas de scroll horizontal) ==========
     var filtered = menuProducts;
     if (menuSelectedCategory !== 'all') filtered = menuProducts.filter(p => p.categorie === menuSelectedCategory);
-    html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; padding:10px;">';
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; padding:6px 8px;">';
     if (filtered.length === 0) {
-        html += '<div style="grid-column:1/-1; text-align:center; padding:30px;">Aucun produit dans cette catégorie</div>';
+        html += '<div style="grid-column:1/-1; text-align:center; padding:30px;">Aucun produit</div>';
     } else {
         for (var j=0; j<filtered.length; j++) {
             var p = filtered[j];
             var price = (p.prixPromo && p.prixPromo>0) ? p.prixPromo : p.prixVente;
-            var outOfStock = p.stock !== undefined && p.stock <= 0;
-            html += '<div onclick="'+(outOfStock?'':'menuOpenOptions(\''+p.id+'\')')+'" style="background:#fff; border:2px solid '+(outOfStock?'#fecaca':'#e2e8f0')+'; border-radius:16px; padding:10px; cursor:'+(outOfStock?'not-allowed':'pointer')+'; opacity:'+(outOfStock?'0.5':'1')+'; text-align:center;">';
-            if (p.imageBase64) html += '<div style="height:100px; border-radius:12px; overflow:hidden; margin-bottom:6px;"><img src="'+p.imageBase64+'" style="width:100%; height:100%; object-fit:cover;"></div>';
-            else html += '<div style="height:100px; border-radius:12px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:2rem;">🍗</div>';
+            var out = p.stock !== undefined && p.stock <= 0;
+            html += '<div onclick="'+(out?'':'menuOpenOptions(\''+p.id+'\')')+'" style="background:#fff; border:2px solid '+(out?'#fecaca':'#e2e8f0')+'; border-radius:18px; padding:10px; cursor:'+(out?'not-allowed':'pointer')+'; opacity:'+(out?'0.5':'1')+'; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,0.05);">';
+            if (p.imageBase64) html += '<div style="height:95px; border-radius:14px; overflow:hidden; margin-bottom:8px;"><img src="'+p.imageBase64+'" style="width:100%; height:100%; object-fit:cover;"></div>';
+            else html += '<div style="height:95px; border-radius:14px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:2rem;">🍗</div>';
             html += '<div style="font-weight:600; font-size:0.9rem;">'+p.nom+'</div>';
-            html += '<div style="font-weight:700; color:#e67e22;">'+price.toFixed(2)+' MAD</div>';
-            if (outOfStock) html += '<div style="font-size:0.7rem; color:#ef4444;">Rupture</div>';
+            html += '<div style="font-weight:700; color:#e67e22; font-size:1rem;">'+price.toFixed(2)+' MAD</div>';
+            if (out) html += '<div style="font-size:0.7rem; color:#ef4444;">Rupture</div>';
             html += '</div>';
         }
     }
     html += '</div>';
     
-    // Panier sticky (collé en bas)
-    html += '<div style="position:sticky; bottom:0; background:#fff; padding:12px; border-radius:20px 20px 0 0; box-shadow:0 -2px 15px rgba(0,0,0,0.1); margin-top:10px;">';
-    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><strong>🛒 Mon panier</strong><span style="background:#f39c12; color:#fff; padding:2px 10px; border-radius:20px;">'+menuCart.length+' article(s)</span></div>';
+    // ========== PANIER STICKY (avec grands boutons tactiles) ==========
+    html += '<div style="position:sticky; bottom:0; background:#fff; padding:12px; border-radius:20px 20px 0 0; box-shadow:0 -3px 15px rgba(0,0,0,0.12); margin-top:8px;">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><strong style="font-size:1rem;">🛒 Mon panier</strong><span style="background:#f39c12; color:#fff; padding:4px 12px; border-radius:30px;">'+menuCart.length+' article(s)</span></div>';
     if (menuCart.length === 0) {
-        html += '<p style="text-align:center; color:#94a3b8; margin:5px 0;">Cliquez sur un produit</p>';
+        html += '<p style="text-align:center; color:#94a3b8; margin:5px 0;">Appuyez sur un produit</p>';
     } else {
-        html += '<div style="max-height:130px; overflow-y:auto; margin-bottom:8px;">';
+        html += '<div style="max-height:140px; overflow-y:auto; margin-bottom:8px;">';
         for (var k=0; k<menuCart.length; k++) {
             var it = menuCart[k];
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #f1f5f9;">';
-            html += '<span style="font-size:0.85rem;">'+it.quantite+'x '+it.nom+'</span>';
-            html += '<div><button onclick="menuUpdateQty('+k+',-1)" style="width:26px;height:26px;border-radius:50%; border:1px solid #ccc;">-</button> <span style="min-width:24px; text-align:center;">'+it.quantite+'</span> <button onclick="menuUpdateQty('+k+',1)" style="width:26px;height:26px;border-radius:50%; border:1px solid #ccc;">+</button> <span style="min-width:65px; text-align:right;">'+(it.prixUnitaire*it.quantite).toFixed(2)+'</span></div>';
-            html += '</div>';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f0f0f0;">';
+            html += '<span style="font-size:0.85rem; font-weight:500;">'+it.quantite+'x '+it.nom+'</span>';
+            html += '<div style="display:flex; align-items:center; gap:10px;">';
+            html += '<button onclick="menuUpdateQty('+k+',-1)" style="width:32px; height:32px; border-radius:50%; border:1px solid #ccc; background:#fff; font-size:1rem; cursor:pointer;">−</button>';
+            html += '<span style="min-width:28px; text-align:center; font-weight:600;">'+it.quantite+'</span>';
+            html += '<button onclick="menuUpdateQty('+k+',1)" style="width:32px; height:32px; border-radius:50%; border:1px solid #ccc; background:#fff; font-size:1rem; cursor:pointer;">+</button>';
+            html += '<span style="min-width:65px; text-align:right; font-weight:600;">'+(it.prixUnitaire*it.quantite).toFixed(2)+'</span>';
+            html += '</div></div>';
         }
         html += '</div>';
     }
-    html += '<div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.1rem; margin:8px 0;"><span>Total</span><span style="color:#e67e22;">'+total.toFixed(2)+' MAD</span></div>';
-    html += '<button onclick="menuValiderCommande()" '+(menuCart.length===0?'disabled':'')+' style="width:100%; padding:12px; border:none; border-radius:12px; background:'+(menuCart.length===0?'#cbd5e1':'linear-gradient(135deg,#f39c12,#e67e22)')+'; color:#fff; font-weight:700;">✅ Commander</button>';
-    if (menuCart.length>0) html += '<button onclick="menuClearCart()" style="width:100%; margin-top:8px; padding:6px; border:1px solid #ccc; background:#fff; border-radius:12px;">🗑️ Vider</button>';
+    html += '<div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.15rem; margin:8px 0;"><span>Total</span><span style="color:#e67e22;">'+total.toFixed(2)+' MAD</span></div>';
+    html += '<button onclick="menuValiderCommande()" '+(menuCart.length===0?'disabled':'')+' style="width:100%; padding:14px; border:none; border-radius:40px; background:'+(menuCart.length===0?'#cbd5e1':'linear-gradient(135deg,#f39c12,#e67e22)')+'; color:#fff; font-weight:700; font-size:1rem; cursor:pointer; margin-bottom:5px;">✅ Commander</button>';
+    if (menuCart.length>0) html += '<button onclick="menuClearCart()" style="width:100%; padding:8px; border:1px solid #ddd; background:#fff; border-radius:40px; color:#64748b;">🗑️ Vider le panier</button>';
     html += '</div>';
     
-    // Bouton plein écran flottant (pour Android/PC)
-    html += '<button onclick="requestFullscreen()" style="position:fixed; bottom:20px; right:20px; background:#f39c12; color:white; border:none; border-radius:50%; width:45px; height:45px; font-size:20px; box-shadow:0 2px 8px rgba(0,0,0,0.2); cursor:pointer; z-index:1000;">⛶</button>';
+    // Bouton plein écran flottant (discret)
+    html += '<button onclick="requestFullscreen()" style="position:fixed; bottom:20px; right:15px; background:#f39c12; color:white; border:none; border-radius:50%; width:44px; height:44px; font-size:20px; box-shadow:0 2px 8px rgba(0,0,0,0.2); cursor:pointer; z-index:1000; display:flex; align-items:center; justify-content:center;">⛶</button>';
     
     content.innerHTML = html;
 }
 
-// ==================== FONCTIONS UTILITAIRES ====================
+// ==================== FONCTIONS PANIER ====================
 function menuFilterCategory(cat) {
     menuSelectedCategory = cat;
     renderMenuTactile();
-    // Remonter en haut après changement
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -202,7 +202,7 @@ function menuCalcTotal() {
     return menuCart.reduce((sum, item) => sum + (item.prixUnitaire * item.quantite), 0);
 }
 
-// ==================== OPTIONS PRODUITS ====================
+// ==================== OPTIONS PRODUITS (MODALE) ====================
 function menuOpenOptions(pid) {
     var p = menuProducts.find(x => x.id === pid);
     if (!p) return;
@@ -211,34 +211,34 @@ function menuOpenOptions(pid) {
         return;
     }
     menuCurrentProductId = pid;
-    var h = '<h4>'+p.nom+'</h4>';
+    var h = '<h4 style="margin:0 0 12px;">'+p.nom+'</h4>';
     
-    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Sauces :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Sauces</label><div style="display:flex;flex-wrap:wrap;gap:6px; margin-top:4px;">';
     menuSauces.forEach(s => {
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;"><input type="checkbox" class="menu-sauce-check" value="'+s+'"> '+s+'</label>';
+        h += '<label style="display:flex;align-items:center;gap:5px; background:#f8fafc; padding:6px 12px; border-radius:30px;"><input type="checkbox" class="menu-sauce-check" value="'+s+'"> '+s+'</label>';
     });
     h += '</div></div>';
     
-    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🚫 Interdits :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🚫 Interdits</label><div style="display:flex;flex-wrap:wrap;gap:6px; margin-top:4px;">';
     menuInterdits.forEach(s => {
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;"><input type="checkbox" class="menu-interdit-check" value="'+s+'"> '+s+'</label>';
+        h += '<label style="display:flex;align-items:center;gap:5px; background:#f8fafc; padding:6px 12px; border-radius:30px;"><input type="checkbox" class="menu-interdit-check" value="'+s+'"> '+s+'</label>';
     });
     h += '</div></div>';
     
-    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices</label><div style="display:flex;flex-wrap:wrap;gap:6px; margin-top:4px;">';
     menuEpices.forEach((s, idx) => {
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;"><input type="radio" name="menu-epice" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';
+        h += '<label style="display:flex;align-items:center;gap:5px; background:#f8fafc; padding:6px 12px; border-radius:30px;"><input type="radio" name="menu-epice" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';
     });
     h += '</div></div>';
     
-    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🧂 Sel :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🧂 Sel</label><div style="display:flex;flex-wrap:wrap;gap:6px; margin-top:4px;">';
     menuSel.forEach((s, idx) => {
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;"><input type="radio" name="menu-sel" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';
+        h += '<label style="display:flex;align-items:center;gap:5px; background:#f8fafc; padding:6px 12px; border-radius:30px;"><input type="radio" name="menu-sel" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';
     });
     h += '</div></div>';
     
-    h += '<div style="text-align:right; margin-top:15px;"><button class="btn-cancel" onclick="closeModal()">Annuler</button> <button class="btn-save" onclick="menuConfirmOptions()">Ajouter</button></div>';
-    openModal('Personnaliser - '+p.nom, h);
+    h += '<div style="text-align:right; margin-top:15px;"><button class="btn-cancel" onclick="closeModal()" style="padding:10px 20px;">Annuler</button> <button class="btn-save" onclick="menuConfirmOptions()" style="padding:10px 20px;">Ajouter</button></div>';
+    openModal('Personnaliser', h);
 }
 
 function menuConfirmOptions() {
@@ -272,21 +272,19 @@ function menuConfirmOptions() {
     }
     closeModal();
     renderMenuTactile();
+    // Petite animation panier
     setTimeout(() => {
         var cart = document.querySelector('[style*="sticky"]');
-        if (cart) cart.style.transform = 'scale(1.02)';
+        if (cart) cart.style.transform = 'scale(1.01)';
         setTimeout(() => { if (cart) cart.style.transform = ''; }, 150);
     }, 50);
 }
 
 // ==================== VALIDATION COMMANDE ====================
 async function menuValiderCommande() {
-    if (menuCart.length === 0) {
-        alert('⚠️ Panier vide.');
-        return;
-    }
+    if (menuCart.length === 0) { alert('Panier vide'); return; }
     var total = menuCalcTotal();
-    if (!confirm('📋 Confirmer la commande ?\nTable '+menuTableNum+'\nTotal: '+total.toFixed(2)+' MAD')) return;
+    if (!confirm('Confirmer la commande ?\nTable '+menuTableNum+'\nTotal: '+total.toFixed(2)+' MAD')) return;
     
     try {
         await db.collection('commandes').add({
@@ -307,4 +305,4 @@ async function menuValiderCommande() {
     }
 }
 
-console.log('🍽️ Menu tactile - Version fixe, scroll vertical uniquement');
+console.log('🍽️ Menu tactile - Version mobile optimisée');
