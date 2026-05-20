@@ -11,85 +11,52 @@ var menuInterdits = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade'];
 var menuEpices = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var menuSel = ['Normal','Moins de sel','Sans sel'];
 
-// ==================== DÉTECTION iOS ====================
+// ==================== SIMULATION PLEIN ÉCRAN SUR iOS ====================
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
-function isStandalone() {
-    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-
-// ==================== PLEIN ÉCRAN (uniquement pour non-iOS) ====================
-function requestFullscreen() {
-    const elem = document.documentElement;
-    const method = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
-    if (method) {
-        method.call(elem).catch(err => console.log("Fullscreen error:", err));
+function initFullscreenSimulation() {
+    if (!isIOS()) return;
+    // 1. Forcer le scroll vers le haut pour cacher la barre d'adresse
+    window.scrollTo(0, 1);
+    
+    // 2. Désactiver le scroll de la page entière
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = '0';
+    document.body.style.left = '0';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    
+    // 3. Créer un conteneur interne défilable
+    let container = document.getElementById('menuTactileContent');
+    if (container) {
+        container.style.overflowY = 'auto';
+        container.style.webkitOverflowScrolling = 'touch';
+        container.style.height = '100%';
+        container.style.position = 'relative';
     }
-}
-
-// ==================== MODALE D'INSTALLATION POUR iOS ====================
-function showiOSInstallModal() {
-    if (!isIOS() || isStandalone()) return;
-    const modal = document.createElement('div');
-    modal.id = 'iosInstallModal';
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.width = '100%';
-    modal.style.height = '100%';
-    modal.style.backgroundColor = 'rgba(0,0,0,0.85)';
-    modal.style.zIndex = '20000';
-    modal.style.display = 'flex';
-    modal.style.alignItems = 'center';
-    modal.style.justifyContent = 'center';
-    modal.style.flexDirection = 'column';
-    modal.style.padding = '20px';
-    modal.style.backdropFilter = 'blur(5px)';
-    modal.innerHTML = `
-        <div style="background:white; border-radius:32px; padding:25px; max-width:320px; text-align:center; font-family:sans-serif;">
-            <i class="fas fa-mobile-alt" style="font-size:48px; color:#f39c12;"></i>
-            <h2 style="margin:15px 0 10px;">Installer l'application</h2>
-            <p style="color:#1e293b;">Pour profiter du plein écran sur iPhone, ajoutez Chicken Way à votre écran d'accueil :</p>
-            <div style="background:#f1f5f9; border-radius:16px; padding:12px; margin:15px 0;">
-                <span style="font-size:28px;">📲</span> <strong>Partager</strong> → <strong>Ajouter à l'écran d'accueil</strong>
-            </div>
-            <button id="iosModalClose" style="background:#f39c12; color:white; border:none; padding:12px 24px; border-radius:40px; font-size:16px; font-weight:bold; cursor:pointer;">Continuer sans plein écran</button>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    document.getElementById('iosModalClose').addEventListener('click', () => modal.remove());
+    
+    // 4. Écouter les réorientations d'écran
+    window.addEventListener('orientationchange', function() {
+        setTimeout(() => window.scrollTo(0, 1), 100);
+    });
 }
 
 // ==================== FERMETURE ====================
 function closeMenuTactile() {
-    if (isStandalone()) {
-        window.close();
-    } else {
-        window.location.href = window.location.pathname;
-    }
+    window.location.href = window.location.pathname;
 }
 
 // ==================== INITIALISATION ====================
 function initMenuTactile(tableNum) {
     menuTableNum = tableNum;
     console.log('🍽️ Menu tactile - Table', tableNum);
-
-    // Gestion du plein écran / installation selon la plateforme
-    if (!isIOS() || (isIOS() && isStandalone())) {
-        // Android, PC ou iOS en standalone : on peut tenter le plein écran
-        const events = ['touchstart', 'click'];
-        const onFirstInteraction = () => {
-            requestFullscreen();
-            events.forEach(ev => document.removeEventListener(ev, onFirstInteraction));
-        };
-        events.forEach(ev => document.addEventListener(ev, onFirstInteraction, { once: true }));
-    } else {
-        // iOS non standalone : afficher la modale d'installation
-        showiOSInstallModal();
-    }
-
+    
+    // Activer la simulation plein écran (iOS uniquement)
+    initFullscreenSimulation();
+    
     if (typeof db === 'undefined' || typeof CacheDB === 'undefined') {
         setTimeout(() => initMenuTactile(tableNum), 500);
         return;
@@ -353,4 +320,4 @@ async function menuValiderCommande() {
     }
 }
 
-console.log('🍽️ Menu tactile - Version finale avec aide à l\'installation pour iOS');
+console.log('🍽️ Menu tactile - Simulation plein écran iOS (cachage barre adresse)');
