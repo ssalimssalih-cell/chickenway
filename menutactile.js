@@ -11,47 +11,19 @@ var menuInterdits = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade'];
 var menuEpices = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var menuSel = ['Normal','Moins de sel','Sans sel'];
 
-// ==================== PLEIN ÉCRAN FORCÉ POUR IOS ====================
+// ==================== PLEIN ÉCRAN (Android/PC) + AIDE iOS ====================
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
-function hideAddressBar() {
-    // Force le scroll en haut pour cacher la barre d'adresse
-    window.scrollTo(0, 1);
-}
-
-function fixLayoutForIOS() {
-    if (!isIOS()) return;
-
-    // Appliquer les styles à la page complète
-    const page = document.getElementById('menuTactilePage');
-    if (page) {
-        page.style.position = 'fixed';
-        page.style.top = '0';
-        page.style.left = '0';
-        page.style.width = '100%';
-        page.style.height = '100%';
-        page.style.overflow = 'hidden';
-        page.style.backgroundColor = '#f8fafc';
+function requestFullscreen() {
+    const elem = document.documentElement;
+    const method = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
+    if (method) {
+        method.call(elem).catch(err => console.log("Fullscreen error:", err));
+    } else {
+        alert("Sur iPhone, pour le plein écran, ajoutez cette page à l'écran d'accueil.\n\nPartage → Ajouter à l'écran d'accueil");
     }
-
-    // Conteneur principal défilable
-    const container = document.getElementById('menuTactileContent');
-    if (container) {
-        container.style.overflowY = 'auto';
-        container.style.webkitOverflowScrolling = 'touch';
-        container.style.height = '100%';
-        container.style.position = 'relative';
-    }
-
-    // Cacher la barre d'adresse immédiatement et à chaque réorientation
-    hideAddressBar();
-    window.addEventListener('resize', () => setTimeout(hideAddressBar, 50));
-    window.addEventListener('orientationchange', () => setTimeout(hideAddressBar, 50));
-    
-    // Petit délai pour être sûr que la hauteur est recalculée
-    setTimeout(hideAddressBar, 100);
 }
 
 // ==================== FERMETURE ====================
@@ -63,10 +35,7 @@ function closeMenuTactile() {
 function initMenuTactile(tableNum) {
     menuTableNum = tableNum;
     console.log('🍽️ Menu tactile - Table', tableNum);
-    
-    // Appliquer la correction de mise en page pour iOS
-    fixLayoutForIOS();
-    
+
     if (typeof db === 'undefined' || typeof CacheDB === 'undefined') {
         setTimeout(() => initMenuTactile(tableNum), 500);
         return;
@@ -113,8 +82,6 @@ async function loadMenuData() {
         });
 
         renderMenuTactile();
-        // Re-cacher la barre après l'affichage du contenu
-        hideAddressBar();
     } catch(e) {
         console.error(e);
         var content = document.getElementById('menuTactileContent');
@@ -140,7 +107,7 @@ function renderMenuTactile() {
     html += '<p style="margin:8px 0 0;">🍽️ Table n° ' + menuTableNum + '</p>';
     html += '</div>';
     
-    // Barre de catégories
+    // Barre de catégories (scroll horizontal OK)
     html += '<div style="overflow-x:auto; white-space:nowrap; padding:10px; -webkit-overflow-scrolling:touch;">';
     html += '<button onclick="menuFilterCategory(\'all\')" style="display:inline-block; padding:10px 18px; margin:0 4px; border-radius:50px; border:2px solid ' + (menuSelectedCategory==='all'?'#f39c12':'#e2e8f0') + '; background:' + (menuSelectedCategory==='all'?'#f39c12':'#fff') + '; color:' + (menuSelectedCategory==='all'?'#fff':'#1e293b') + '; font-weight:600;">📋 Tous</button>';
     for (var i=0; i<menuCategories.length; i++) {
@@ -197,6 +164,9 @@ function renderMenuTactile() {
     if (menuCart.length>0) html += '<button onclick="menuClearCart()" style="width:100%; margin-top:8px; padding:8px; border:2px solid #e2e8f0; border-radius:12px; background:#fff; color:#64748b;">🗑️ Vider le panier</button>';
     html += '</div>';
     
+    // Bouton flottant pour demander le plein écran
+    html += '<button onclick="requestFullscreen()" style="position:fixed; bottom:20px; right:20px; background:#f39c12; color:white; border:none; border-radius:50%; width:50px; height:50px; font-size:22px; box-shadow:0 4px 12px rgba(0,0,0,0.3); cursor:pointer; z-index:1000; display:flex; align-items:center; justify-content:center;">⛶</button>';
+    
     content.innerHTML = html;
 }
 
@@ -204,8 +174,7 @@ function renderMenuTactile() {
 function menuFilterCategory(cat) {
     menuSelectedCategory = cat;
     renderMenuTactile();
-    // Forcer le scroll en haut après avoir changé de catégorie
-    window.scrollTo(0, 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function menuUpdateQty(idx, delta) {
@@ -326,11 +295,11 @@ async function menuValiderCommande() {
         alert('✅ Commande envoyée avec succès !\n\n🍽️ Table n° '+menuTableNum+'\n💰 Total : '+total.toFixed(2)+' MAD\n\nVotre commande est en cours de préparation.\nBon appétit ! 🎉');
         menuCart = [];
         renderMenuTactile();
-        window.scrollTo(0, 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch(e) {
         console.error(e);
         alert('❌ Erreur lors de l\'envoi de la commande.\nVeuillez réessayer.');
     }
 }
 
-console.log('🍽️ Menu tactile - Technique plein écran forcée iOS (fix position)');
+console.log('🍽️ Menu tactile - Version sans blocage scroll, avec bouton plein écran');
