@@ -11,31 +11,40 @@ var menuInterdits = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade'];
 var menuEpices = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var menuSel = ['Normal','Moins de sel','Sans sel'];
 
-// ==================== PLEIN ÉCRAN (Android/PC) + AIDE iOS ====================
-function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+// ==================== FERMETURE ====================
+function closeMenuTactile() {
+    window.location.href = window.location.pathname;
 }
 
+// ==================== PLEIN ÉCRAN (Android/PC) ====================
 function requestFullscreen() {
     const elem = document.documentElement;
     const method = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
     if (method) {
         method.call(elem).catch(err => console.log("Fullscreen error:", err));
     } else {
-        alert("Sur iPhone, pour le plein écran, ajoutez cette page à l'écran d'accueil.\n\nPartage → Ajouter à l'écran d'accueil");
+        alert("Sur iPhone : Partage → Ajouter à l'écran d'accueil pour le plein écran.");
     }
-}
-
-// ==================== FERMETURE ====================
-function closeMenuTactile() {
-    window.location.href = window.location.pathname;
 }
 
 // ==================== INITIALISATION ====================
 function initMenuTactile(tableNum) {
     menuTableNum = tableNum;
     console.log('🍽️ Menu tactile - Table', tableNum);
-
+    
+    // Appliquer les styles pour une mise en page fixe et sans scroll horizontal
+    document.body.style.overflowX = 'hidden';
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    document.documentElement.style.overflowX = 'hidden';
+    
+    const container = document.getElementById('menuTactilePage');
+    if (container) {
+        container.style.width = '100%';
+        container.style.maxWidth = '100%';
+        container.style.overflowX = 'hidden';
+    }
+    
     if (typeof db === 'undefined' || typeof CacheDB === 'undefined') {
         setTimeout(() => initMenuTactile(tableNum), 500);
         return;
@@ -43,14 +52,14 @@ function initMenuTactile(tableNum) {
     loadMenuData();
 }
 
-// ==================== CHARGEMENT DEPUIS FIREBASE ====================
+// ==================== CHARGEMENT ====================
 async function loadMenuData() {
     try {
         var content = document.getElementById('menuTactileContent');
         if (content) {
             content.innerHTML = '<div style="text-align:center;padding:60px 20px;">' +
                 '<i class="fas fa-spinner fa-spin" style="font-size:3rem;color:#f39c12;"></i>' +
-                '<p style="margin-top:15px;">Chargement du menu...</p>' +
+                '<p>Chargement du menu...</p>' +
                 '</div>';
         }
 
@@ -99,28 +108,28 @@ function renderMenuTactile() {
     var total = menuCalcTotal();
     var html = '';
     
-    // En-tête avec bouton X
-    html += '<div style="position:relative; text-align:center; padding:25px 15px 20px 15px; background:linear-gradient(135deg,#f39c12,#e67e22); color:#fff; border-radius:0 0 24px 24px; margin-bottom:15px;">';
-    html += '<button onclick="closeMenuTactile()" style="position:absolute; top:10px; right:15px; background:rgba(0,0,0,0.3); border:none; color:white; font-size:1.8rem; cursor:pointer; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:10;">&times;</button>';
-    html += '<div style="display:flex; justify-content:center; margin-bottom:12px;"><img src="logo.png" style="width:80px; height:80px; border-radius:50%; border:4px solid #fff; object-fit:cover;"></div>';
-    html += '<h1 style="margin:0; font-size:1.5rem;">Chicken <span style="color:#fff;">Way</span></h1>';
-    html += '<p style="margin:8px 0 0;">🍽️ Table n° ' + menuTableNum + '</p>';
+    // En-tête fixe avec bouton X
+    html += '<div style="position:sticky; top:0; z-index:20; background:linear-gradient(135deg,#f39c12,#e67e22); color:#fff; border-radius:0 0 24px 24px; margin-bottom:15px; text-align:center; padding:20px 15px;">';
+    html += '<button onclick="closeMenuTactile()" style="position:absolute; top:10px; right:15px; background:rgba(0,0,0,0.3); border:none; color:white; font-size:1.8rem; cursor:pointer; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">&times;</button>';
+    html += '<img src="logo.png" style="width:70px; height:70px; border-radius:50%; border:3px solid #fff; object-fit:cover; margin-bottom:8px;">';
+    html += '<h1 style="margin:0; font-size:1.4rem;">Chicken <span style="color:#fff;">Way</span></h1>';
+    html += '<p style="margin:5px 0 0;">🍽️ Table n° ' + menuTableNum + '</p>';
     html += '</div>';
     
-    // Barre de catégories (scroll horizontal OK)
-    html += '<div style="overflow-x:auto; white-space:nowrap; padding:10px; -webkit-overflow-scrolling:touch;">';
-    html += '<button onclick="menuFilterCategory(\'all\')" style="display:inline-block; padding:10px 18px; margin:0 4px; border-radius:50px; border:2px solid ' + (menuSelectedCategory==='all'?'#f39c12':'#e2e8f0') + '; background:' + (menuSelectedCategory==='all'?'#f39c12':'#fff') + '; color:' + (menuSelectedCategory==='all'?'#fff':'#1e293b') + '; font-weight:600;">📋 Tous</button>';
+    // Barre de catégories (scroll horizontal uniquement dans sa zone)
+    html += '<div style="overflow-x:auto; white-space:nowrap; padding:10px 10px 5px 10px; -webkit-overflow-scrolling:touch; scrollbar-width:thin;">';
+    html += '<button onclick="menuFilterCategory(\'all\')" style="display:inline-block; padding:8px 16px; margin:0 4px; border-radius:50px; border:2px solid ' + (menuSelectedCategory==='all'?'#f39c12':'#e2e8f0') + '; background:' + (menuSelectedCategory==='all'?'#f39c12':'#fff') + '; color:' + (menuSelectedCategory==='all'?'#fff':'#1e293b') + '; font-weight:600;">📋 Tous</button>';
     for (var i=0; i<menuCategories.length; i++) {
         var cat = menuCategories[i];
         var active = menuSelectedCategory === cat.nom;
-        html += '<button onclick="menuFilterCategory(\''+cat.nom.replace(/'/g,"\\'")+'\')" style="display:inline-block; padding:10px 18px; margin:0 4px; border-radius:50px; border:2px solid '+(active?'#f39c12':'#e2e8f0')+'; background:'+(active?'#f39c12':'#fff')+'; color:'+(active?'#fff':'#1e293b')+'; font-weight:600;">'+cat.nom+'</button>';
+        html += '<button onclick="menuFilterCategory(\''+cat.nom.replace(/'/g,"\\'")+'\')" style="display:inline-block; padding:8px 16px; margin:0 4px; border-radius:50px; border:2px solid '+(active?'#f39c12':'#e2e8f0')+'; background:'+(active?'#f39c12':'#fff')+'; color:'+(active?'#fff':'#1e293b')+'; font-weight:600;">'+cat.nom+'</button>';
     }
     html += '</div>';
     
-    // Grille produits
+    // Grille produits (responsive, pas de scroll horizontal global)
     var filtered = menuProducts;
     if (menuSelectedCategory !== 'all') filtered = menuProducts.filter(p => p.categorie === menuSelectedCategory);
-    html += '<div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; padding:10px;">';
+    html += '<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; padding:10px;">';
     if (filtered.length === 0) {
         html += '<div style="grid-column:1/-1; text-align:center; padding:30px;">Aucun produit dans cette catégorie</div>';
     } else {
@@ -128,44 +137,40 @@ function renderMenuTactile() {
             var p = filtered[j];
             var price = (p.prixPromo && p.prixPromo>0) ? p.prixPromo : p.prixVente;
             var outOfStock = p.stock !== undefined && p.stock <= 0;
-            html += '<div onclick="'+(outOfStock?'':'menuOpenOptions(\''+p.id+'\')')+'" style="background:#fff; border:2px solid '+(outOfStock?'#fecaca':'#e2e8f0')+'; border-radius:16px; padding:12px; cursor:'+(outOfStock?'not-allowed':'pointer')+'; opacity:'+(outOfStock?'0.5':'1')+'; text-align:center;">';
-            if (p.imageBase64) html += '<div style="height:100px; border-radius:12px; overflow:hidden; margin-bottom:8px;"><img src="'+p.imageBase64+'" style="width:100%; height:100%; object-fit:cover;"></div>';
+            html += '<div onclick="'+(outOfStock?'':'menuOpenOptions(\''+p.id+'\')')+'" style="background:#fff; border:2px solid '+(outOfStock?'#fecaca':'#e2e8f0')+'; border-radius:16px; padding:10px; cursor:'+(outOfStock?'not-allowed':'pointer')+'; opacity:'+(outOfStock?'0.5':'1')+'; text-align:center;">';
+            if (p.imageBase64) html += '<div style="height:100px; border-radius:12px; overflow:hidden; margin-bottom:6px;"><img src="'+p.imageBase64+'" style="width:100%; height:100%; object-fit:cover;"></div>';
             else html += '<div style="height:100px; border-radius:12px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:2rem;">🍗</div>';
-            html += '<div style="font-weight:600; margin:4px 0;">'+p.nom+'</div>';
+            html += '<div style="font-weight:600; font-size:0.9rem;">'+p.nom+'</div>';
             html += '<div style="font-weight:700; color:#e67e22;">'+price.toFixed(2)+' MAD</div>';
-            if (outOfStock) html += '<div style="font-size:0.7rem; color:#ef4444;">⚠️ Rupture</div>';
+            if (outOfStock) html += '<div style="font-size:0.7rem; color:#ef4444;">Rupture</div>';
             html += '</div>';
         }
     }
     html += '</div>';
     
-    // Panier sticky
-    html += '<div style="position:sticky; bottom:0; background:#fff; padding:15px; border-radius:20px 20px 0 0; box-shadow:0 -4px 20px rgba(0,0,0,0.1); margin-top:10px;">';
-    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;"><strong>🛒 Mon panier</strong><span style="background:#f39c12; color:#fff; padding:3px 10px; border-radius:20px;">'+menuCart.length+' article(s)</span></div>';
+    // Panier sticky (collé en bas)
+    html += '<div style="position:sticky; bottom:0; background:#fff; padding:12px; border-radius:20px 20px 0 0; box-shadow:0 -2px 15px rgba(0,0,0,0.1); margin-top:10px;">';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><strong>🛒 Mon panier</strong><span style="background:#f39c12; color:#fff; padding:2px 10px; border-radius:20px;">'+menuCart.length+' article(s)</span></div>';
     if (menuCart.length === 0) {
-        html += '<p style="text-align:center; color:#94a3b8; margin:10px 0;">👆 Appuyez sur un produit pour ajouter</p>';
+        html += '<p style="text-align:center; color:#94a3b8; margin:5px 0;">Cliquez sur un produit</p>';
     } else {
-        html += '<div style="max-height:150px; overflow-y:auto; margin-bottom:10px;">';
+        html += '<div style="max-height:130px; overflow-y:auto; margin-bottom:8px;">';
         for (var k=0; k<menuCart.length; k++) {
             var it = menuCart[k];
-            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f1f5f9;">';
-            html += '<span style="flex:2;">'+it.quantite+'x '+it.nom+'</span>';
-            html += '<div style="display:flex; align-items:center; gap:8px;">';
-            html += '<button onclick="menuUpdateQty('+k+',-1)" style="width:26px;height:26px;border-radius:50%; border:1px solid #e2e8f0; background:#fff;">-</button>';
-            html += '<span style="min-width:24px; text-align:center;">'+it.quantite+'</span>';
-            html += '<button onclick="menuUpdateQty('+k+',1)" style="width:26px;height:26px;border-radius:50%; border:1px solid #e2e8f0; background:#fff;">+</button>';
-            html += '<span style="min-width:65px; text-align:right; font-weight:600;">'+(it.prixUnitaire*it.quantite).toFixed(2)+' MAD</span>';
-            html += '</div></div>';
+            html += '<div style="display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #f1f5f9;">';
+            html += '<span style="font-size:0.85rem;">'+it.quantite+'x '+it.nom+'</span>';
+            html += '<div><button onclick="menuUpdateQty('+k+',-1)" style="width:26px;height:26px;border-radius:50%; border:1px solid #ccc;">-</button> <span style="min-width:24px; text-align:center;">'+it.quantite+'</span> <button onclick="menuUpdateQty('+k+',1)" style="width:26px;height:26px;border-radius:50%; border:1px solid #ccc;">+</button> <span style="min-width:65px; text-align:right;">'+(it.prixUnitaire*it.quantite).toFixed(2)+'</span></div>';
+            html += '</div>';
         }
         html += '</div>';
     }
-    html += '<div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.1rem; margin-bottom:10px;"><span>Total</span><span style="color:#e67e22;">'+total.toFixed(2)+' MAD</span></div>';
-    html += '<button onclick="menuValiderCommande()" '+(menuCart.length===0?'disabled':'')+' style="width:100%; padding:12px; border:none; border-radius:12px; background:'+(menuCart.length===0?'#cbd5e1':'linear-gradient(135deg,#f39c12,#e67e22)')+'; color:#fff; font-weight:700; font-size:1rem;">✅ Commander</button>';
-    if (menuCart.length>0) html += '<button onclick="menuClearCart()" style="width:100%; margin-top:8px; padding:8px; border:2px solid #e2e8f0; border-radius:12px; background:#fff; color:#64748b;">🗑️ Vider le panier</button>';
+    html += '<div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.1rem; margin:8px 0;"><span>Total</span><span style="color:#e67e22;">'+total.toFixed(2)+' MAD</span></div>';
+    html += '<button onclick="menuValiderCommande()" '+(menuCart.length===0?'disabled':'')+' style="width:100%; padding:12px; border:none; border-radius:12px; background:'+(menuCart.length===0?'#cbd5e1':'linear-gradient(135deg,#f39c12,#e67e22)')+'; color:#fff; font-weight:700;">✅ Commander</button>';
+    if (menuCart.length>0) html += '<button onclick="menuClearCart()" style="width:100%; margin-top:8px; padding:6px; border:1px solid #ccc; background:#fff; border-radius:12px;">🗑️ Vider</button>';
     html += '</div>';
     
-    // Bouton flottant pour demander le plein écran
-    html += '<button onclick="requestFullscreen()" style="position:fixed; bottom:20px; right:20px; background:#f39c12; color:white; border:none; border-radius:50%; width:50px; height:50px; font-size:22px; box-shadow:0 4px 12px rgba(0,0,0,0.3); cursor:pointer; z-index:1000; display:flex; align-items:center; justify-content:center;">⛶</button>';
+    // Bouton plein écran flottant (pour Android/PC)
+    html += '<button onclick="requestFullscreen()" style="position:fixed; bottom:20px; right:20px; background:#f39c12; color:white; border:none; border-radius:50%; width:45px; height:45px; font-size:20px; box-shadow:0 2px 8px rgba(0,0,0,0.2); cursor:pointer; z-index:1000;">⛶</button>';
     
     content.innerHTML = html;
 }
@@ -174,6 +179,7 @@ function renderMenuTactile() {
 function menuFilterCategory(cat) {
     menuSelectedCategory = cat;
     renderMenuTactile();
+    // Remonter en haut après changement
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -186,7 +192,7 @@ function menuUpdateQty(idx, delta) {
 }
 
 function menuClearCart() {
-    if (confirm('Vider votre panier ?')) {
+    if (confirm('Vider le panier ?')) {
         menuCart = [];
         renderMenuTactile();
     }
@@ -280,7 +286,7 @@ async function menuValiderCommande() {
         return;
     }
     var total = menuCalcTotal();
-    if (!confirm('📋 Confirmer votre commande ?\n\n🍽️ Table n° '+menuTableNum+'\n📦 '+menuCart.length+' article(s)\n💰 Total : '+total.toFixed(2)+' MAD\n\nVotre commande sera envoyée en cuisine.')) return;
+    if (!confirm('📋 Confirmer la commande ?\nTable '+menuTableNum+'\nTotal: '+total.toFixed(2)+' MAD')) return;
     
     try {
         await db.collection('commandes').add({
@@ -292,14 +298,13 @@ async function menuValiderCommande() {
             source: 'menu_tactile',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        alert('✅ Commande envoyée avec succès !\n\n🍽️ Table n° '+menuTableNum+'\n💰 Total : '+total.toFixed(2)+' MAD\n\nVotre commande est en cours de préparation.\nBon appétit ! 🎉');
+        alert('✅ Commande envoyée !');
         menuCart = [];
         renderMenuTactile();
         window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch(e) {
-        console.error(e);
-        alert('❌ Erreur lors de l\'envoi de la commande.\nVeuillez réessayer.');
+        alert('❌ Erreur: '+e.message);
     }
 }
 
-console.log('🍽️ Menu tactile - Version sans blocage scroll, avec bouton plein écran');
+console.log('🍽️ Menu tactile - Version fixe, scroll vertical uniquement');
