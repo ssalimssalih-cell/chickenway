@@ -11,37 +11,47 @@ var menuInterdits = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade'];
 var menuEpices = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var menuSel = ['Normal','Moins de sel','Sans sel'];
 
-// ==================== SIMULATION PLEIN ÉCRAN SUR iOS ====================
+// ==================== PLEIN ÉCRAN FORCÉ POUR IOS ====================
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
-function initFullscreenSimulation() {
-    if (!isIOS()) return;
-    // 1. Forcer le scroll vers le haut pour cacher la barre d'adresse
+function hideAddressBar() {
+    // Force le scroll en haut pour cacher la barre d'adresse
     window.scrollTo(0, 1);
-    
-    // 2. Désactiver le scroll de la page entière
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = '0';
-    document.body.style.left = '0';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    
-    // 3. Créer un conteneur interne défilable
-    let container = document.getElementById('menuTactileContent');
+}
+
+function fixLayoutForIOS() {
+    if (!isIOS()) return;
+
+    // Appliquer les styles à la page complète
+    const page = document.getElementById('menuTactilePage');
+    if (page) {
+        page.style.position = 'fixed';
+        page.style.top = '0';
+        page.style.left = '0';
+        page.style.width = '100%';
+        page.style.height = '100%';
+        page.style.overflow = 'hidden';
+        page.style.backgroundColor = '#f8fafc';
+    }
+
+    // Conteneur principal défilable
+    const container = document.getElementById('menuTactileContent');
     if (container) {
         container.style.overflowY = 'auto';
         container.style.webkitOverflowScrolling = 'touch';
         container.style.height = '100%';
         container.style.position = 'relative';
     }
+
+    // Cacher la barre d'adresse immédiatement et à chaque réorientation
+    hideAddressBar();
+    window.addEventListener('resize', () => setTimeout(hideAddressBar, 50));
+    window.addEventListener('orientationchange', () => setTimeout(hideAddressBar, 50));
     
-    // 4. Écouter les réorientations d'écran
-    window.addEventListener('orientationchange', function() {
-        setTimeout(() => window.scrollTo(0, 1), 100);
-    });
+    // Petit délai pour être sûr que la hauteur est recalculée
+    setTimeout(hideAddressBar, 100);
 }
 
 // ==================== FERMETURE ====================
@@ -54,8 +64,8 @@ function initMenuTactile(tableNum) {
     menuTableNum = tableNum;
     console.log('🍽️ Menu tactile - Table', tableNum);
     
-    // Activer la simulation plein écran (iOS uniquement)
-    initFullscreenSimulation();
+    // Appliquer la correction de mise en page pour iOS
+    fixLayoutForIOS();
     
     if (typeof db === 'undefined' || typeof CacheDB === 'undefined') {
         setTimeout(() => initMenuTactile(tableNum), 500);
@@ -103,6 +113,8 @@ async function loadMenuData() {
         });
 
         renderMenuTactile();
+        // Re-cacher la barre après l'affichage du contenu
+        hideAddressBar();
     } catch(e) {
         console.error(e);
         var content = document.getElementById('menuTactileContent');
@@ -192,7 +204,8 @@ function renderMenuTactile() {
 function menuFilterCategory(cat) {
     menuSelectedCategory = cat;
     renderMenuTactile();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Forcer le scroll en haut après avoir changé de catégorie
+    window.scrollTo(0, 1);
 }
 
 function menuUpdateQty(idx, delta) {
@@ -313,11 +326,11 @@ async function menuValiderCommande() {
         alert('✅ Commande envoyée avec succès !\n\n🍽️ Table n° '+menuTableNum+'\n💰 Total : '+total.toFixed(2)+' MAD\n\nVotre commande est en cours de préparation.\nBon appétit ! 🎉');
         menuCart = [];
         renderMenuTactile();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo(0, 1);
     } catch(e) {
         console.error(e);
         alert('❌ Erreur lors de l\'envoi de la commande.\nVeuillez réessayer.');
     }
 }
 
-console.log('🍽️ Menu tactile - Simulation plein écran iOS (cachage barre adresse)');
+console.log('🍽️ Menu tactile - Technique plein écran forcée iOS (fix position)');
