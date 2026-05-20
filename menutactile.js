@@ -12,7 +12,7 @@ var menuInterdits = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade'];
 var menuEpices = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var menuSel = ['Normal','Moins de sel','Sans sel'];
 
-// ==================== DÉTECTION iOS + MODE STANDALONE ====================
+// ==================== DÉTECTION iOS ====================
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
@@ -21,41 +21,77 @@ function isStandalone() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-// Affiche une bannière d'installation sur iOS si pas en standalone
-function showInstallBanner() {
+// ==================== PLEIN ÉCRAN (pour Android/PC) ====================
+function requestFullscreen() {
+    const elem = document.documentElement;
+    const method = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
+    if (method) {
+        method.call(elem).catch(err => console.log("Fullscreen error:", err));
+    }
+}
+
+// ==================== INVITE POUR iOS ====================
+function showIOSInstallPrompt() {
     if (isIOS() && !isStandalone()) {
-        var banner = document.createElement('div');
-        banner.id = 'iosInstallBanner';
-        banner.style.position = 'fixed';
-        banner.style.bottom = '20px';
-        banner.style.left = '10px';
-        banner.style.right = '10px';
-        banner.style.backgroundColor = '#f39c12';
-        banner.style.color = '#fff';
-        banner.style.padding = '12px';
-        banner.style.borderRadius = '12px';
-        banner.style.textAlign = 'center';
-        banner.style.zIndex = '1000';
-        banner.style.fontSize = '14px';
-        banner.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
-        banner.innerHTML = '📱 Pour le plein écran, ajoutez cette application à l\'écran d\'accueil :<br><strong>Partager → Ajouter à l\'écran d\'accueil</strong> <button onclick="document.getElementById(\'iosInstallBanner\').remove()" style="background:white; border:none; border-radius:20px; padding:4px 12px; margin-left:10px;">OK</button>';
-        document.body.appendChild(banner);
+        const modal = document.createElement('div');
+        modal.id = 'iosInstallModal';
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+        modal.style.zIndex = '10000';
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.flexDirection = 'column';
+        modal.style.padding = '20px';
+        modal.style.textAlign = 'center';
+        modal.innerHTML = `
+            <div style="background:white; border-radius:20px; padding:25px; max-width:300px;">
+                <i class="fas fa-arrow-up" style="font-size:40px; color:#f39c12;"></i>
+                <h3 style="margin:15px 0;">Plein écran requis</h3>
+                <p>Pour une meilleure expérience, veuillez installer cette application sur votre écran d'accueil :</p>
+                <p style="background:#f1f5f9; padding:10px; border-radius:12px;">🔘 Partager → Ajouter à l'écran d'accueil</p>
+                <button id="iosContinueBtn" style="background:#f39c12; color:white; border:none; padding:10px 20px; border-radius:25px; margin-top:15px; cursor:pointer;">Continuer sans plein écran</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('iosContinueBtn').addEventListener('click', () => {
+            modal.remove();
+        });
     }
 }
 
 // ==================== FERMETURE ====================
 function closeMenuTactile() {
-    window.location.href = window.location.pathname;
+    // Si en mode standalone on ferme l'app, sinon on revient à la page d'accueil
+    if (isStandalone()) {
+        window.close(); // Fonctionne si l'app a été ouverte depuis l'écran d'accueil
+    } else {
+        window.location.href = window.location.pathname;
+    }
 }
 
 // ==================== INITIALISATION ====================
 function initMenuTactile(tableNum) {
     menuTableNum = tableNum;
     console.log('🍽️ Menu tactile - Table', tableNum);
-    
-    // Afficher la bannière iOS si besoin
-    showInstallBanner();
-    
+
+    // Forcer le plein écran (si possible) au premier toucher
+    const events = ['touchstart', 'click'];
+    const onFirstInteraction = () => {
+        if (!isIOS() || (isIOS() && isStandalone())) {
+            requestFullscreen();
+        } else {
+            showIOSInstallPrompt();
+        }
+        events.forEach(ev => document.removeEventListener(ev, onFirstInteraction));
+    };
+    events.forEach(ev => document.addEventListener(ev, onFirstInteraction, { once: true }));
+
+    // Attendre Firebase et le cache
     if (typeof db === 'undefined' || typeof CacheDB === 'undefined') {
         setTimeout(() => initMenuTactile(tableNum), 500);
         return;
@@ -319,4 +355,4 @@ async function menuValiderCommande() {
     }
 }
 
-console.log('🍽️ Menu tactile - Prêt (avec bannière installation iOS)');
+console.log('🍽️ Menu tactile - Forçage plein écran (avec aide pour iOS)');
