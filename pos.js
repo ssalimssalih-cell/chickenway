@@ -1,4 +1,4 @@
-// ==================== POS.JS AVEC CACHE OFFLINE ====================
+// ==================== POS.JS AVEC CACHE OFFLINE & BADGE COMMANDES EN LIGNE ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
@@ -9,7 +9,7 @@ var posSelList = ['Normal','Moins de sel','Sans sel'];
 
 var posCommandesTables = [];
 var posCommandesTablesCount = 0;
-var posCommandesEnLigneCount = 0;   // compteur des commandes en ligne en attente
+var posCommandesEnLigneCount = 0;   // ← compteur des commandes en ligne en attente
 
 async function loadPosPage(c) {
     posResetCart(); posStep = 1;
@@ -101,7 +101,6 @@ async function posChargerCommandesTables() {
 
 async function posChargerCommandesEnLigneCount() {
     try {
-        // Compte toutes les commandes en attente avec source = 'client'
         var snap = await db.collection('commandes')
             .where('statut', '==', 'en_attente')
             .get();
@@ -189,7 +188,7 @@ function renderPOS() {
     h += '<i class="fas fa-utensils"></i> Tables';
     if (posCommandesTablesCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesTablesCount + '</span>';
     h += '</button>';
-    // Bouton "En ligne" : redirige vers la page commandes en ligne du menu
+    // Bouton "En ligne" : redirige vers la page commandes en ligne du menu avec badge
     h += '<button onclick="navigateTo(\'commandes\')" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
     h += '<i class="fas fa-globe"></i> En ligne';
     if (posCommandesEnLigneCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesEnLigneCount + '</span>';
@@ -287,7 +286,6 @@ function posAfficherCommandesTables() {
     openModal('🛎️ Commandes tables en attente (' + posCommandesTables.length + ')', html);
 }
 
-// Commandes tables (inchangé)
 function posChargerCommandeTable(commandeId) {
     var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
     if (!cmd) return;
