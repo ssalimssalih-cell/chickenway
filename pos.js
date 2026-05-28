@@ -9,7 +9,6 @@ var posSelList = ['Normal','Moins de sel','Sans sel'];
 
 var posCommandesTables = [];
 var posCommandesTablesCount = 0;
-var posCommandesEnLigneCount = 0;  // Pour le badge "Commandes en ligne"
 
 async function loadPosPage(c) {
     posResetCart(); posStep = 1;
@@ -83,7 +82,6 @@ async function loadPosPage(c) {
     }
 
     await posChargerCommandesTables();
-    await posChargerCommandesEnLigneCount();  // ← chargement du compteur
     renderPOS();
 }
 
@@ -99,16 +97,6 @@ async function posChargerCommandesTables() {
     } catch(e) { console.error('Erreur chargement commandes tables', e); posCommandesTablesCount = 0; }
 }
 
-async function posChargerCommandesEnLigneCount() {
-    try {
-        var snap = await db.collection('commandes')
-            .where('statut', '==', 'en_attente')
-            .where('source', '==', 'client')
-            .get();
-        posCommandesEnLigneCount = snap.size;
-    } catch(e) { posCommandesEnLigneCount = 0; }
-}
-
 function posResetCart() {
     posCart = []; posStep = 1; posSelectedCategory = 'all';
     posCurrentClient = null; posCurrentTable = '';
@@ -117,15 +105,53 @@ function posResetCart() {
     delete window.posCommandeId; delete window.posVenteId;
 }
 
-function posSearchClient(query) { /* inchangé */ }
-function renderClientDropdown() { /* inchangé */ }
-function posSelectClientFromDropdown(cid,cn){ /* inchangé */ }
-document.addEventListener('click',function(e){ /* inchangé */ });
-function updatePaymentButtons(){ /* inchangé */ }
-function posSetTable(v){ /* inchangé */ }
+function posSearchClient(query) {
+    var q = query.toLowerCase().trim(); posCurrentClient = null;
+    if (!q) { posFilteredClients = posAllClients.slice(); var d = document.getElementById('posClientDropdown'); if(d)d.style.display='none'; }
+    else { posFilteredClients = posAllClients.filter(function(c) { return (c.nom||'').toLowerCase().indexOf(q)!==-1||(c.prenom||'').toLowerCase().indexOf(q)!==-1||(c.telephone||'').toLowerCase().indexOf(q)!==-1; }); renderClientDropdown(); }
+}
+function renderClientDropdown() { var d=document.getElementById('posClientDropdown');if(!d)return;var h='';if(posFilteredClients.length===0)h='<div style="padding:10px;color:#94a3b8;text-align:center;">Aucun</div>';else{posFilteredClients.forEach(function(c){h+='<div onclick="posSelectClientFromDropdown(\''+c.id+'\',\''+c.nom.replace(/'/g,"\\'")+' '+c.prenom.replace(/'/g,"\\'")+'\')" style="padding:10px;cursor:pointer;border-bottom:1px solid #f1f5f9;">'+c.nom+' '+c.prenom+' <span style="color:#94a3b8;font-size:0.7rem;">('+(c.telephone||'')+')</span></div>';});}d.innerHTML=h;d.style.display='block';}
+function posSelectClientFromDropdown(cid,cn){posCurrentClient={id:cid,name:cn};posCurrentTable='';var s=document.getElementById('posClientSearchInput'),t=document.getElementById('posTableNum'),d=document.getElementById('posClientDropdown');if(s)s.value=cn;if(t)t.value='';if(d)d.style.display='none';updatePaymentButtons();}
+document.addEventListener('click',function(e){var d=document.getElementById('posClientDropdown'),s=document.getElementById('posClientSearchInput');if(d&&s&&!s.contains(e.target)&&!d.contains(e.target))d.style.display='none';});
+function updatePaymentButtons(){setTimeout(function(){var cb=document.getElementById('posCreditBtn'),pb=document.getElementById('posPartielBtn'),cc=posCurrentClient&&posCurrentClient.id;if(cb){cb.disabled=!cc;cb.style.opacity=cc?'1':'0.4';cb.style.cursor=cc?'pointer':'not-allowed';}if(pb){pb.disabled=!cc;pb.style.opacity=cc?'1':'0.4';pb.style.cursor=cc?'pointer':'not-allowed';}},300);}
+function posSetTable(v){posCurrentTable=v.trim();if(posCurrentTable){posCurrentClient=null;posPaymentMethod='espece';var s=document.getElementById('posClientSearchInput');if(s)s.value='';}}
 
-function posOpenOptionsModal(pid){ /* inchangé */ }
-function posConfirmOptions(){ /* inchangé */ }
+function posOpenOptionsModal(pid){
+    var p=posProductsList.find(function(x){return x.id===pid;});if(!p)return;
+    if(p.stock!==undefined&&p.stock<=0){alert('Rupture');return;}
+    posCurrentProductId=pid;
+    var h='<h4>'+p.nom+'</h4>';
+    h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Sauces:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    posSaucesList.forEach(function(s){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-sauce-check" value="'+s+'"> '+s+'</label>';});
+    h+='</div></div>';
+    h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🚫 Interdits:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    posInterditsList.forEach(function(s){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-interdit-check" value="'+s+'"> '+s+'</label>';});
+    h+='</div></div>';
+    h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    posEpicesList.forEach(function(s,idx){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="pos-epice" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';});
+    h+='</div></div>';
+    h+='<div style="margin-bottom:12px;"><label style="font-weight:600;">🧂 Sel:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    posSelList.forEach(function(s,idx){h+='<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="pos-sel" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>';});
+    h+='</div></div>';
+    h+='<div style="text-align:right;"><button class="btn-cancel" onclick="closeModal()" style="float:none;margin-right:8px;">Annuler</button><button class="btn-save" onclick="posConfirmOptions()" style="float:none;">Ajouter</button></div>';
+    openModal('Personnaliser',h);
+}
+function posConfirmOptions(){
+    var sauces=[]; document.querySelectorAll('.pos-sauce-check:checked').forEach(function(cb){sauces.push(cb.value);});
+    var interdits=[]; document.querySelectorAll('.pos-interdit-check:checked').forEach(function(cb){interdits.push(cb.value);});
+    var epice=document.querySelector('input[name="pos-epice"]:checked'); epice=epice?epice.value:'Normal';
+    var sel=document.querySelector('input[name="pos-sel"]:checked'); sel=sel?sel.value:'Normal';
+    var p=posProductsList.find(function(x){return x.id===posCurrentProductId;}); if(!p){closeModal();return;}
+    var ex=posCart.find(function(x){return x.id===posCurrentProductId;});
+    if(ex){
+        if(p.stock!==undefined&&ex.quantite>=p.stock){alert('Stock insuffisant');closeModal();return;}
+        ex.quantite+=1;
+    } else {
+        var pr=p.prixPromo&&p.prixPromo>0?p.prixPromo:p.prixVente;
+        posCart.push({id:p.id,nom:p.nom,prixUnitaire:pr,prixAchat:p.prixAchat||0,prixPromo:p.prixPromo||0,prixVente:p.prixVente||0,quantite:1,categorie:p.categorie||'',imageBase64:p.imageBase64||'',sauces:sauces,interdits:interdits,epice:epice,sel:sel});
+    }
+    closeModal();renderPOS();
+}
 
 function renderPOS() {
     var c = document.getElementById('dynamicContent'); if (!c) return;
@@ -141,17 +167,10 @@ function renderPOS() {
         h += '<button class="pos-cat-btn ' + ac + '" onclick="posFilterCategory(\'' + ca.nom.replace(/'/g, "\\'") + '\')">' + ih + ' ' + ca.nom + '</button>';
     }
     h += '</div>';
-    // Boutons Commandes Tables et Commandes en Ligne
-    h += '<div style="display:flex; gap:6px; margin-left:10px;">';
-    h += '<button onclick="posAfficherCommandesTables()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
-    h += '<i class="fas fa-utensils"></i> Tables';
+    h += '<button onclick="posAfficherCommandesTables()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap; margin-left:10px;">';
+    h += '<i class="fas fa-utensils"></i> Commandes tables';
     if (posCommandesTablesCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesTablesCount + '</span>';
     h += '</button>';
-    h += '<button onclick="posAfficherCommandesEnLigne()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
-    h += '<i class="fas fa-globe"></i> En ligne';
-    if (posCommandesEnLigneCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesEnLigneCount + '</span>';
-    h += '</button>';
-    h += '</div>';
     h += '</div>';
     h += '<div class="pos-products-grid">';
     var f = posProductsList; if (posSelectedCategory !== 'all') f = posProductsList.filter(function(p) { return p.categorie === posSelectedCategory; });
@@ -173,7 +192,6 @@ function renderPOS() {
         }
     }
     h += '</div></div>';
-    // Panier (inchangé)
     h += '<div class="pos-cart-panel">';
     if (posStep === 1) {
         h += '<div class="pos-cart-header"><h3><i class="fas fa-shopping-cart"></i> Panier <span class="pos-cart-badge">' + posCart.length + '</span></h3><button class="pos-clear-btn" onclick="posResetCart()"><i class="fas fa-trash-alt"></i> Vider</button></div><div class="pos-cart-items">';
@@ -196,7 +214,6 @@ function renderPOS() {
         h += '<div class="pos-cart-total-row"><span>Total</span><span>' + t.toFixed(2) + ' MAD</span></div><button class="pos-validate-btn" onclick="posGoToStep2()" ' + (posCart.length === 0 ? 'disabled' : '') + '><i class="fas fa-check-circle"></i> Valider</button></div>';
     }
     else if (posStep === 2) {
-        // ... (paiement inchangé)
         var canCredit = posCurrentClient && posCurrentClient.id;
         h += '<div class="pos-cart-header"><h3><i class="fas fa-credit-card"></i> Paiement</h3><button class="pos-back-btn" onclick="posGoToStep1()"><i class="fas fa-arrow-left"></i> Retour</button></div><div class="pos-payment-form">';
         h += '<div class="pos-payment-section"><label>Client</label><div style="position:relative;"><input type="text" id="posClientSearchInput" placeholder="🔍 Cliquez et tapez pour rechercher..." onkeyup="posSearchClient(this.value)" onfocus="if(this.value)posSearchClient(this.value)" autocomplete="off" value="' + (posCurrentClient ? posCurrentClient.name : '') + '" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"><div id="posClientDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #e2e8f0;border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,0.15);"></div></div></div>';
@@ -213,55 +230,74 @@ function renderPOS() {
     if (posStep === 2) setTimeout(posCalculateChange, 200);
 }
 
-// --- Affichage des commandes tables (inchangé) ---
-function posAfficherCommandesTables() { /* ... identique ... */ }
-
-// --- NOUVEAU : Affichage des commandes en ligne ---
-async function posAfficherCommandesEnLigne() {
-    var commandes = [];
-    try {
-        var snap = await db.collection('commandes')
-            .where('statut', '==', 'en_attente')
-            .where('source', '==', 'client')
-            .orderBy('createdAt', 'desc')
-            .get();
-        snap.forEach(doc => {
-            var d = doc.data();
-            d.id = doc.id;
-            commandes.push(d);
-        });
-    } catch(e) { alert('Erreur chargement commandes en ligne'); return; }
-
-    if (commandes.length === 0) {
-        alert('Aucune commande en ligne en attente.');
-        return;
-    }
-
-    var html = '<div style="max-height:70vh;overflow-y:auto;"><table class="data-table" style="width:100%;font-size:0.75rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options</th><th>Total</th><th>Actions</th></tr></thead><tbody>';
-    commandes.forEach(function(cmd) {
-        var dt = cmd.createdAt ? new Date(cmd.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
-        var client = cmd.clientName || '-';
-        var email = cmd.clientEmail || '-';
-        var tel = cmd.clientTelephone || '-';
-        var arts = cmd.items ? cmd.items.map(it => '<strong>' + it.quantite + 'x</strong> ' + it.nom).join('<br>') : '-';
-        var opts = cmd.items ? cmd.items.map(it => {
-            var o = [];
-            if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
-            if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
-            if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
-            if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
-            return o.length > 0 ? o.join(' | ') : '-';
-        }).join('<br>') : '-';
-        var total = cmd.total.toFixed(2) + ' MAD';
-        var actions = '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:4px;" onclick="validateCommande(\'' + cmd.id + '\'); closeModal();">✅ Valider</button>';
-        actions += '<button class="btn-save" style="padding:4px 8px;font-size:0.7rem;" onclick="payCommande(\'' + cmd.id + '\'); closeModal();">💰 Payer</button>';
-        html += '<tr><td><small>' + dt + '</small></td><td><strong>' + client + '</strong></td><td>' + email + '</td><td>' + tel + '</td><td>' + arts + '</td><td><small>' + opts + '</small></td><td><strong>' + total + '</strong></td><td>' + actions + '</td></tr>';
+function posAfficherCommandesTables() {
+    if (posCommandesTables.length === 0) { alert('Aucune commande table en attente.'); return; }
+    var html = '<div style="max-height:70vh;overflow-y:auto;"><table class="data-table" style="width:100%;font-size:0.75rem;"><thead><tr><th>ID Commande</th><th>N° Table</th><th>Produits</th><th>Options</th><th>Total</th><th>Date/Heure</th><th>Actions</th></tr></thead><tbody>';
+    posCommandesTables.forEach(function(cmd) {
+        var table = cmd.table || '?';
+        var dateHeure = cmd.createdAt ? new Date(cmd.createdAt.seconds * 1000).toLocaleString('fr-FR') : 'N/A';
+        var commandeId = cmd.id ? cmd.id.substring(0, 8) : 'N/A';
+        var produits = cmd.items ? cmd.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '-';
+        var options = cmd.items ? cmd.items.map(function(it) {
+            var opts = [];
+            if (it.sauces && it.sauces.length > 0) opts.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
+            if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
+            if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
+            if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
+            return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
+        }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
+        html += '<tr>';
+        html += '<td><small style="font-weight:600;">#' + commandeId + '</small></td>';
+        html += '<td><strong>🍽️ Table ' + table + '</strong></td>';
+        html += '<td>' + produits + '</td>';
+        html += '<td><small>' + options + '</small></td>';
+        html += '<td><strong style="color:#e67e22;">' + cmd.total.toFixed(2) + ' MAD</strong></td>';
+        html += '<td><small>' + dateHeure + '</small></td>';
+        html += '<td style="white-space:nowrap;"><button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:4px;" onclick="posChargerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-check"></i> Accepter</button><button class="btn-save" style="padding:4px 8px;font-size:0.7rem;" onclick="posPayerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-money-bill-wave"></i> Payé</button></td>';
+        html += '</tr>';
     });
     html += '</tbody></table></div>';
-    openModal('🛒 Commandes en ligne en attente (' + commandes.length + ')', html);
+    openModal('🛎️ Commandes tables en attente (' + posCommandesTables.length + ')', html);
 }
 
-// --- Fonctions de manipulation du panier (inchangées) ---
+function posChargerCommandeTable(commandeId) {
+    var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
+    if (!cmd) return;
+    posCart = [];
+    cmd.items.forEach(function(item) {
+        posCart.push({
+            id: item.id, nom: item.nom,
+            prixUnitaire: item.prixUnitaire || item.prixVente || 0,
+            prixAchat: item.prixAchat || 0, prixPromo: item.prixPromo || 0,
+            prixVente: item.prixVente || item.prixUnitaire || 0,
+            quantite: item.quantite || 1,
+            categorie: item.categorie || '', imageBase64: item.imageBase64 || '',
+            sauces: item.sauces || [], interdits: item.interdits || [],
+            epice: item.epice || 'Normal', sel: item.sel || 'Normal'
+        });
+    });
+    posCurrentTable = 'Table ' + (cmd.table || '?');
+    posCurrentClient = null;
+    posPaymentMethod = 'espece';
+    posDiscountMAD = 0;
+    window.posCommandeId = commandeId;
+    closeModal();
+    posStep = 2;
+    renderPOS();
+}
+
+async function posPayerCommandeTable(commandeId) {
+    if (!confirm('Marquer cette commande comme payée ?')) return;
+    try {
+        await CacheDB.write('commandes', commandeId, { statut: 'payé', paidAt: firebase.firestore.FieldValue.serverTimestamp() }, 'update');
+        alert('✅ Commande table marquée comme payée !');
+        await posChargerCommandesTables();
+        closeModal();
+        renderPOS();
+        CacheDB.sync();
+    } catch(e) { alert('❌ Erreur: ' + e.message); }
+}
+
 function posFilterCategory(ca){posSelectedCategory=ca;renderPOS();}
 function posUpdateDiscountMAD(v){posDiscountMAD=parseFloat(v)||0;if(posDiscountMAD<0)posDiscountMAD=0;renderPOS();}
 function posUpdateQty(i,ch){var it=posCart[i];if(!it)return;var p=posProductsList.find(function(x){return x.id===it.id;});var nq=it.quantite+ch;if(nq<=0)posCart.splice(i,1);else{if(p&&p.stock!==undefined&&nq>p.stock){alert('Max: '+p.stock);return;}it.quantite=nq;}renderPOS();}
@@ -272,7 +308,6 @@ function posGoToStep1(){posStep=1;delete window.posCommandeId;delete window.posV
 function posSetPaymentMethod(m){if((m==='credit'||m==='partiel')&&(!posCurrentClient||!posCurrentClient.id)){alert('Client requis pour crédit/partiel.');return;}posPaymentMethod=m;posAmountGiven=0;renderPOS();}
 function posCalculateChange(){var ai=document.getElementById('posAmountGiven'),cd=document.getElementById('posChangeDisplay');if(!ai||!cd)return;var st=posCalculateTotal();var t=st-posDiscountMAD;posAmountGiven=parseFloat(ai.value)||0;var c=posAmountGiven-t;if(posAmountGiven>0){cd.innerHTML=c>=0?'<div class="pos-change-positive"><span>Rendu</span><span>'+c.toFixed(2)+' MAD</span></div>':'<div class="pos-change-negative"><span>Manquant</span><span>'+Math.abs(c).toFixed(2)+' MAD</span></div>';}else{cd.innerHTML='';}}
 
-// Finalisation de la vente (inchangée)
 async function posFinalizeSale() {
     var st=posCalculateTotal();var t=st-posDiscountMAD;
     if(!posCurrentClient&&!posCurrentTable){alert('Client ou table requis.');return;}
@@ -315,44 +350,4 @@ async function posFinalizeSale() {
         alert(msg);posResetCart();renderPOS();CacheDB.sync();
     }catch(e){alert('Erreur: '+e.message);}
 }
-
-// Fonctions pour les commandes tables (inchangées) – à conserver telles quelles
-function posChargerCommandeTable(commandeId) {
-    var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
-    if (!cmd) return;
-    posCart = [];
-    cmd.items.forEach(function(item) {
-        posCart.push({
-            id: item.id, nom: item.nom,
-            prixUnitaire: item.prixUnitaire || item.prixVente || 0,
-            prixAchat: item.prixAchat || 0, prixPromo: item.prixPromo || 0,
-            prixVente: item.prixVente || item.prixUnitaire || 0,
-            quantite: item.quantite || 1,
-            categorie: item.categorie || '', imageBase64: item.imageBase64 || '',
-            sauces: item.sauces || [], interdits: item.interdits || [],
-            epice: item.epice || 'Normal', sel: item.sel || 'Normal'
-        });
-    });
-    posCurrentTable = 'Table ' + (cmd.table || '?');
-    posCurrentClient = null;
-    posPaymentMethod = 'espece';
-    posDiscountMAD = 0;
-    window.posCommandeId = commandeId;
-    closeModal();
-    posStep = 2;
-    renderPOS();
-}
-
-async function posPayerCommandeTable(commandeId) {
-    if (!confirm('Marquer cette commande comme payée ?')) return;
-    try {
-        await CacheDB.write('commandes', commandeId, { statut: 'payé', paidAt: firebase.firestore.FieldValue.serverTimestamp() }, 'update');
-        alert('✅ Commande table marquée comme payée !');
-        await posChargerCommandesTables();
-        closeModal();
-        renderPOS();
-        CacheDB.sync();
-    } catch(e) { alert('❌ Erreur: ' + e.message); }
-}
-
-console.log('POS JS avec commandes en ligne et tables dans le POS');
+console.log('POS JS avec cache offline OK');
