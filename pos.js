@@ -1,4 +1,4 @@
-// ==================== POS.JS AVEC CACHE OFFLINE & BADGE COMMANDES EN LIGNE ====================
+// ==================== POS.JS AVEC BADGE COMMANDES EN LIGNE TOUJOURS VISIBLE ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
@@ -9,7 +9,7 @@ var posSelList = ['Normal','Moins de sel','Sans sel'];
 
 var posCommandesTables = [];
 var posCommandesTablesCount = 0;
-var posCommandesEnLigneCount = 0;   // ← compteur des commandes en ligne en attente
+var posCommandesEnLigneCount = 0;
 
 async function loadPosPage(c) {
     posResetCart(); posStep = 1;
@@ -26,7 +26,7 @@ async function loadPosPage(c) {
     }
     renderPOS();
 
-    // Mise à jour depuis Firestore en arrière-plan
+    // Mise à jour depuis Firestore
     try {
         const [cs, ps, cl] = await Promise.all([
             db.collection('categories').get(),
@@ -54,7 +54,6 @@ async function loadPosPage(c) {
         renderPOS();
     } catch(e) { console.error('Erreur mise à jour POS', e); }
 
-    // Vérifier si une commande en ligne ou un paiement de vente est demandé
     var commandeData = localStorage.getItem('posCommandeData');
     var payerVenteData = localStorage.getItem('posPayerVente');
     if (commandeData) {
@@ -182,20 +181,19 @@ function renderPOS() {
         h += '<button class="pos-cat-btn ' + ac + '" onclick="posFilterCategory(\'' + ca.nom.replace(/'/g, "\\'") + '\')">' + ih + ' ' + ca.nom + '</button>';
     }
     h += '</div>';
-    // Boutons côte à côte : Commandes tables + Commandes en ligne
+    // Boutons Tables et En ligne avec badges toujours visibles
     h += '<div style="display:flex; gap:8px; margin-left:10px;">';
     h += '<button onclick="posAfficherCommandesTables()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
     h += '<i class="fas fa-utensils"></i> Tables';
-    if (posCommandesTablesCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesTablesCount + '</span>';
+    h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesTablesCount + '</span>';
     h += '</button>';
-    // Bouton "En ligne" : redirige vers la page commandes en ligne du menu avec badge
     h += '<button onclick="navigateTo(\'commandes\')" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
     h += '<i class="fas fa-globe"></i> En ligne';
-    if (posCommandesEnLigneCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesEnLigneCount + '</span>';
+    h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesEnLigneCount + '</span>';
     h += '</button>';
     h += '</div>';
     h += '</div>';
-    // Grille produits...
+    // Grille produits
     h += '<div class="pos-products-grid">';
     var f = posProductsList; if (posSelectedCategory !== 'all') f = posProductsList.filter(function(p) { return p.categorie === posSelectedCategory; });
     if (f.length === 0) { h += '<div style="grid-column:1/-1;text-align:center;padding:40px;">Aucun</div>'; }
@@ -216,7 +214,7 @@ function renderPOS() {
         }
     }
     h += '</div></div>';
-    // Panier...
+    // Panier
     h += '<div class="pos-cart-panel">';
     if (posStep === 1) {
         h += '<div class="pos-cart-header"><h3><i class="fas fa-shopping-cart"></i> Panier <span class="pos-cart-badge">' + posCart.length + '</span></h3><button class="pos-clear-btn" onclick="posResetCart()"><i class="fas fa-trash-alt"></i> Vider</button></div><div class="pos-cart-items">';
@@ -255,7 +253,7 @@ function renderPOS() {
     if (posStep === 2) setTimeout(posCalculateChange, 200);
 }
 
-// Fonctions de commandes tables (inchangées)
+// Commandes tables (modale)
 function posAfficherCommandesTables() {
     if (posCommandesTables.length === 0) { alert('Aucune commande table en attente.'); return; }
     var html = '<div style="max-height:70vh;overflow-y:auto;"><table class="data-table" style="width:100%;font-size:0.75rem;"><thead><tr><th>ID Commande</th><th>N° Table</th><th>Produits</th><th>Options</th><th>Total</th><th>Date/Heure</th><th>Actions</th></tr></thead><tbody>';
@@ -324,7 +322,6 @@ async function posPayerCommandeTable(commandeId) {
     } catch(e) { alert('❌ Erreur: ' + e.message); }
 }
 
-// Fonctions de manipulation du panier (inchangées)
 function posFilterCategory(ca){posSelectedCategory=ca;renderPOS();}
 function posUpdateDiscountMAD(v){posDiscountMAD=parseFloat(v)||0;if(posDiscountMAD<0)posDiscountMAD=0;renderPOS();}
 function posUpdateQty(i,ch){var it=posCart[i];if(!it)return;var p=posProductsList.find(function(x){return x.id===it.id;});var nq=it.quantite+ch;if(nq<=0)posCart.splice(i,1);else{if(p&&p.stock!==undefined&&nq>p.stock){alert('Max: '+p.stock);return;}it.quantite=nq;}renderPOS();}
@@ -377,4 +374,4 @@ async function posFinalizeSale() {
         alert(msg);posResetCart();renderPOS();CacheDB.sync();
     }catch(e){alert('Erreur: '+e.message);}
 }
-console.log('POS JS avec redirection commandes en ligne');
+console.log('POS JS avec badges toujours visibles');
