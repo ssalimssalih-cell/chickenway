@@ -1,4 +1,4 @@
-// ==================== ADMIN.JS AVEC CACHE OFFLINE & CORRECTIONS UNDEFINED ====================
+// ==================== ADMIN.JS AVEC CACHE OFFLINE, TRI UNIVERSEL & COMMANDES TABLES ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
@@ -152,7 +152,6 @@ function sortTableData(tableName, field, loadFn) {
     if (!sortOrders[tableName][field]) sortOrders[tableName][field] = 'asc';
     else sortOrders[tableName][field] = sortOrders[tableName][field] === 'asc' ? 'desc' : 'asc';
     Object.keys(sortOrders[tableName]).forEach(function(k) { if (k !== field) sortOrders[tableName][k] = null; });
-    // loadFn est une string, on l'évalue
     if (typeof loadFn === 'string') {
         window[loadFn]();
     } else if (typeof loadFn === 'function') {
@@ -806,7 +805,64 @@ function renderVentesTable() {
     cont.innerHTML = h;
 }
 
-// Les fonctions editVente, saveEditVente, deleteVente, payerVente, printFacture, imprimerFacture restent inchangées (déjà dans ton code)
+// Fonctions vente édition/suppression (inchangées)
+function editVente(did) {
+    db.collection('ventes').doc(did).get().then(function(doc) {
+        if (doc.exists) {
+            editingId = did; currentCollection = 'ventes';
+            var d = doc.data();
+            var h = '<div class="form-row"><div class="form-group"><label>Statut paiement</label><select id="editStatut"><option value="payé" ' + (d.statutPaiement === 'payé' ? 'selected' : '') + '>Payé</option><option value="crédit" ' + (d.statutPaiement === 'crédit' ? 'selected' : '') + '>Crédit</option><option value="partiel" ' + (d.statutPaiement === 'partiel' ? 'selected' : '') + '>Partiel</option><option value="en_attente" ' + (d.statutPaiement === 'en_attente' ? 'selected' : '') + '>En attente</option></select></div><div class="form-group"><label>Montant donné</label><input type="number" id="editAmountGiven" value="' + (d.amountGiven || 0) + '" step="0.01"></div></div>';
+            h += '<div class="form-row"><div class="form-group"><label>Montant rendu</label><input type="number" id="editChange" value="' + (d.change || 0) + '" step="0.01"></div><div class="form-group"><label>Reste à payer</label><input type="number" id="editRemaining" value="' + (d.remainingAmount || 0) + '" step="0.01"></div></div>';
+            h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditVente()">Enregistrer</button>';
+            openModal('Modifier vente ' + d.factureNum, h);
+        }
+    });
+}
+
+function saveEditVente() {
+    var statut = document.getElementById('editStatut').value;
+    var amountGiven = parseFloat(document.getElementById('editAmountGiven').value) || 0;
+    var change = parseFloat(document.getElementById('editChange').value) || 0;
+    var remaining = parseFloat(document.getElementById('editRemaining').value) || 0;
+    var paid = (statut === 'payé');
+    var data = { statutPaiement: statut, amountGiven: amountGiven, change: change, remainingAmount: paid ? 0 : remaining, paid: paid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    saveDocument('ventes', data, function() { closeModal(); loadVentes(); });
+}
+
+function deleteVente(did) {
+    if (confirm('Supprimer définitivement cette vente ? Les stocks ne seront pas restaurés.')) {
+        CacheDB.write('ventes', did, null, 'delete').then(function() { alert('Supprimé'); loadVentes(); CacheDB.sync(); });
+    }
+}
+
+async function payerVente(did) {
+    if (!confirm('Payer cette vente ? Redirection vers le POS...')) return;
+    var dc = await db.collection('ventes').doc(did).get(); if (!dc.exists) { alert('Introuvable'); return; }
+    var d = dc.data();
+    localStorage.setItem('posPayerVente', JSON.stringify({ venteId: did, clientId: d.clientId, clientName: d.clientName, items: d.items, total: d.total, table: d.table || '' }));
+    navigateTo('pos');
+}
+
+function printFacture(did) {
+    db.collection('ventes').doc(did).get().then(function(dc) { if (dc.exists) imprimerFacture(dc.data(), dc.id); else { db.collection('credits').doc(did).get().then(function(cd) { if (cd.exists) imprimerFacture(cd.data(), cd.id); }); } });
+}
+
+function imprimerFacture(d, id) {
+    var ih = '';
+    if (d.items) {
+        d.items.forEach(function(it) {
+            var o = '';
+            if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(',');
+            if (it.permis && it.permis.length > 0) o += ' ✅' + it.permis.join(',');
+            if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice;
+            ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + (it.prixVente || 0).toFixed(2) + '</td><td>' + ((it.prixVente || 0) * it.quantite).toFixed(2) + '</td></tr>';
+        });
+    }
+    var w = window.open('', '_blank', 'width=400,height=600');
+    w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discountMAD > 0 ? '<p>Remise: ' + d.discountMAD.toFixed(2) + ' MAD</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>');
+    w.document.close();
+    setTimeout(function() { w.print(); }, 500);
+}
 
 // ==================== CRÉDITS (avec tri) ====================
 function loadCreditsPage(c) {
@@ -865,7 +921,40 @@ function renderCreditsTable() {
     cont.innerHTML = h;
 }
 
-// Les fonctions editCredit, saveEditCredit, deleteCredit, markCreditPaid restent inchangées
+function editCredit(did) {
+    db.collection('credits').doc(did).get().then(function(doc) {
+        if (doc.exists) {
+            editingId = did; currentCollection = 'credits';
+            var d = doc.data();
+            var h = '<div class="form-row"><div class="form-group"><label>Statut</label><select id="editCreditPaid"><option value="1" ' + (d.paid ? 'selected' : '') + '>Payé</option><option value="0" ' + (!d.paid ? 'selected' : '') + '>Impayé</option></select></div><div class="form-group"><label>Montant payé</label><input type="number" id="editAmountGiven" value="' + (d.amountGiven || 0) + '" step="0.01"></div></div>';
+            h += '<div class="form-row"><div class="form-group"><label>Reste à payer</label><input type="number" id="editRemaining" value="' + (d.remainingAmount || d.total || 0) + '" step="0.01"></div><div class="form-group"><label>Mode de paiement</label><input type="text" id="editPaymentMethod" value="' + (d.paymentMethod || '') + '"></div></div>';
+            h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditCredit()">Enregistrer</button>';
+            openModal('Modifier crédit ' + (d.factureNum || did), h);
+        }
+    });
+}
+
+function saveEditCredit() {
+    var paid = document.getElementById('editCreditPaid').value === '1';
+    var amountGiven = parseFloat(document.getElementById('editAmountGiven').value) || 0;
+    var remaining = parseFloat(document.getElementById('editRemaining').value) || 0;
+    var paymentMethod = document.getElementById('editPaymentMethod').value.trim();
+    var data = { paid: paid, amountGiven: amountGiven, remainingAmount: paid ? 0 : remaining, paymentMethod: paymentMethod, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    saveDocument('credits', data, function() { closeModal(); loadCredits(); });
+}
+
+function deleteCredit(did) {
+    if (confirm('Supprimer ce crédit ?')) {
+        CacheDB.write('credits', did, null, 'delete').then(function() { alert('Supprimé'); loadCredits(); CacheDB.sync(); });
+    }
+}
+
+async function markCreditPaid(cid) {
+    if (confirm('Marquer ce crédit comme totalement payé ?')) {
+        await CacheDB.write('credits', cid, { paid: true, remainingAmount: 0, paidAt: firebase.firestore.FieldValue.serverTimestamp() }, 'update');
+        alert('✅ Payé'); loadCredits(); CacheDB.sync();
+    }
+}
 
 // ==================== COMMANDES TABLES (NOUVEAU) ====================
 function loadCommandesTablesPage(c) {
@@ -930,7 +1019,42 @@ function renderCommandesTables() {
     cont.innerHTML = h;
 }
 
-// ==================== OPTIONS (inchangé) ====================
-// ... (le code existant pour loadOptionsPage, loadUsersList, etc. reste tel quel)
+// ==================== OPTIONS ====================
+function loadOptionsPage(c) {
+    if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') { c.innerHTML = '<p>Accès refusé</p>'; return; }
+    c.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-clock" style="color:#d97706;"></i></div><div class="stat-info"><span>En attente</span><span class="stat-value" id="pendingCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div><div class="stat-info"><span>Autorisés</span><span class="stat-value" id="authorizedCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span>Total</span><span class="stat-value" id="totalUsers">0</span></div></div></div><div class="content-card"><div class="card-header"><h3>Utilisateurs</h3><button class="btn-add" onclick="loadUsersList()">Actualiser</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div></div>';
+    loadUsersList();
+}
 
-console.log('Admin JS avec cache offline et tri universel + Commandes Tables OK');
+function loadUsersList() {
+    db.collection('users').get().then(function(sn) {
+        var p = 0, a = 0; var tb = document.getElementById('usersTableBody'); tb.innerHTML = '';
+        if (sn.empty) { tb.innerHTML = '<tr><td colspan="6">Aucun</td></tr>'; }
+        var us = []; sn.forEach(function(dc) { us.push({ id: dc.id, data: dc.data() }); });
+        us.sort(function(x, y) { return (y.data.createdAt?.seconds || 0) - (x.data.createdAt?.seconds || 0); });
+        us.forEach(function(u) {
+            var d = u.data, id = u.id;
+            if (d.authorized === 'no') p++; else a++;
+            var badge = d.authorized === 'yes' ? '<span class="status-success">OK</span>' : '<span class="status-warning">En attente</span>';
+            var act = d.authorized === 'no' ? '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:5px;" onclick="approveUser(\'' + id + '\')">Accepter</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="rejectUser(\'' + id + '\')">Refuser</button>' : '<button style="padding:4px 8px;font-size:0.7rem;margin-right:5px;color:#d97706;border:none;background:#fef3c7;border-radius:6px;cursor:pointer;" onclick="blockUser(\'' + id + '\')">Bloquer</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="deleteUserPermanently(\'' + id + '\')">Supprimer</button>';
+            tb.innerHTML += '<tr><td>@' + d.username + '</td><td>' + d.prenom + ' ' + d.nom + '</td><td>' + d.email + '</td><td>' + d.role + '</td><td>' + badge + '</td><td>' + act + '</td></tr>';
+        });
+        document.getElementById('pendingCount').textContent = p;
+        document.getElementById('authorizedCount').textContent = a;
+        document.getElementById('totalUsers').textContent = sn.size;
+    });
+}
+
+function blockUser(uid) {
+    if (confirm('Bloquer ?')) {
+        CacheDB.write('users', uid, { authorized: 'no' }, 'update').then(function() { loadUsersList(); loadPendingRegistrations(); CacheDB.sync(); });
+    }
+}
+
+function deleteUserPermanently(uid) {
+    if (confirm('Supprimer ?')) {
+        CacheDB.write('users', uid, null, 'delete').then(function() { loadUsersList(); loadPendingRegistrations(); CacheDB.sync(); });
+    }
+}
+
+console.log('Admin JS avec cache offline, tri universel et Commandes Tables OK');
