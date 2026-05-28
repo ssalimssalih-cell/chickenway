@@ -154,6 +154,7 @@ function buildMenu() {
             {p:'dashboard',i:'fa-th-large',l:'Dashboard'},
             {p:'pos',i:'fa-cash-register',l:'POS'},
             {p:'commandes',i:'fa-shopping-basket',l:'Commandes en ligne'},
+            {p:'commandesTables',i:'fa-utensils',l:'Commandes Tables'},
             {p:'categories',i:'fa-layer-group',l:'Catégories'},
             {p:'products',i:'fa-utensils',l:'Produits'},
             {p:'clients',i:'fa-users',l:'Clients'},
@@ -193,18 +194,20 @@ function navigateTo(page) {
     var items = document.querySelectorAll('#navMenu .nav-item'); 
     items.forEach(function(item) { item.classList.remove('active'); });
     
-    var pages = ['dashboard','pos','commandes','categories','products','clients','fournisseurs','ventes','credits','depenses','options'];
+    var pages = ['dashboard','pos','commandes','commandesTables','categories','products','clients','fournisseurs','ventes','credits','depenses','options'];
     var index = pages.indexOf(page); 
     if (index >= 0 && items[index]) items[index].classList.add('active');
     
     var titles = {
         dashboard:'Dashboard',pos:'POS',commandes:'Commandes en ligne',
+        commandesTables:'Commandes Tables',
         categories:'Catégories',products:'Produits',clients:'Clients',
         fournisseurs:'Fournisseurs',ventes:'Ventes',credits:'Crédits',
         depenses:'Dépenses',options:'Options'
     };
     var icons = {
         dashboard:'fa-th-large',pos:'fa-cash-register',commandes:'fa-shopping-basket',
+        commandesTables:'fa-utensils',
         categories:'fa-layer-group',products:'fa-utensils',clients:'fa-users',
         fournisseurs:'fa-truck',ventes:'fa-shopping-cart',credits:'fa-credit-card',
         depenses:'fa-money-bill-wave',options:'fa-cog'
@@ -219,6 +222,7 @@ function navigateTo(page) {
     
     if (page === 'pos' && typeof loadPosPage === 'function') loadPosPage(content);
     else if (page === 'commandes' && typeof loadCommandesPage === 'function') loadCommandesPage(content);
+    else if (page === 'commandesTables' && typeof loadCommandesTablesPage === 'function') loadCommandesTablesPage(content);
     else if (page === 'categories' && typeof loadCategoriesPage === 'function') loadCategoriesPage(content);
     else if (page === 'products' && typeof loadProductsPage === 'function') loadProductsPage(content);
     else if (page === 'clients' && typeof loadClientsPage === 'function') loadClientsPage(content);
@@ -250,4 +254,4 @@ function updateClientSidebarInfo() {
     } 
 }
 
-console.log('Script JS avec cache OK');
+console.log('Script JS avec cache et Commandes Tables OK');
