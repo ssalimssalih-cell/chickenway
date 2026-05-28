@@ -1,11 +1,11 @@
-// ==================== ADMIN.JS AVEC CACHE OFFLINE, TRI, FILTRES, PAGINATION ====================
+// ==================== ADMIN.JS COMPLET AVEC TOUTES PAGES, TRI, FILTRES, PAGINATION ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
 var sortOrders = {};
 var clientSearchQuery = '';
 
-// Données complètes (pour filtrage)
+// Données complètes
 var allCategoriesData = [];
 var allProductsData = [];
 var allClientsData = [];
@@ -28,7 +28,7 @@ var currentPages = {
 };
 var itemsPerPage = 20;
 
-// Filtres actifs
+// Filtres
 var ventesPeriod = 'all', ventesSearch = '';
 var creditsPeriod = 'all', creditsSearch = '';
 var commandesPeriod = 'all', commandesSearch = '';
@@ -198,7 +198,7 @@ function makeSortableHeader(tableName, field, label, loadFnName) {
     return '<th onclick="sortTableData(\'' + tableName + '\',\'' + field + '\', \'' + loadFnName + '\')" style="cursor:pointer;white-space:nowrap;">' + label + ' ' + getSortIcon(tableName, field) + '</th>';
 }
 
-// ==================== PAGINATION GENERIQUE ====================
+// ==================== PAGINATION ====================
 function getPaginationHTML(tableName, totalItems) {
     var totalPages = Math.ceil(totalItems / itemsPerPage);
     if (totalPages <= 1) return '';
@@ -212,10 +212,6 @@ function getPaginationHTML(tableName, totalItems) {
 }
 
 function changePage(tableName, newPage) {
-    var totalPages = Math.ceil(getCurrentDataCount(tableName) / itemsPerPage);
-    if (newPage < 1 || newPage > totalPages) return;
-    currentPages[tableName] = newPage;
-    // Déclencher le re-rendu de la table correspondante
     var renderFunctions = {
         categories: renderCategoriesTable,
         products: renderProductsTable,
@@ -226,25 +222,21 @@ function changePage(tableName, newPage) {
         ventes: renderVentesTable,
         credits: renderCreditsTable
     };
-    if (renderFunctions[tableName]) {
-        // Réinitialiser le tri pour éviter de garder un ordre précédent (optionnel)
-        // On peut simplement rappeler la fonction de rendu qui va utiliser la page mise à jour
-        renderFunctions[tableName]();
-    }
-}
-
-function getCurrentDataCount(tableName) {
     var dataArrays = {
         categories: allCategoriesData,
         products: allProductsData,
         clients: allClientsData,
         fournisseurs: allFournisseursData,
         depenses: allDepensesData,
-        commandes: allCommandesData,
-        ventes: allVentesData,
-        credits: allCreditsData
+        commandes: window.filteredCommandes || allCommandesData,
+        ventes: window.filteredVentes || allVentesData,
+        credits: window.filteredCredits || allCreditsData
     };
-    return (dataArrays[tableName] || []).length;
+    var totalItems = (dataArrays[tableName] || []).length;
+    var totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (newPage < 1 || newPage > totalPages) return;
+    currentPages[tableName] = newPage;
+    if (renderFunctions[tableName]) renderFunctions[tableName]();
 }
 
 function getPageData(tableName, dataArray) {
@@ -253,7 +245,7 @@ function getPageData(tableName, dataArray) {
     return dataArray.slice(start, start + itemsPerPage);
 }
 
-// ==================== FILTRES DATE / RECHERCHE ====================
+// ==================== FILTRES DATE/RECHERCHE ====================
 function getPeriodOptions(selected) {
     var periods = [
         {value:'all', text:'Toutes les dates'},
@@ -310,8 +302,6 @@ function loadCategoriesPage(c) {
 }
 
 async function loadCategories() {
-    var tb = document.querySelector('#categoriesTable tbody');
-    if (!tb) return;
     try {
         const cached = await CacheDB.getAll('categories');
         if (cached.length) allCategoriesData = cached;
@@ -430,7 +420,32 @@ function renderProductsTable() {
     document.getElementById('productsPagination').innerHTML = getPaginationHTML('products', data.length);
 }
 
-// Les fonctions openProductForm, saveProduct restent identiques (copier du code précédent)
+async function openProductForm(data) {
+    data = data || {};
+    var co = '';
+    try {
+        var cs = await db.collection('categories').get();
+        cs.forEach(function(d) { var sel = data.categorie === d.data().nom ? 'selected' : ''; co += '<option value="' + d.data().nom + '" ' + sel + '>' + d.data().nom + '</option>'; });
+    } catch (e) {}
+    var ip = data.imageBase64 ? '<img src="' + data.imageBase64 + '" style="max-width:100px;">' : '';
+    var dy = data.disponible !== false ? 'selected' : '', dn = data.disponible === false ? 'selected' : '';
+    var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="prodImage" onchange="previewImage(this,\'prodPreview\')"><div id="prodPreview">' + ip + '</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="prodNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Catégorie</label><select id="prodCat"><option value="">-</option>' + co + '</select></div></div><div class="form-row"><div class="form-group"><label>Prix Achat</label><input type="number" id="prodPA" value="' + (data.prixAchat || 0) + '" step="0.01"></div><div class="form-group"><label>Prix Vente</label><input type="number" id="prodPV" value="' + (data.prixVente || 0) + '" step="0.01"></div></div><div class="form-row"><div class="form-group"><label>Prix Promo</label><input type="number" id="prodPromo" value="' + (data.prixPromo || 0) + '" step="0.01"></div><div class="form-group"><label>Stock</label><input type="number" id="prodStock" value="' + (data.stock || 0) + '"></div></div><div class="form-row"><div class="form-group"><label>Temps Prep</label><input type="text" id="prodTemps" value="' + (data.tempsPrep || '') + '" placeholder="15 min"></div><div class="form-group"><label>Disponible</label><select id="prodDispo"><option value="1" ' + dy + '>Oui</option><option value="0" ' + dn + '>Non</option></select></div></div><div class="form-row"><div class="form-group"><label>Description</label><textarea id="prodDesc">' + (data.description || '') + '</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveProduct()">Enregistrer</button>';
+    currentCollection = 'products';
+    openModal(editingId ? 'Modifier Produit' : 'Nouveau Produit', h);
+}
+
+function saveProduct() {
+    var n = document.getElementById('prodNom').value;
+    if (!n) { alert('Nom obligatoire'); return; }
+    var f = document.getElementById('prodImage').files[0];
+    var sf = function(img) {
+        var d = { nom: n, categorie: document.getElementById('prodCat').value, prixAchat: parseFloat(document.getElementById('prodPA').value) || 0, prixVente: parseFloat(document.getElementById('prodPV').value) || 0, prixPromo: parseFloat(document.getElementById('prodPromo').value) || 0, stock: parseInt(document.getElementById('prodStock').value) || 0, vendues: 0, ca: 0, tempsPrep: document.getElementById('prodTemps').value, disponible: document.getElementById('prodDispo').value === '1', description: document.getElementById('prodDesc').value };
+        if (img) d.imageBase64 = img;
+        saveDocument('products', d, function() { closeModal(); refreshCurrentPage(); });
+    };
+    if (f) fileToBase64(f, sf);
+    else sf(null);
+}
 
 // ==================== CLIENTS ====================
 function loadClientsPage(c) {
@@ -499,7 +514,54 @@ function renderClientsTable() {
     document.getElementById('clientsPagination').innerHTML = getPaginationHTML('clients', data.length);
 }
 
-// Les fonctions openClientForm, saveClient, editClient, deleteClient restent identiques
+function openClientForm(data) {
+    data = data || {};
+    var h = '';
+    h += '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="cliNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Prénom *</label><input type="text" id="cliPrenom" value="' + (data.prenom || '') + '" required></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Username</label><input type="text" id="cliUsername" value="' + (data.username || '') + '"></div><div class="form-group"><label>Genre</label><select id="cliGenre"><option value="">-</option><option value="M" ' + (data.genre === 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (data.genre === 'F' ? 'selected' : '') + '>F</option></select></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Adresse</label><input type="text" id="cliAdresse" value="' + (data.adresse || '') + '"></div><div class="form-group"><label>Email</label><input type="email" id="cliEmail" value="' + (data.email || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Téléphone</label><input type="text" id="cliTel" value="' + (data.telephone || '') + '"></div><div class="form-group"><label>WhatsApp</label><input type="text" id="cliWhatsapp" value="' + (data.whatsapp || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Facebook</label><input type="text" id="cliFacebook" value="' + (data.facebook || '') + '"></div><div class="form-group"><label>Instagram</label><input type="text" id="cliInstagram" value="' + (data.instagram || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="cliCA" value="' + (data.ca || 0) + '" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="cliProfit" value="' + (data.profit || 0) + '" step="0.01"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Points Fidélité</label><input type="number" id="cliPoints" value="' + (data.pointsFidelite || 0) + '"></div><div class="form-group"><label>Description</label><textarea id="cliDesc">' + (data.description || '') + '</textarea></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Allergies (virgules)</label><input type="text" id="cliAllergies" value="' + (data.allergies ? data.allergies.join(', ') : '') + '" placeholder="gluten, lactose"></div><div class="form-group"><label>Aime (virgules)</label><input type="text" id="cliAime" value="' + (data.aime ? data.aime.join(', ') : '') + '" placeholder="poulet, poisson"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Déteste (virgules)</label><input type="text" id="cliDeteste" value="' + (data.deteste ? data.deteste.join(', ') : '') + '" placeholder="oignon, tomate"></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveClient()">Enregistrer</button>';
+    currentCollection = 'clients';
+    openModal(editingId ? 'Modifier Client' : 'Nouveau Client', h);
+}
+
+function saveClient() {
+    var n = document.getElementById('cliNom').value, p = document.getElementById('cliPrenom').value;
+    if (!n || !p) { alert('Nom et Prénom obligatoires'); return; }
+    var d = {
+        nom: n, prenom: p, username: document.getElementById('cliUsername').value,
+        genre: document.getElementById('cliGenre').value, adresse: document.getElementById('cliAdresse').value,
+        email: document.getElementById('cliEmail').value, telephone: document.getElementById('cliTel').value,
+        whatsapp: document.getElementById('cliWhatsapp').value, facebook: document.getElementById('cliFacebook').value,
+        instagram: document.getElementById('cliInstagram').value, ca: parseFloat(document.getElementById('cliCA').value) || 0,
+        profit: parseFloat(document.getElementById('cliProfit').value) || 0,
+        pointsFidelite: parseInt(document.getElementById('cliPoints').value) || 0,
+        allergies: document.getElementById('cliAllergies').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        aime: document.getElementById('cliAime').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        deteste: document.getElementById('cliDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        description: document.getElementById('cliDesc').value
+    };
+    if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    saveDocument('clients', d, function() { closeModal(); loadClients(); });
+}
+
+function editClient(id) {
+    db.collection('clients').doc(id).get().then(function(doc) {
+        if (doc.exists) { editingId = id; currentCollection = 'clients'; openClientForm(doc.data()); }
+    });
+}
+
+function deleteClient(id) {
+    if (confirm('Supprimer ce client ?')) {
+        CacheDB.write('clients', id, null, 'delete').then(function() { alert('Supprimé'); loadClients(); CacheDB.sync(); });
+    }
+}
 
 // ==================== FOURNISSEURS ====================
 function loadFournisseursPage(c) {
@@ -540,7 +602,53 @@ function renderFournisseursTable() {
     document.getElementById('fournisseursPagination').innerHTML = getPaginationHTML('fournisseurs', data.length);
 }
 
-// Fonctions openFournisseurForm, saveFournisseur, editFournisseur, deleteFournisseur (inchangées)
+function openFournisseurForm(data) {
+    data = data || {};
+    var selectedCategories = data.categories || [];
+    var h = '';
+    h += '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="fourNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Prénom</label><input type="text" id="fourPrenom" value="' + (data.prenom || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Société</label><input type="text" id="fourSociete" value="' + (data.societe || '') + '"></div><div class="form-group"><label>Téléphone</label><input type="text" id="fourTel" value="' + (data.telephone || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>WhatsApp</label><input type="text" id="fourWhatsapp" value="' + (data.whatsapp || '') + '"></div><div class="form-group"><label>Email</label><input type="email" id="fourEmail" value="' + (data.email || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Adresse</label><input type="text" id="fourAdresse" value="' + (data.adresse || '') + '"></div><div class="form-group"><label>CA</label><input type="number" id="fourCA" value="' + (data.ca || 0) + '" step="0.01"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Description</label><textarea id="fourDesc">' + (data.description || '') + '</textarea></div></div>';
+    h += '<div class="form-row"><div class="form-group" style="min-width:100%;"><label>Catégories (plusieurs choix possibles)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;">';
+    fournisseurCategoriesList.forEach(function(cat) {
+        var checked = selectedCategories.indexOf(cat) !== -1 ? 'checked' : '';
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.8rem;"><input type="checkbox" class="four-cat-check" value="' + cat + '" ' + checked + '> ' + cat + '</label>';
+    });
+    h += '</div></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveFournisseur()">Enregistrer</button>';
+    currentCollection = 'fournisseurs';
+    openModal(editingId ? 'Modifier Fournisseur' : 'Nouveau Fournisseur', h);
+}
+
+function saveFournisseur() {
+    var nom = document.getElementById('fourNom').value;
+    if (!nom) { alert('Nom obligatoire'); return; }
+    var categories = [];
+    document.querySelectorAll('.four-cat-check:checked').forEach(function(cb) { categories.push(cb.value); });
+    var d = {
+        nom: nom, prenom: document.getElementById('fourPrenom').value, societe: document.getElementById('fourSociete').value,
+        telephone: document.getElementById('fourTel').value, whatsapp: document.getElementById('fourWhatsapp').value,
+        email: document.getElementById('fourEmail').value, adresse: document.getElementById('fourAdresse').value,
+        ca: parseFloat(document.getElementById('fourCA').value) || 0, description: document.getElementById('fourDesc').value,
+        categories: categories
+    };
+    if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    saveDocument('fournisseurs', d, function() { closeModal(); loadFournisseurs(); });
+}
+
+function editFournisseur(id) {
+    db.collection('fournisseurs').doc(id).get().then(function(doc) {
+        if (doc.exists) { editingId = id; currentCollection = 'fournisseurs'; openFournisseurForm(doc.data()); }
+    });
+}
+
+function deleteFournisseur(id) {
+    if (confirm('Supprimer ce fournisseur ?')) {
+        CacheDB.write('fournisseurs', id, null, 'delete').then(function() { alert('Supprimé'); loadFournisseurs(); CacheDB.sync(); });
+    }
+}
 
 // ==================== DÉPENSES ====================
 function loadDepensesPage(c) {
@@ -581,7 +689,49 @@ function renderDepensesTable() {
     document.getElementById('depensesPagination').innerHTML = getPaginationHTML('depenses', data.length);
 }
 
-// openDepenseForm, saveDepense, editDepense, deleteDepense inchangées
+function openDepenseForm(data) {
+    data = data || {};
+    var selectedCategories = data.categories || [];
+    var h = '';
+    h += '<div class="form-row"><div class="form-group"><label>Titre *</label><input type="text" id="depTitre" value="' + (data.titre || '') + '" required></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="' + (data.montant || 0) + '" step="0.01" required></div></div>';
+    h += '<div class="form-row"><div class="form-group" style="min-width:100%;"><label>Catégories (plusieurs choix possibles)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;">';
+    depenseCategoriesList.forEach(function(cat) {
+        var checked = selectedCategories.indexOf(cat) !== -1 ? 'checked' : '';
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.8rem;"><input type="checkbox" class="dep-cat-check" value="' + cat + '" ' + checked + '> ' + cat + '</label>';
+    });
+    h += '</div></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="' + (data.date || new Date().toISOString().split('T')[0]) + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">' + (data.description || '') + '</textarea></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>';
+    currentCollection = 'depenses';
+    openModal(editingId ? 'Modifier Dépense' : 'Nouvelle Dépense', h);
+}
+
+function saveDepense() {
+    var titre = document.getElementById('depTitre').value.trim();
+    var montant = parseFloat(document.getElementById('depMontant').value) || 0;
+    if (!titre || !montant) { alert('Titre et montant obligatoires'); return; }
+    var categories = [];
+    document.querySelectorAll('.dep-cat-check:checked').forEach(function(cb) { categories.push(cb.value); });
+    var d = {
+        titre: titre, montant: montant, categories: categories,
+        date: document.getElementById('depDate').value, description: document.getElementById('depDesc').value
+    };
+    if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    saveDocument('depenses', d, function() { closeModal(); loadDepenses(); });
+}
+
+function editDepense(id) {
+    db.collection('depenses').doc(id).get().then(function(doc) {
+        if (doc.exists) { editingId = id; currentCollection = 'depenses'; openDepenseForm(doc.data()); }
+    });
+}
+
+function deleteDepense(id) {
+    if (confirm('Supprimer cette dépense ?')) {
+        CacheDB.write('depenses', id, null, 'delete').then(function() { alert('Supprimée'); loadDepenses(); CacheDB.sync(); });
+    }
+}
 
 // ==================== COMMANDES EN LIGNE ====================
 function loadCommandesPage(c) {
@@ -606,8 +756,6 @@ async function loadCommandes() {
 function applyCommandesFilters() {
     var filtered = filterByPeriod(allCommandesData, commandesPeriod);
     filtered = filterBySearch(filtered, commandesSearch, ['clientName','clientEmail','clientTelephone','items.nom']);
-    allCommandesData = filtered; // Temporaire, on stocke le résultat filtré dans une variable séparée pour pagination
-    // On va stocker le résultat filtré dans une variable dédiée
     window.filteredCommandes = filtered;
     renderCommandesTable();
 }
@@ -660,9 +808,27 @@ function renderCommandesTable() {
     document.getElementById('commandesPagination').innerHTML = getPaginationHTML('commandes', data.length);
 }
 
-// Fonctions validateCommande, payCommande, cancelCommande (inchangées)
+async function validateCommande(cid) {
+    if (!confirm('Valider cette commande ? Le statut passera à "Validée".')) return;
+    await CacheDB.write('commandes', cid, { statut: 'valide', validatedAt: firebase.firestore.FieldValue.serverTimestamp(), validatedBy: window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : 'Admin' }, 'update');
+    alert('✅ Validée !'); loadCommandes(); CacheDB.sync();
+}
 
-// ==================== VENTES (avec filtre, recherche, pagination) ====================
+async function payCommande(cid) {
+    if (!confirm('Payer cette commande ? Redirection vers le POS...')) return;
+    var dc = await db.collection('commandes').doc(cid).get(); if (!dc.exists) { alert('Introuvable'); return; }
+    var cmd = dc.data();
+    localStorage.setItem('posCommandeData', JSON.stringify({ commandeId: cid, clientId: cmd.clientId, clientName: cmd.clientName, items: cmd.items, total: cmd.total, table: cmd.table || '' }));
+    navigateTo('pos');
+}
+
+function cancelCommande(cid) {
+    if (confirm('Annuler ?')) {
+        CacheDB.write('commandes', cid, { statut: 'annule' }, 'update').then(function() { alert('❌ Annulée'); loadCommandes(); CacheDB.sync(); });
+    }
+}
+
+// ==================== VENTES ====================
 function loadVentesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'+
         '<input type="text" id="ventesSearchInput" placeholder="🔍 Rechercher (client, produit)..." style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px; width:250px;" onkeyup="ventesSearch = this.value; currentPages.ventes=1; applyVentesFilters();">'+
@@ -753,15 +919,70 @@ function renderVentesTable() {
         if(isAdmin){ actions += '<button class="btn-edit" onclick="editVente(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteVente(\''+d.id+'\')"><i class="fas fa-trash"></i></button>'; }
         h += '<tr><td><strong>'+(d.factureNum||d.id.substring(0,8))+'</strong></td><td>'+dt+'</td><td>'+cl+'</td><td>'+arts+'</td><td>'+opts+'</td>'+(isAdmin?'<td>'+d.achat.toFixed(2)+'</td><td style="color:#16a34a;">'+d.profit.toFixed(2)+'</td>':'')+'<td><strong>'+(d.total||0).toFixed(2)+'</strong></td><td>'+(d.discountMAD||0).toFixed(2)+'</td><td>'+amountGiven.toFixed(2)+'</td><td>'+change.toFixed(2)+'</td><td>'+(d.vendeur||'-')+'</td><td>'+(d.paymentMethod||'-')+'</td><td><span style="color:'+statutColor+';font-weight:600;">'+statutLabel+'</span></td><td>'+actions+'</td></tr>';
     });
-    h += '</tbody></table></div>';
-    h += '<div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: '+tv.toFixed(2)+' MAD</strong></div>';
+    h += '</tbody></table></div><div style="margin-top:15px;padding:15px;background:#f0fdf4;border-radius:12px;text-align:center;"><strong>Total: '+tv.toFixed(2)+' MAD</strong></div>';
     cont.innerHTML = h;
     document.getElementById('ventesPagination').innerHTML = getPaginationHTML('ventes', data.length);
 }
 
-// Fonctions editVente, saveEditVente, deleteVente, payerVente, printFacture, imprimerFacture (inchangées)
+function editVente(did) {
+    db.collection('ventes').doc(did).get().then(function(doc) {
+        if (doc.exists) {
+            editingId = did; currentCollection = 'ventes';
+            var d = doc.data();
+            var h = '<div class="form-row"><div class="form-group"><label>Statut paiement</label><select id="editStatut"><option value="payé" ' + (d.statutPaiement === 'payé' ? 'selected' : '') + '>Payé</option><option value="crédit" ' + (d.statutPaiement === 'crédit' ? 'selected' : '') + '>Crédit</option><option value="partiel" ' + (d.statutPaiement === 'partiel' ? 'selected' : '') + '>Partiel</option><option value="en_attente" ' + (d.statutPaiement === 'en_attente' ? 'selected' : '') + '>En attente</option></select></div><div class="form-group"><label>Montant donné</label><input type="number" id="editAmountGiven" value="' + (d.amountGiven || 0) + '" step="0.01"></div></div>';
+            h += '<div class="form-row"><div class="form-group"><label>Montant rendu</label><input type="number" id="editChange" value="' + (d.change || 0) + '" step="0.01"></div><div class="form-group"><label>Reste à payer</label><input type="number" id="editRemaining" value="' + (d.remainingAmount || 0) + '" step="0.01"></div></div>';
+            h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditVente()">Enregistrer</button>';
+            openModal('Modifier vente ' + d.factureNum, h);
+        }
+    });
+}
 
-// ==================== CRÉDITS (avec filtre, recherche, pagination) ====================
+function saveEditVente() {
+    var statut = document.getElementById('editStatut').value;
+    var amountGiven = parseFloat(document.getElementById('editAmountGiven').value) || 0;
+    var change = parseFloat(document.getElementById('editChange').value) || 0;
+    var remaining = parseFloat(document.getElementById('editRemaining').value) || 0;
+    var paid = (statut === 'payé');
+    var data = { statutPaiement: statut, amountGiven: amountGiven, change: change, remainingAmount: paid ? 0 : remaining, paid: paid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    saveDocument('ventes', data, function() { closeModal(); loadVentes(); });
+}
+
+function deleteVente(did) {
+    if (confirm('Supprimer définitivement cette vente ? Les stocks ne seront pas restaurés.')) {
+        CacheDB.write('ventes', did, null, 'delete').then(function() { alert('Supprimé'); loadVentes(); CacheDB.sync(); });
+    }
+}
+
+async function payerVente(did) {
+    if (!confirm('Payer cette vente ? Redirection vers le POS...')) return;
+    var dc = await db.collection('ventes').doc(did).get(); if (!dc.exists) { alert('Introuvable'); return; }
+    var d = dc.data();
+    localStorage.setItem('posPayerVente', JSON.stringify({ venteId: did, clientId: d.clientId, clientName: d.clientName, items: d.items, total: d.total, table: d.table || '' }));
+    navigateTo('pos');
+}
+
+function printFacture(did) {
+    db.collection('ventes').doc(did).get().then(function(dc) { if (dc.exists) imprimerFacture(dc.data(), dc.id); else { db.collection('credits').doc(did).get().then(function(cd) { if (cd.exists) imprimerFacture(cd.data(), cd.id); }); } });
+}
+
+function imprimerFacture(d, id) {
+    var ih = '';
+    if (d.items) {
+        d.items.forEach(function(it) {
+            var o = '';
+            if (it.interdits && it.interdits.length > 0) o += ' 🚫' + it.interdits.join(',');
+            if (it.permis && it.permis.length > 0) o += ' ✅' + it.permis.join(',');
+            if (it.epice && it.epice !== 'Normal') o += ' 🌶️' + it.epice;
+            ih += '<tr><td>' + it.nom + o + '</td><td>' + it.quantite + '</td><td>' + (it.prixVente || 0).toFixed(2) + '</td><td>' + ((it.prixVente || 0) * it.quantite).toFixed(2) + '</td></tr>';
+        });
+    }
+    var w = window.open('', '_blank', 'width=400,height=600');
+    w.document.write('<html><head><title>Facture</title><style>body{font-family:Arial;padding:20px;}h2{text-align:center;}table{width:100%;border-collapse:collapse;}th,td{padding:5px;border-bottom:1px solid #ddd;}.total{font-size:16px;font-weight:bold;text-align:right;}</style></head><body><h2>🐔 Chicken Way</h2><p>Facture: ' + (d.factureNum || id.substring(0, 8)) + '</p><p>Date: ' + (d.createdAt ? new Date(d.createdAt.seconds * 1000).toLocaleString('fr-FR') : '') + '</p><p>Client: ' + (d.clientName || d.table || '') + '</p><p>Vendeur: ' + (d.vendeur || '-') + '</p><table><tr><th>Article</th><th>Qté</th><th>Prix</th><th>Total</th></tr>' + ih + '</table>' + (d.discountMAD > 0 ? '<p>Remise: ' + d.discountMAD.toFixed(2) + ' MAD</p>' : '') + '<p class="total">Total: ' + d.total.toFixed(2) + ' MAD</p></body></html>');
+    w.document.close();
+    setTimeout(function() { w.print(); }, 500);
+}
+
+// ==================== CRÉDITS ====================
 function loadCreditsPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-credit-card"></i> Crédits</h3><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'+
         '<input type="text" id="creditsSearchInput" placeholder="🔍 Rechercher (client)..." style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px; width:250px;" onkeyup="creditsSearch = this.value; currentPages.credits=1; applyCreditsFilters();">'+
@@ -834,9 +1055,42 @@ function renderCreditsTable() {
     document.getElementById('creditsPagination').innerHTML = getPaginationHTML('credits', data.length);
 }
 
-// Fonctions editCredit, saveEditCredit, deleteCredit, markCreditPaid (inchangées)
+function editCredit(did) {
+    db.collection('credits').doc(did).get().then(function(doc) {
+        if (doc.exists) {
+            editingId = did; currentCollection = 'credits';
+            var d = doc.data();
+            var h = '<div class="form-row"><div class="form-group"><label>Statut</label><select id="editCreditPaid"><option value="1" ' + (d.paid ? 'selected' : '') + '>Payé</option><option value="0" ' + (!d.paid ? 'selected' : '') + '>Impayé</option></select></div><div class="form-group"><label>Montant payé</label><input type="number" id="editAmountGiven" value="' + (d.amountGiven || 0) + '" step="0.01"></div></div>';
+            h += '<div class="form-row"><div class="form-group"><label>Reste à payer</label><input type="number" id="editRemaining" value="' + (d.remainingAmount || d.total || 0) + '" step="0.01"></div><div class="form-group"><label>Mode de paiement</label><input type="text" id="editPaymentMethod" value="' + (d.paymentMethod || '') + '"></div></div>';
+            h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveEditCredit()">Enregistrer</button>';
+            openModal('Modifier crédit ' + (d.factureNum || did), h);
+        }
+    });
+}
 
-// ==================== OPTIONS (inchangé) ====================
+function saveEditCredit() {
+    var paid = document.getElementById('editCreditPaid').value === '1';
+    var amountGiven = parseFloat(document.getElementById('editAmountGiven').value) || 0;
+    var remaining = parseFloat(document.getElementById('editRemaining').value) || 0;
+    var paymentMethod = document.getElementById('editPaymentMethod').value.trim();
+    var data = { paid: paid, amountGiven: amountGiven, remainingAmount: paid ? 0 : remaining, paymentMethod: paymentMethod, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+    saveDocument('credits', data, function() { closeModal(); loadCredits(); });
+}
+
+function deleteCredit(did) {
+    if (confirm('Supprimer ce crédit ?')) {
+        CacheDB.write('credits', did, null, 'delete').then(function() { alert('Supprimé'); loadCredits(); CacheDB.sync(); });
+    }
+}
+
+async function markCreditPaid(cid) {
+    if (confirm('Marquer ce crédit comme totalement payé ?')) {
+        await CacheDB.write('credits', cid, { paid: true, remainingAmount: 0, paidAt: firebase.firestore.FieldValue.serverTimestamp() }, 'update');
+        alert('✅ Payé'); loadCredits(); CacheDB.sync();
+    }
+}
+
+// ==================== OPTIONS ====================
 function loadOptionsPage(c) {
     if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') { c.innerHTML = '<p>Accès refusé</p>'; return; }
     c.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-clock" style="color:#d97706;"></i></div><div class="stat-info"><span>En attente</span><span class="stat-value" id="pendingCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div><div class="stat-info"><span>Autorisés</span><span class="stat-value" id="authorizedCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span>Total</span><span class="stat-value" id="totalUsers">0</span></div></div></div><div class="content-card"><div class="card-header"><h3>Utilisateurs</h3><button class="btn-add" onclick="loadUsersList()">Actualiser</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div></div>';
@@ -874,4 +1128,4 @@ function deleteUserPermanently(uid) {
     }
 }
 
-console.log('Admin JS complet avec pagination, tri et filtres OK');
+console.log('Admin JS complet OK');
