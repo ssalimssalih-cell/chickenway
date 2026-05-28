@@ -9,6 +9,7 @@ var posSelList = ['Normal','Moins de sel','Sans sel'];
 
 var posCommandesTables = [];
 var posCommandesTablesCount = 0;
+var posCommandesEnLigneCount = 0;   // ← nouveau compteur
 
 async function loadPosPage(c) {
     posResetCart(); posStep = 1;
@@ -82,6 +83,7 @@ async function loadPosPage(c) {
     }
 
     await posChargerCommandesTables();
+    await posChargerCommandesEnLigneCount();   // ← nouveau chargement
     renderPOS();
 }
 
@@ -95,6 +97,17 @@ async function posChargerCommandesTables() {
         snap.forEach(function(doc) { var data = doc.data(); data.id = doc.id; posCommandesTables.push(data); });
         posCommandesTablesCount = posCommandesTables.length;
     } catch(e) { console.error('Erreur chargement commandes tables', e); posCommandesTablesCount = 0; }
+}
+
+// Nouvelle fonction pour charger le compteur des commandes en ligne
+async function posChargerCommandesEnLigneCount() {
+    try {
+        var snap = await db.collection('commandes')
+            .where('statut', '==', 'en_attente')
+            .where('source', '==', 'client')
+            .get();
+        posCommandesEnLigneCount = snap.size;
+    } catch(e) { posCommandesEnLigneCount = 0; }
 }
 
 function posResetCart() {
@@ -167,11 +180,19 @@ function renderPOS() {
         h += '<button class="pos-cat-btn ' + ac + '" onclick="posFilterCategory(\'' + ca.nom.replace(/'/g, "\\'") + '\')">' + ih + ' ' + ca.nom + '</button>';
     }
     h += '</div>';
-    h += '<button onclick="posAfficherCommandesTables()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap; margin-left:10px;">';
-    h += '<i class="fas fa-utensils"></i> Commandes tables';
+    // Boutons côte à côte : Commandes tables + Commandes en ligne
+    h += '<div style="display:flex; gap:8px; margin-left:10px;">';
+    h += '<button onclick="posAfficherCommandesTables()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
+    h += '<i class="fas fa-utensils"></i> Tables';
     if (posCommandesTablesCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesTablesCount + '</span>';
     h += '</button>';
+    h += '<button onclick="posAfficherCommandesEnLigne()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
+    h += '<i class="fas fa-globe"></i> En ligne';
+    if (posCommandesEnLigneCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesEnLigneCount + '</span>';
+    h += '</button>';
     h += '</div>';
+    h += '</div>';
+    // Grille produits...
     h += '<div class="pos-products-grid">';
     var f = posProductsList; if (posSelectedCategory !== 'all') f = posProductsList.filter(function(p) { return p.categorie === posSelectedCategory; });
     if (f.length === 0) { h += '<div style="grid-column:1/-1;text-align:center;padding:40px;">Aucun</div>'; }
@@ -192,6 +213,7 @@ function renderPOS() {
         }
     }
     h += '</div></div>';
+    // Panier...
     h += '<div class="pos-cart-panel">';
     if (posStep === 1) {
         h += '<div class="pos-cart-header"><h3><i class="fas fa-shopping-cart"></i> Panier <span class="pos-cart-badge">' + posCart.length + '</span></h3><button class="pos-clear-btn" onclick="posResetCart()"><i class="fas fa-trash-alt"></i> Vider</button></div><div class="pos-cart-items">';
@@ -230,6 +252,7 @@ function renderPOS() {
     if (posStep === 2) setTimeout(posCalculateChange, 200);
 }
 
+// Fonctions de commandes tables (inchangées)
 function posAfficherCommandesTables() {
     if (posCommandesTables.length === 0) { alert('Aucune commande table en attente.'); return; }
     var html = '<div style="max-height:70vh;overflow-y:auto;"><table class="data-table" style="width:100%;font-size:0.75rem;"><thead><tr><th>ID Commande</th><th>N° Table</th><th>Produits</th><th>Options</th><th>Total</th><th>Date/Heure</th><th>Actions</th></tr></thead><tbody>';
@@ -260,6 +283,52 @@ function posAfficherCommandesTables() {
     openModal('🛎️ Commandes tables en attente (' + posCommandesTables.length + ')', html);
 }
 
+// Nouvelle fonction pour les commandes en ligne
+async function posAfficherCommandesEnLigne() {
+    var commandes = [];
+    try {
+        var snap = await db.collection('commandes')
+            .where('statut', '==', 'en_attente')
+            .where('source', '==', 'client')
+            .orderBy('createdAt', 'desc')
+            .get();
+        snap.forEach(doc => {
+            var d = doc.data();
+            d.id = doc.id;
+            commandes.push(d);
+        });
+    } catch(e) { alert('Erreur chargement commandes en ligne'); return; }
+
+    if (commandes.length === 0) {
+        alert('Aucune commande en ligne en attente.');
+        return;
+    }
+
+    var html = '<div style="max-height:70vh;overflow-y:auto;"><table class="data-table" style="width:100%;font-size:0.75rem;"><thead><tr><th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options</th><th>Total</th><th>Actions</th></tr></thead><tbody>';
+    commandes.forEach(function(cmd) {
+        var dt = cmd.createdAt ? new Date(cmd.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
+        var client = cmd.clientName || '-';
+        var email = cmd.clientEmail || '-';
+        var tel = cmd.clientTelephone || '-';
+        var arts = cmd.items ? cmd.items.map(it => '<strong>' + it.quantite + 'x</strong> ' + it.nom).join('<br>') : '-';
+        var opts = cmd.items ? cmd.items.map(it => {
+            var o = [];
+            if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
+            if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
+            if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
+            if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
+            return o.length > 0 ? o.join(' | ') : '-';
+        }).join('<br>') : '-';
+        var total = cmd.total.toFixed(2) + ' MAD';
+        var actions = '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:4px;" onclick="validateCommande(\'' + cmd.id + '\'); closeModal();">✅ Valider</button>';
+        actions += '<button class="btn-save" style="padding:4px 8px;font-size:0.7rem;" onclick="payCommande(\'' + cmd.id + '\'); closeModal();">💰 Payer</button>';
+        html += '<tr><td><small>' + dt + '</small></td><td><strong>' + client + '</strong></td><td>' + email + '</td><td>' + tel + '</td><td>' + arts + '</td><td><small>' + opts + '</small></td><td><strong>' + total + '</strong></td><td>' + actions + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    openModal('🛒 Commandes en ligne en attente (' + commandes.length + ')', html);
+}
+
+// Commandes tables (inchangé)
 function posChargerCommandeTable(commandeId) {
     var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
     if (!cmd) return;
@@ -298,6 +367,7 @@ async function posPayerCommandeTable(commandeId) {
     } catch(e) { alert('❌ Erreur: ' + e.message); }
 }
 
+// Fonctions de manipulation du panier (inchangées)
 function posFilterCategory(ca){posSelectedCategory=ca;renderPOS();}
 function posUpdateDiscountMAD(v){posDiscountMAD=parseFloat(v)||0;if(posDiscountMAD<0)posDiscountMAD=0;renderPOS();}
 function posUpdateQty(i,ch){var it=posCart[i];if(!it)return;var p=posProductsList.find(function(x){return x.id===it.id;});var nq=it.quantite+ch;if(nq<=0)posCart.splice(i,1);else{if(p&&p.stock!==undefined&&nq>p.stock){alert('Max: '+p.stock);return;}it.quantite=nq;}renderPOS();}
@@ -350,4 +420,4 @@ async function posFinalizeSale() {
         alert(msg);posResetCart();renderPOS();CacheDB.sync();
     }catch(e){alert('Erreur: '+e.message);}
 }
-console.log('POS JS avec cache offline OK');
+console.log('POS JS avec commandes en ligne intégrées dans le POS');
