@@ -9,7 +9,7 @@ var posSelList = ['Normal','Moins de sel','Sans sel'];
 
 var posCommandesTables = [];
 var posCommandesTablesCount = 0;
-var posCommandesEnLigneCount = 0;
+var posCommandesEnLigneCount = 0;   // compteur des commandes en ligne en attente
 
 async function loadPosPage(c) {
     posResetCart(); posStep = 1;
@@ -101,7 +101,7 @@ async function posChargerCommandesTables() {
 
 async function posChargerCommandesEnLigneCount() {
     try {
-        // On compte toutes les commandes en attente, puis on filtre source=client en JS
+        // Compte toutes les commandes en attente avec source = 'client'
         var snap = await db.collection('commandes')
             .where('statut', '==', 'en_attente')
             .get();
@@ -189,7 +189,8 @@ function renderPOS() {
     h += '<i class="fas fa-utensils"></i> Tables';
     if (posCommandesTablesCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesTablesCount + '</span>';
     h += '</button>';
-    h += '<button onclick="posAfficherCommandesEnLigne()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
+    // Bouton "En ligne" : redirige vers la page commandes en ligne du menu
+    h += '<button onclick="navigateTo(\'commandes\')" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
     h += '<i class="fas fa-globe"></i> En ligne';
     if (posCommandesEnLigneCount > 0) h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesEnLigneCount + '</span>';
     h += '</button>';
@@ -286,77 +287,6 @@ function posAfficherCommandesTables() {
     openModal('🛎️ Commandes tables en attente (' + posCommandesTables.length + ')', html);
 }
 
-// Nouvelle fonction pour les commandes en ligne (sans index composite)
-async function posAfficherCommandesEnLigne() {
-    try {
-        // On récupère toutes les commandes en attente
-        const snap = await db.collection('commandes')
-            .where('statut', '==', 'en_attente')
-            .get();
-
-        // Filtre et construction du tableau
-        const commandes = [];
-        snap.forEach(doc => {
-            const d = doc.data();
-            if (d.source === 'client') {
-                d.id = doc.id;
-                commandes.push(d);
-            }
-        });
-
-        if (commandes.length === 0) {
-            alert('Aucune commande en ligne en attente.');
-            return;
-        }
-
-        // Tri manuel par date décroissante
-        commandes.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-
-        // Construction du HTML du tableau
-        let html = '<div style="max-height:70vh;overflow-y:auto;"><table class="data-table" style="width:100%;font-size:0.75rem;"><thead><tr>' +
-            '<th>Date</th><th>Client</th><th>Email</th><th>Tél</th><th>Articles</th><th>Options</th><th>Total</th><th>Actions</th>' +
-            '</tr></thead><tbody>';
-
-        commandes.forEach(cmd => {
-            const dt = cmd.createdAt ? new Date(cmd.createdAt.seconds * 1000).toLocaleString('fr-FR') : '';
-            const client = cmd.clientName || '-';
-            const email = cmd.clientEmail || '-';
-            const tel = cmd.clientTelephone || '-';
-            const arts = cmd.items ? cmd.items.map(it => '<strong>' + it.quantite + 'x</strong> ' + it.nom).join('<br>') : '-';
-            const opts = cmd.items ? cmd.items.map(it => {
-                let o = [];
-                if (it.sauces && it.sauces.length > 0) o.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
-                if (it.interdits && it.interdits.length > 0) o.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
-                if (it.epice && it.epice !== 'Normal') o.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
-                if (it.sel && it.sel !== 'Normal') o.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
-                return o.length ? o.join(' | ') : '-';
-            }).join('<br>') : '-';
-            const total = cmd.total.toFixed(2) + ' MAD';
-
-            html += '<tr>' +
-                '<td><small>' + dt + '</small></td>' +
-                '<td><strong>' + client + '</strong></td>' +
-                '<td>' + email + '</td>' +
-                '<td>' + tel + '</td>' +
-                '<td>' + arts + '</td>' +
-                '<td><small>' + opts + '</small></td>' +
-                '<td><strong>' + total + '</strong></td>' +
-                '<td>' +
-                    '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:4px;" onclick="validateCommande(\'' + cmd.id + '\'); closeModal();">✅ Valider</button>' +
-                    '<button class="btn-save" style="padding:4px 8px;font-size:0.7rem;" onclick="payCommande(\'' + cmd.id + '\'); closeModal();">💰 Payer</button>' +
-                '</td>' +
-                '</tr>';
-        });
-
-        html += '</tbody></table></div>';
-        openModal('🛒 Commandes en ligne en attente (' + commandes.length + ')', html);
-
-    } catch (e) {
-        console.error('Erreur commandes en ligne:', e);
-        alert('Erreur: ' + e.message);
-    }
-}
-
 // Commandes tables (inchangé)
 function posChargerCommandeTable(commandeId) {
     var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
@@ -449,4 +379,4 @@ async function posFinalizeSale() {
         alert(msg);posResetCart();renderPOS();CacheDB.sync();
     }catch(e){alert('Erreur: '+e.message);}
 }
-console.log('POS JS avec commandes en ligne intégrées dans le POS');
+console.log('POS JS avec redirection commandes en ligne');
