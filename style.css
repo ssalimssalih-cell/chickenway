@@ -310,17 +310,15 @@ input,select,textarea,button{max-width:100%}
 .mobile-menu-btn{display:none;background:var(--primary);border:none;color:#fff;font-size:1.4rem;width:46px;height:46px;border-radius:12px;cursor:pointer;position:fixed;top:15px;left:15px;z-index:200;box-shadow:var(--shadow);align-items:center;justify-content:center}
 .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99}
 
-/* ==================== POS SYSTEM (DESKTOP : TAiLLES AUGMENTÉES) ==================== */
+/* ==================== POS SYSTEM (DESKTOP) ==================== */
 .pos-container{display:flex;gap:28px;min-height:calc(100vh - 240px);flex-wrap:wrap}
 .pos-products-panel{flex:1;min-width:340px;background:#fff;border-radius:var(--radius-xl);padding:24px;box-shadow:var(--shadow-sm);border:1px solid var(--border);max-width:100%;overflow:hidden}
 .pos-categories-bar{display:flex;gap:10px;margin-bottom:22px;overflow-x:auto;padding-bottom:14px;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;scrollbar-width:thin}
 .pos-categories-bar::-webkit-scrollbar{height:6px}
 
-/* Boutons catégories agrandis */
 .pos-cat-btn{
     display:flex;align-items:center;gap:7px;
-    padding:12px 24px;
-    border:2px solid var(--border);
+    padding:12px 24px;border:2px solid var(--border);
     border-radius:50px;background:#fff;color:var(--text-dark);
     font-weight:600;font-size:0.92rem;
     cursor:pointer;white-space:nowrap;
@@ -330,10 +328,8 @@ input,select,textarea,button{max-width:100%}
 .pos-cat-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
 .pos-cat-btn.active{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border-color:var(--primary);box-shadow:0 6px 18px rgba(245,158,11,0.3)}
 
-/* Grille produits */
 .pos-products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;max-height:calc(100vh - 380px);overflow-y:auto;padding-right:5px}
 
-/* Carte produit : texte agrandi */
 .pos-product-card{background:#f8fafc;border:2px solid var(--border);border-radius:var(--radius-lg);padding:14px;cursor:pointer;transition:var(--transition);text-align:center}
 .pos-product-card:hover{border-color:var(--primary);transform:translateY(-4px);box-shadow:var(--shadow);background:#fff}
 .pos-product-card:active{transform:scale(0.97)}
@@ -349,7 +345,7 @@ input,select,textarea,button{max-width:100%}
 .pos-old-price{text-decoration:line-through;color:#94a3b8;font-size:0.7rem;font-weight:400}
 .pos-promo-price{color:#dc2626}
 
-/* Panier : tailles augmentées */
+/* Panier */
 .pos-cart-panel{width:440px;min-width:400px;background:#fff;border-radius:var(--radius-xl);padding:28px;box-shadow:var(--shadow-sm);border:1px solid var(--border);display:flex;flex-direction:column;max-height:calc(100vh - 170px)}
 .pos-cart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:18px;border-bottom:2px solid #f1f5f9}
 .pos-cart-header h3{display:flex;align-items:center;gap:10px;color:var(--text-dark);font-size:1.35rem;margin:0}
@@ -382,7 +378,6 @@ input,select,textarea,button{max-width:100%}
 .pos-cart-total-row{display:flex;justify-content:space-between;align-items:center;font-size:1.55rem;font-weight:700;margin-bottom:20px;color:var(--text-dark)}
 .pos-cart-total-row span:last-child{color:var(--primary-dark);font-size:1.8rem}
 
-/* Boutons Valider/Finaliser agrandis */
 .pos-validate-btn,.pos-finalize-btn{
     width:100%;padding:20px;border:none;border-radius:14px;
     font-weight:700;font-size:1.2rem;cursor:pointer;
@@ -395,7 +390,7 @@ input,select,textarea,button{max-width:100%}
 .pos-finalize-btn{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;margin-top:24px}
 .pos-finalize-btn:hover{transform:translateY(-3px);box-shadow:0 10px 25px rgba(34,197,94,0.4)}
 
-/* ==================== PAIEMENT (MONTANTS ET TOTAL À 40px) ==================== */
+/* ==================== PAIEMENT (NOMBRES À 35px) ==================== */
 .pos-payment-form{flex:1;overflow-y:auto}
 .pos-payment-section{margin-bottom:26px}
 .pos-payment-section label{
@@ -411,9 +406,9 @@ input,select,textarea,button{max-width:100%}
     font-size:1.15rem;font-family:'Inter',sans-serif;
     transition:var(--transition);background:#fff;
 }
-/* Champ Montant donné : 40px */
+/* Champ Montant donné : 35px */
 #posAmountGiven {
-    font-size: 2.5rem !important;
+    font-size: 2.1875rem !important;   /* 35px */
     padding: 20px 22px;
 }
 .pos-payment-section input:focus,
@@ -425,15 +420,15 @@ input,select,textarea,button{max-width:100%}
 .pos-summary-box{background:#f8fafc;padding:22px;border-radius:16px}
 .pos-summary-row{display:flex;justify-content:space-between;margin-bottom:12px;font-size:1rem;color:var(--text-gray)}
 
-/* Total : 40px */
+/* Total : 35px */
 .pos-summary-total{
     display:flex;justify-content:space-between;
-    font-size:2.5rem;        /* 40px */
+    font-size:2.1875rem;        /* 35px */
     font-weight:700;color:var(--text-dark);
 }
 .pos-summary-total span:last-child{
     color:var(--primary-dark);
-    font-size:2.5rem;        /* 40px */
+    font-size:2.1875rem;        /* 35px */
 }
 
 /* Boutons de paiement */
@@ -453,19 +448,19 @@ input,select,textarea,button{max-width:100%}
     box-shadow:0 6px 18px rgba(245,158,11,0.3);
 }
 
-/* Montant rendu / manquant : 40px */
+/* Montant rendu / manquant : 35px */
 .pos-change-positive{
     background:#dcfce7;color:#166534;padding:18px 22px;border-radius:14px;margin-top:15px;
     font-weight:700;display:flex;justify-content:space-between;align-items:center;
-    font-size:2.5rem;        /* 40px */
+    font-size:2.1875rem;        /* 35px */
 }
 .pos-change-negative{
     background:#fee2e2;color:#991b1b;padding:18px 22px;border-radius:14px;margin-top:15px;
     font-weight:700;display:flex;justify-content:space-between;align-items:center;
-    font-size:2.5rem;        /* 40px */
+    font-size:2.1875rem;        /* 35px */
 }
 
-/* ==================== RESPONSIVE (tablette et mobile) ==================== */
+/* ==================== RESPONSIVE ==================== */
 @media(max-width:1200px){
     .pos-cart-panel{width:380px;min-width:340px}
     .pos-products-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
@@ -489,7 +484,6 @@ input,select,textarea,button{max-width:100%}
     .pos-cart-panel{width:100%;min-width:100%;max-height:none}
     .pos-products-grid{max-height:400px}
 
-    /* Réduction modérée */
     .pos-cat-btn{font-size:0.82rem;padding:10px 18px}
     .pos-product-name{font-size:0.82rem}
     .pos-product-price{font-size:0.86rem}
@@ -499,17 +493,16 @@ input,select,textarea,button{max-width:100%}
     .pos-cart-total-row span:last-child{font-size:1.5rem}
     .pos-validate-btn,.pos-finalize-btn{font-size:1.05rem;padding:16px}
 
-    /* Paiement sur tablette : ~24px */
+    /* Paiement tablette : ~24px */
     .pos-payment-section label{font-size:1rem}
     .pos-payment-section input,.pos-payment-section select{font-size:1rem;padding:14px}
-    #posAmountGiven { font-size: 1.8rem !important; }
-    .pos-summary-total{font-size:1.8rem}
-    .pos-summary-total span:last-child{font-size:1.8rem}
+    #posAmountGiven { font-size: 1.5rem !important; }
+    .pos-summary-total{font-size:1.5rem}
+    .pos-summary-total span:last-child{font-size:1.5rem}
     .pos-payment-btn{font-size:1rem;padding:14px}
-    .pos-change-positive,.pos-change-negative{font-size:1.8rem;padding:15px 18px}
+    .pos-change-positive,.pos-change-negative{font-size:1.5rem;padding:15px 18px}
 }
 
-/* Mobile */
 @media(max-width:768px){
     .login-wrapper{padding:15px;align-items:center;justify-content:center}
     .login-container,.register-container{
@@ -539,10 +532,10 @@ input,select,textarea,button{max-width:100%}
     .pos-product-img{height:80px}
 
     /* Paiement très petit écran : 20px */
-    #posAmountGiven { font-size: 1.4rem !important; }
-    .pos-summary-total{font-size:1.4rem}
-    .pos-summary-total span:last-child{font-size:1.4rem}
-    .pos-change-positive,.pos-change-negative{font-size:1.4rem;padding:12px 15px}
+    #posAmountGiven { font-size: 1.25rem !important; }
+    .pos-summary-total{font-size:1.25rem}
+    .pos-summary-total span:last-child{font-size:1.25rem}
+    .pos-change-positive,.pos-change-negative{font-size:1.25rem;padding:12px 15px}
 }
 
 /* Safe area */
