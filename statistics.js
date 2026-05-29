@@ -43,7 +43,6 @@ function loadStatistiquesPage(c) {
 }
 
 async function loadStatistiques() {
-    // Détruire les anciens graphiques
     Object.values(statsCharts).forEach(chart => chart.destroy());
     statsCharts = {};
 
@@ -54,6 +53,9 @@ async function loadStatistiques() {
         var days = parseInt(period);
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
     }
+
+    var statsContent = document.getElementById('statsContent');
+    if (!statsContent) return;
 
     try {
         const [ventesSnap, creditsSnap, depensesSnap, commandesSnap, produitsSnap, categoriesSnap, clientsSnap] = await Promise.all([
@@ -68,28 +70,28 @@ async function loadStatistiques() {
 
         // Filtrer par période
         var ventes = [];
-        ventesSnap.forEach(d => { 
-            var dd = d.data(); dd.id = d.id; 
+        ventesSnap.forEach(d => {
+            var dd = d.data(); dd.id = d.id;
             var docDate = toDate(dd.createdAt);
-            if (!startDate || (docDate && docDate >= startDate)) ventes.push(dd); 
+            if (!startDate || (docDate && docDate >= startDate)) ventes.push(dd);
         });
         var credits = [];
-        creditsSnap.forEach(d => { 
-            var dd = d.data(); dd.id = d.id; 
+        creditsSnap.forEach(d => {
+            var dd = d.data(); dd.id = d.id;
             var docDate = toDate(dd.createdAt);
-            if (!startDate || (docDate && docDate >= startDate)) credits.push(dd); 
+            if (!startDate || (docDate && docDate >= startDate)) credits.push(dd);
         });
         var depenses = [];
-        depensesSnap.forEach(d => { 
-            var dd = d.data(); dd.id = d.id; 
+        depensesSnap.forEach(d => {
+            var dd = d.data(); dd.id = d.id;
             var docDate = toDate(dd.createdAt);
-            if (!startDate || (docDate && docDate >= startDate)) depenses.push(dd); 
+            if (!startDate || (docDate && docDate >= startDate)) depenses.push(dd);
         });
         var commandes = [];
-        commandesSnap.forEach(d => { 
-            var dd = d.data(); dd.id = d.id; 
+        commandesSnap.forEach(d => {
+            var dd = d.data(); dd.id = d.id;
             var docDate = toDate(dd.createdAt);
-            if (!startDate || (docDate && docDate >= startDate)) commandes.push(dd); 
+            if (!startDate || (docDate && docDate >= startDate)) commandes.push(dd);
         });
 
         var produits = [];
@@ -98,6 +100,8 @@ async function loadStatistiques() {
         categoriesSnap.forEach(d => { categories.push({ id: d.id, ...d.data() }); });
         var clients = [];
         clientsSnap.forEach(d => { clients.push({ id: d.id, ...d.data() }); });
+
+        console.log('Statistiques : ventes =', ventes.length, 'credits =', credits.length, 'depenses =', depenses.length);
 
         // KPI
         var totalVentes = ventes.reduce((sum, v) => sum + (v.total || 0), 0);
@@ -214,87 +218,99 @@ async function loadStatistiques() {
 
         statsHTML += '<div class="content-card" style="margin-bottom:20px;"><h4 style="margin-bottom:10px;">💸 Dépenses par catégorie</h4><canvas id="depensesChart" style="max-height:250px;"></canvas></div>';
 
-        document.getElementById('statsContent').innerHTML = statsHTML;
+        statsContent.innerHTML = statsHTML;
+
+        // Tracer les graphiques si Chart.js est disponible
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js non chargé');
+            return;
+        }
 
         setTimeout(() => {
-            var ctx1 = document.getElementById('salesChart')?.getContext('2d');
-            if (ctx1) {
-                statsCharts.sales = new Chart(ctx1, {
-                    type: 'line',
-                    data: {
-                        labels: Object.keys(dailySales),
-                        datasets: [{
-                            label: 'CA (MAD)',
-                            data: Object.values(dailySales),
-                            borderColor: '#f39c12',
-                            backgroundColor: 'rgba(243,156,18,0.1)',
-                            fill: true,
-                            tension: 0.3,
-                            pointRadius: 3,
-                            pointBackgroundColor: '#f39c12'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true, ticks: { callback: v => v + ' MAD' } } }
-                    }
-                });
-            }
+            try {
+                var ctx1 = document.getElementById('salesChart')?.getContext('2d');
+                if (ctx1) {
+                    statsCharts.sales = new Chart(ctx1, {
+                        type: 'line',
+                        data: {
+                            labels: Object.keys(dailySales),
+                            datasets: [{
+                                label: 'CA (MAD)',
+                                data: Object.values(dailySales),
+                                borderColor: '#f39c12',
+                                backgroundColor: 'rgba(243,156,18,0.1)',
+                                fill: true,
+                                tension: 0.3,
+                                pointRadius: 3,
+                                pointBackgroundColor: '#f39c12'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true, ticks: { callback: v => v + ' MAD' } } }
+                        }
+                    });
+                }
 
-            var ctx2 = document.getElementById('paymentChart')?.getContext('2d');
-            if (ctx2) {
-                statsCharts.payment = new Chart(ctx2, {
-                    type: 'doughnut',
-                    data: {
-                        labels: Object.keys(paymentMethods),
-                        datasets: [{
-                            data: Object.values(paymentMethods),
-                            backgroundColor: ['#f39c12', '#4f46e5', '#16a34a', '#ef4444', '#d97706']
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: 'bottom' } }
-                    }
-                });
-            }
+                var ctx2 = document.getElementById('paymentChart')?.getContext('2d');
+                if (ctx2) {
+                    statsCharts.payment = new Chart(ctx2, {
+                        type: 'doughnut',
+                        data: {
+                            labels: Object.keys(paymentMethods),
+                            datasets: [{
+                                data: Object.values(paymentMethods),
+                                backgroundColor: ['#f39c12', '#4f46e5', '#16a34a', '#ef4444', '#d97706']
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom' } }
+                        }
+                    });
+                }
 
-            var ctx3 = document.getElementById('depensesChart')?.getContext('2d');
-            if (ctx3) {
-                var depCatLabels = Object.keys(depensesByCat);
-                var depCatData = Object.values(depensesByCat);
-                statsCharts.depenses = new Chart(ctx3, {
-                    type: 'bar',
-                    data: {
-                        labels: depCatLabels,
-                        datasets: [{
-                            label: 'Dépenses (MAD)',
-                            data: depCatData,
-                            backgroundColor: '#ef4444',
-                            borderRadius: 5
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true, ticks: { callback: v => v + ' MAD' } } }
-                    }
-                });
+                var ctx3 = document.getElementById('depensesChart')?.getContext('2d');
+                if (ctx3) {
+                    var depCatLabels = Object.keys(depensesByCat);
+                    var depCatData = Object.values(depensesByCat);
+                    statsCharts.depenses = new Chart(ctx3, {
+                        type: 'bar',
+                        data: {
+                            labels: depCatLabels,
+                            datasets: [{
+                                label: 'Dépenses (MAD)',
+                                data: depCatData,
+                                backgroundColor: '#ef4444',
+                                borderRadius: 5
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true, ticks: { callback: v => v + ' MAD' } } }
+                        }
+                    });
+                }
+            } catch(chartError) {
+                console.error('Erreur Chart.js :', chartError);
             }
-        }, 100);
+        }, 200);
 
     } catch(e) {
-        console.error(e);
-        // Affiche l'erreur complète dans la page
-        document.getElementById('statsContent').innerHTML = `
-        <div style="text-align:center; padding:40px;">
-            <i class="fas fa-exclamation-triangle" style="font-size:2rem; color:#ef4444;"></i>
-            <p style="color:#ef4444; margin-top:10px;">Erreur lors du chargement des statistiques</p>
-            <p style="color:#64748b; font-size:0.85rem; margin-top:5px;">${e.message}</p>
-        </div>`;
+        console.error('Erreur statistiques :', e);
+        if (statsContent) {
+            statsContent.innerHTML = `
+            <div style="text-align:center; padding:40px;">
+                <i class="fas fa-exclamation-triangle" style="font-size:2rem; color:#ef4444;"></i>
+                <p style="color:#ef4444; margin-top:10px;">Erreur lors du chargement des statistiques</p>
+                <p style="color:#64748b; font-size:0.85rem; margin-top:5px;">${e.message || e}</p>
+                <p style="color:#94a3b8; font-size:0.75rem; margin-top:10px;">Vérifiez la connexion et les autorisations Firestore.</p>
+            </div>`;
+        }
     }
 }
