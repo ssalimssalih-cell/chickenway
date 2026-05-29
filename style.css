@@ -49,7 +49,7 @@
 }
 
 /* Mobile : ajustements supplémentaires */
-@media(max-width:480px){
+@media(max-width:1080px){
     .login-wrapper{padding:10px}
     .login-container,.register-container{border-radius:var(--radius-lg)}
     .login-brand,.register-brand{padding:25px 18px}
