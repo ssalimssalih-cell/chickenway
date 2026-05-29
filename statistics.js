@@ -1,7 +1,22 @@
-// ==================== STATISTIQUES PROFESSIONNELLES ====================
+// ==================== STATISTIQUES PROFESSIONNELLES (ADMIN UNIQUEMENT) ====================
 var statsCharts = {};
 
+function toDate(val) {
+    if (!val) return null;
+    if (val.toDate && typeof val.toDate === 'function') return val.toDate();
+    if (val.seconds) return new Date(val.seconds * 1000);
+    if (typeof val === 'string') return new Date(val);
+    if (val instanceof Date) return val;
+    return null;
+}
+
 function loadStatistiquesPage(c) {
+    // Restreindre l'accès aux administrateurs uniquement
+    if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') {
+        c.innerHTML = '<div class="content-card"><p style="text-align:center;padding:40px;color:#ef4444;"><i class="fas fa-lock" style="font-size:2rem;display:block;margin-bottom:10px;"></i>Accès réservé à l\'administrateur</p></div>';
+        return;
+    }
+
     var html = `
     <div class="content-card" style="margin-bottom:15px;">
         <div class="card-header">
@@ -26,7 +41,6 @@ function loadStatistiquesPage(c) {
 }
 
 async function loadStatistiques() {
-    // Détruire les anciens graphiques
     Object.values(statsCharts).forEach(chart => chart.destroy());
     statsCharts = {};
 
@@ -49,15 +63,30 @@ async function loadStatistiques() {
             db.collection('clients').get()
         ]);
 
-        // Filtrer par période
         var ventes = [];
-        ventesSnap.forEach(d => { var dd = d.data(); dd.id = d.id; if (!startDate || (dd.createdAt && dd.createdAt.toDate() >= startDate)) ventes.push(dd); });
+        ventesSnap.forEach(d => { 
+            var dd = d.data(); dd.id = d.id; 
+            var docDate = toDate(dd.createdAt);
+            if (!startDate || (docDate && docDate >= startDate)) ventes.push(dd); 
+        });
         var credits = [];
-        creditsSnap.forEach(d => { var dd = d.data(); dd.id = d.id; if (!startDate || (dd.createdAt && dd.createdAt.toDate() >= startDate)) credits.push(dd); });
+        creditsSnap.forEach(d => { 
+            var dd = d.data(); dd.id = d.id; 
+            var docDate = toDate(dd.createdAt);
+            if (!startDate || (docDate && docDate >= startDate)) credits.push(dd); 
+        });
         var depenses = [];
-        depensesSnap.forEach(d => { var dd = d.data(); dd.id = d.id; if (!startDate || (dd.createdAt && dd.createdAt.toDate() >= startDate)) depenses.push(dd); });
+        depensesSnap.forEach(d => { 
+            var dd = d.data(); dd.id = d.id; 
+            var docDate = toDate(dd.createdAt);
+            if (!startDate || (docDate && docDate >= startDate)) depenses.push(dd); 
+        });
         var commandes = [];
-        commandesSnap.forEach(d => { var dd = d.data(); dd.id = d.id; if (!startDate || (dd.createdAt && dd.createdAt.toDate() >= startDate)) commandes.push(dd); });
+        commandesSnap.forEach(d => { 
+            var dd = d.data(); dd.id = d.id; 
+            var docDate = toDate(dd.createdAt);
+            if (!startDate || (docDate && docDate >= startDate)) commandes.push(dd); 
+        });
 
         var produits = [];
         produitsSnap.forEach(d => { produits.push({ id: d.id, ...d.data() }); });
@@ -66,7 +95,7 @@ async function loadStatistiques() {
         var clients = [];
         clientsSnap.forEach(d => { clients.push({ id: d.id, ...d.data() }); });
 
-        // Calculs KPI
+        // KPI
         var totalVentes = ventes.reduce((sum, v) => sum + (v.total || 0), 0);
         var totalProfit = ventes.reduce((sum, v) => {
             var profit = 0;
@@ -87,7 +116,7 @@ async function loadStatistiques() {
         var nbCommandes = commandes.length;
         var tauxConversion = nbCommandes > 0 ? (nbVentes / nbCommandes * 100) : 0;
 
-        // Top 5 produits par quantité
+        // Top 5 produits
         var productSales = {};
         ventes.forEach(v => {
             if (v.items) {
@@ -100,7 +129,7 @@ async function loadStatistiques() {
         });
         var topProduits = Object.entries(productSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-        // Top 5 catégories par CA
+        // Top 5 catégories
         var categoryCA = {};
         ventes.forEach(v => {
             if (v.items) {
@@ -131,8 +160,9 @@ async function loadStatistiques() {
             dailySales[key] = 0;
         }
         ventes.forEach(v => {
-            if (v.createdAt) {
-                var dateKey = v.createdAt.toDate().toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+            var vDate = toDate(v.createdAt);
+            if (vDate) {
+                var dateKey = vDate.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
                 if (dailySales[dateKey] !== undefined) {
                     dailySales[dateKey] += v.total || 0;
                 }
@@ -149,7 +179,6 @@ async function loadStatistiques() {
             });
         });
 
-        // Construction HTML
         var statsHTML = `
         <div class="stats-grid" style="margin-bottom:20px;">
             <div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-money-bill-wave" style="color:#16a34a;"></i></div><div class="stat-info"><span class="stat-label">Chiffre d'affaires</span><span class="stat-value">${totalVentes.toFixed(2)} MAD</span></div></div>
@@ -165,17 +194,16 @@ async function loadStatistiques() {
         </div>
         `;
 
-        // Graphiques
         statsHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">';
         statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📈 Évolution du CA</h4><canvas id="salesChart" style="max-height:250px;"></canvas></div>';
         statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">💳 Méthodes de paiement</h4><canvas id="paymentChart" style="max-height:250px;"></canvas></div>';
         statsHTML += '</div>';
 
         statsHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">';
-        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">🏆 Top 5 Produits (quantité)</h4><table class="data-table"><thead><tr><th>Produit</th><th>Qté vendue</th></tr></thead><tbody>';
+        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">🏆 Top 5 Produits</h4><table class="data-table"><thead><tr><th>Produit</th><th>Qté vendue</th></tr></thead><tbody>';
         topProduits.forEach(p => { statsHTML += `<tr><td>${p[0]}</td><td>${p[1]}</td></tr>`; });
         statsHTML += '</tbody></table></div>';
-        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📊 Top 5 Catégories (CA)</h4><table class="data-table"><thead><tr><th>Catégorie</th><th>CA (MAD)</th></tr></thead><tbody>';
+        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📊 Top 5 Catégories</h4><table class="data-table"><thead><tr><th>Catégorie</th><th>CA (MAD)</th></tr></thead><tbody>';
         topCategories.forEach(cat => { statsHTML += `<tr><td>${cat[0]}</td><td>${cat[1].toFixed(2)}</td></tr>`; });
         statsHTML += '</tbody></table></div>';
         statsHTML += '</div>';
@@ -184,7 +212,6 @@ async function loadStatistiques() {
 
         document.getElementById('statsContent').innerHTML = statsHTML;
 
-        // Tracer les graphiques avec Chart.js
         setTimeout(() => {
             var ctx1 = document.getElementById('salesChart')?.getContext('2d');
             if (ctx1) {
