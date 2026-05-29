@@ -395,13 +395,13 @@ input,select,textarea,button{max-width:100%}
 .pos-finalize-btn{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;margin-top:24px}
 .pos-finalize-btn:hover{transform:translateY(-3px);box-shadow:0 10px 25px rgba(34,197,94,0.4)}
 
-/* ==================== PAIEMENT (TAILLES 30px POUR MONTANTS / TOTAL) ==================== */
+/* ==================== PAIEMENT (MONTANTS ET TOTAL À 40px) ==================== */
 .pos-payment-form{flex:1;overflow-y:auto}
 .pos-payment-section{margin-bottom:26px}
 .pos-payment-section label{
     font-weight:600;color:#1e293b;
     margin-bottom:12px;display:block;
-    font-size:1.2rem;                   /* légèrement plus grand */
+    font-size:1.2rem;
 }
 .pos-payment-section input[type="text"],
 .pos-payment-section input[type="number"],
@@ -410,6 +410,11 @@ input,select,textarea,button{max-width:100%}
     border:2px solid #e2e8f0;border-radius:14px;
     font-size:1.15rem;font-family:'Inter',sans-serif;
     transition:var(--transition);background:#fff;
+}
+/* Champ Montant donné : 40px */
+#posAmountGiven {
+    font-size: 2.5rem !important;
+    padding: 20px 22px;
 }
 .pos-payment-section input:focus,
 .pos-payment-section select:focus{
@@ -420,15 +425,15 @@ input,select,textarea,button{max-width:100%}
 .pos-summary-box{background:#f8fafc;padding:22px;border-radius:16px}
 .pos-summary-row{display:flex;justify-content:space-between;margin-bottom:12px;font-size:1rem;color:var(--text-gray)}
 
-/* Total : 30px */
+/* Total : 40px */
 .pos-summary-total{
     display:flex;justify-content:space-between;
-    font-size:1.875rem;      /* 30px */
+    font-size:2.5rem;        /* 40px */
     font-weight:700;color:var(--text-dark);
 }
 .pos-summary-total span:last-child{
     color:var(--primary-dark);
-    font-size:1.875rem;      /* 30px */
+    font-size:2.5rem;        /* 40px */
 }
 
 /* Boutons de paiement */
@@ -448,16 +453,16 @@ input,select,textarea,button{max-width:100%}
     box-shadow:0 6px 18px rgba(245,158,11,0.3);
 }
 
-/* Montant donné / rendu : 30px */
+/* Montant rendu / manquant : 40px */
 .pos-change-positive{
     background:#dcfce7;color:#166534;padding:18px 22px;border-radius:14px;margin-top:15px;
     font-weight:700;display:flex;justify-content:space-between;align-items:center;
-    font-size:1.875rem;      /* 30px */
+    font-size:2.5rem;        /* 40px */
 }
 .pos-change-negative{
     background:#fee2e2;color:#991b1b;padding:18px 22px;border-radius:14px;margin-top:15px;
     font-weight:700;display:flex;justify-content:space-between;align-items:center;
-    font-size:1.875rem;      /* 30px */
+    font-size:2.5rem;        /* 40px */
 }
 
 /* ==================== RESPONSIVE (tablette et mobile) ==================== */
@@ -497,10 +502,11 @@ input,select,textarea,button{max-width:100%}
     /* Paiement sur tablette : ~24px */
     .pos-payment-section label{font-size:1rem}
     .pos-payment-section input,.pos-payment-section select{font-size:1rem;padding:14px}
-    .pos-summary-total{font-size:1.5rem}           /* 24px */
-    .pos-summary-total span:last-child{font-size:1.5rem}
+    #posAmountGiven { font-size: 1.8rem !important; }
+    .pos-summary-total{font-size:1.8rem}
+    .pos-summary-total span:last-child{font-size:1.8rem}
     .pos-payment-btn{font-size:1rem;padding:14px}
-    .pos-change-positive,.pos-change-negative{font-size:1.5rem;padding:15px 18px}
+    .pos-change-positive,.pos-change-negative{font-size:1.8rem;padding:15px 18px}
 }
 
 /* Mobile */
@@ -533,9 +539,10 @@ input,select,textarea,button{max-width:100%}
     .pos-product-img{height:80px}
 
     /* Paiement très petit écran : 20px */
-    .pos-summary-total{font-size:1.25rem}
-    .pos-summary-total span:last-child{font-size:1.25rem}
-    .pos-change-positive,.pos-change-negative{font-size:1.25rem;padding:12px 15px}
+    #posAmountGiven { font-size: 1.4rem !important; }
+    .pos-summary-total{font-size:1.4rem}
+    .pos-summary-total span:last-child{font-size:1.4rem}
+    .pos-change-positive,.pos-change-negative{font-size:1.4rem;padding:12px 15px}
 }
 
 /* Safe area */
