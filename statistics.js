@@ -11,7 +11,6 @@ function toDate(val) {
 }
 
 function loadStatistiquesPage(c) {
-    // Restreindre l'accès aux administrateurs uniquement
     if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') {
         c.innerHTML = '<div class="content-card"><p style="text-align:center;padding:40px;color:#ef4444;"><i class="fas fa-lock" style="font-size:2rem;display:block;margin-bottom:10px;"></i>Accès réservé à l\'administrateur</p></div>';
         return;
@@ -34,13 +33,17 @@ function loadStatistiquesPage(c) {
             </div>
         </div>
     </div>
-    <div id="statsContent" style="text-align:center;padding:40px;">Chargement des données...</div>
+    <div id="statsContent" style="text-align:center;padding:40px;">
+        <i class="fas fa-spinner fa-spin" style="font-size:2rem;color:#f39c12;"></i>
+        <p style="margin-top:10px;">Chargement des données...</p>
+    </div>
     `;
     c.innerHTML = html;
     loadStatistiques();
 }
 
 async function loadStatistiques() {
+    // Détruire les anciens graphiques
     Object.values(statsCharts).forEach(chart => chart.destroy());
     statsCharts = {};
 
@@ -63,6 +66,7 @@ async function loadStatistiques() {
             db.collection('clients').get()
         ]);
 
+        // Filtrer par période
         var ventes = [];
         ventesSnap.forEach(d => { 
             var dd = d.data(); dd.id = d.id; 
@@ -285,6 +289,12 @@ async function loadStatistiques() {
 
     } catch(e) {
         console.error(e);
-        document.getElementById('statsContent').innerHTML = '<p style="text-align:center;color:#ef4444;">Erreur lors du chargement des statistiques.</p>';
+        // Affiche l'erreur complète dans la page
+        document.getElementById('statsContent').innerHTML = `
+        <div style="text-align:center; padding:40px;">
+            <i class="fas fa-exclamation-triangle" style="font-size:2rem; color:#ef4444;"></i>
+            <p style="color:#ef4444; margin-top:10px;">Erreur lors du chargement des statistiques</p>
+            <p style="color:#64748b; font-size:0.85rem; margin-top:5px;">${e.message}</p>
+        </div>`;
     }
 }
