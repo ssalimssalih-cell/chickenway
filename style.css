@@ -497,13 +497,47 @@ input,select,textarea,button{max-width:100%}
     .pos-payment-btn{font-size:1rem;padding:14px}
     .pos-change-positive,.pos-change-negative{font-size:1.2rem;padding:15px 18px}
 }
+
+/* --- Ajustements spécifiques pour mobile (authentification centrée) --- */
+@media(max-width:768px){
+    /* Login / Register plein écran, centré */
+    .login-wrapper{
+        padding:15px;
+        align-items:center;
+        justify-content:center;
+    }
+    .login-container,.register-container{
+        flex-direction:column;
+        width:100%;
+        max-width:420px;
+        border-radius:var(--radius-xl);
+        margin:0 auto;
+    }
+    .login-brand,.register-brand{
+        padding:35px 20px 20px;
+        border-right:none;
+        border-bottom:1px solid rgba(255,255,255,0.12);
+        text-align:center;
+    }
+    .brand-icon{width:75px;height:75px}
+    .login-brand h1,.register-brand h1{font-size:1.5rem}
+    .login-form,.register-form{
+        padding:30px 20px 35px;
+    }
+    .input-group{margin-bottom:14px}
+    .input-group i{min-width:45px;font-size:1rem}
+    .input-group input,.input-group select{font-size:1rem;padding:14px 12px 14px 0}
+    .btn-login{font-size:1rem;padding:14px}
+    .register-link{font-size:0.85rem}
+}
+
+/* Très petits écrans */
 @media(max-width:480px){
-    .login-wrapper{padding:10px}
     .login-container,.register-container{border-radius:var(--radius-lg)}
-    .login-brand,.register-brand{padding:25px 18px}
+    .login-brand,.register-brand{padding:30px 15px 15px}
     .brand-icon{width:65px;height:65px}
-    .login-brand h1,.register-brand h1{font-size:1.3rem}
-    .login-form,.register-form{padding:25px 18px}
+    .login-form,.register-form{padding:25px 15px 30px}
+
     .main-content{padding:16px 10px}
     .content-card{padding:16px}
     .modal-content{padding:20px}
