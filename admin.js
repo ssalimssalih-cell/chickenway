@@ -1,11 +1,12 @@
-// ==================== ADMIN.JS COMPLET AVEC TOUTES PAGES + STATISTIQUES ====================
+// ==================== ADMIN.JS COMPLET AVEC TRI, FILTRES, PAGINATION ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
 var sortOrders = {};
 var clientSearchQuery = '';
+var pendingUsersData = [];   // pour les inscriptions en attente
 
-// Données complètes
+// Données complètes pour les listes
 var allCategoriesData = [];
 var allProductsData = [];
 var allClientsData = [];
@@ -50,20 +51,61 @@ function loadDashboardStats() {
     db.collection('ventes').get().then(function(s){var e=document.getElementById('ventesCount');if(e)e.textContent=s.size;});
 }
 
+// ==================== INSCRIPTIONS EN ATTENTE (AVEC TRI) ====================
 function loadPendingRegistrations() {
     var d = document.getElementById('pendingRegistrations'); if (!d) return;
+    d.innerHTML = '<div class="table-container"><table class="data-table" id="pendingTable"><thead><tr>' +
+        makeSortableHeader('pending', 'prenom', 'Utilisateur', 'renderPendingTable') +
+        makeSortableHeader('pending', 'email', 'Email', 'renderPendingTable') +
+        makeSortableHeader('pending', 'role', 'Rôle', 'renderPendingTable') +
+        makeSortableHeader('pending', 'createdAt', 'Date', 'renderPendingTable') +
+        '<th>Actions</th></tr></thead><tbody></tbody></table></div>';
+
     db.collection('users').where('authorized', '==', 'no').get().then(function(s) {
-        if (s.empty) { d.innerHTML = '<p style="padding:30px;color:#16a34a;">Aucune inscription en attente</p>'; return; }
-        var u = []; s.forEach(function(dc) { u.push({ id: dc.id, data: dc.data() }); });
-        u.sort(function(a, b) { return (b.data.createdAt?.seconds || 0) - (a.data.createdAt?.seconds || 0); });
-        var h = '<div class="table-container"><table class="data-table"><thead><tr><th>Utilisateur</th><th>Email</th><th>Rôle</th><th>Date</th><th>Actions</th></table></thead><tbody>';
-        u.forEach(function(x) {
-            var dd = x.data;
-            var dt = dd.createdAt ? new Date(dd.createdAt.seconds * 1000).toLocaleDateString('fr-FR') : 'N/A';
-            h += '<tr><td><strong>' + dd.prenom + ' ' + dd.nom + '</strong> (@' + dd.username + ')</td><td>' + dd.email + '</td><td>' + dd.role + '</td><td>' + dt + '</td><td><button class="btn-add" style="padding:4px 10px;font-size:0.7rem;margin-right:5px;" onclick="approveUser(\'' + x.id + '\')"><i class="fas fa-check"></i> Accepter</button><button class="btn-delete" style="padding:4px 10px;font-size:0.7rem;" onclick="rejectUser(\'' + x.id + '\')"><i class="fas fa-times"></i> Refuser</button></td></tr>';
-        });
-        h += '</tbody></table></div>';
-        d.innerHTML = h;
+        pendingUsersData = [];
+        if (!s.empty) {
+            s.forEach(function(dc) {
+                var userData = dc.data();
+                pendingUsersData.push({
+                    id: dc.id,
+                    prenom: userData.prenom + ' ' + userData.nom,
+                    email: userData.email,
+                    role: userData.role,
+                    createdAt: userData.createdAt,
+                    data: userData
+                });
+            });
+        }
+        renderPendingTable();
+    }).catch(function(err) {
+        console.error(err);
+        pendingUsersData = [];
+        renderPendingTable();
+    });
+}
+
+function renderPendingTable() {
+    var tb = document.querySelector('#pendingTable tbody');
+    if (!tb) return;
+    
+    var data = applySort('pending', pendingUsersData.slice(), 'createdAt');
+    
+    tb.innerHTML = '';
+    if (data.length === 0) {
+        tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#16a34a;">Aucune inscription en attente</td></tr>';
+        return;
+    }
+    
+    data.forEach(function(x) {
+        var dt = x.createdAt ? new Date(x.createdAt.seconds * 1000).toLocaleDateString('fr-FR') : 'N/A';
+        var row = '<tr>';
+        row += '<td><strong>' + x.prenom + '</strong> (@' + x.data.username + ')</td>';
+        row += '<td>' + x.email + '</td>';
+        row += '<td>' + x.role + '</td>';
+        row += '<td>' + dt + '</td>';
+        row += '<td><button class="btn-add" style="padding:4px 10px;font-size:0.7rem;margin-right:5px;" onclick="approveUser(\'' + x.id + '\')"><i class="fas fa-check"></i> Accepter</button><button class="btn-delete" style="padding:4px 10px;font-size:0.7rem;" onclick="rejectUser(\'' + x.id + '\')"><i class="fas fa-times"></i> Refuser</button></td>';
+        row += '</tr>';
+        tb.innerHTML += row;
     });
 }
 
@@ -87,7 +129,7 @@ async function rejectUser(uid) {
     }
 }
 
-// ==================== MODAL & CRUD ====================
+// ==================== MODAL & CRUD (avec offline) ====================
 function openModal(t, b) {
     document.getElementById('modalTitle').textContent = t;
     document.getElementById('modalBody').innerHTML = b;
@@ -144,7 +186,7 @@ async function deleteDocument(cn, id) {
 
 function refreshCurrentPage() {
     var t = document.getElementById('pageTitle').textContent;
-    var m = { 'Catégories': 'categories', 'Produits': 'products', 'Clients': 'clients', 'Fournisseurs': 'fournisseurs', 'Dépenses': 'depenses', 'Ventes': 'ventes', 'Crédits': 'credits', 'Commandes en ligne': 'commandes', 'Statistiques': 'statistiques' };
+    var m = { 'Catégories': 'categories', 'Produits': 'products', 'Clients': 'clients', 'Fournisseurs': 'fournisseurs', 'Dépenses': 'depenses', 'Ventes': 'ventes', 'Crédits': 'credits', 'Commandes en ligne': 'commandes' };
     navigateTo(m[t] || 'dashboard');
 }
 
@@ -162,7 +204,7 @@ function openEditForm(cn, data) {
     else if (cn === 'depenses') openDepenseForm(data);
 }
 
-// ==================== TRI UNIVERSEL ====================
+// ==================== SYSTÈME DE TRI UNIVERSEL ====================
 function sortTableData(tableName, field, loadFn) {
     if (!sortOrders[tableName]) sortOrders[tableName] = {};
     if (!sortOrders[tableName][field]) sortOrders[tableName][field] = 'asc';
@@ -173,7 +215,7 @@ function sortTableData(tableName, field, loadFn) {
 }
 
 function getSortIcon(tableName, field) {
-    if (!sortOrders[tableName] || !sortOrders[tableName][field]) return '<i class="fas fa-sort" style="font-size:0.5rem;margin-left:2px;opacity:0.3;"></i>';
+    if (!sortOrders[tableName] || !sortOrders[tableName][field]) return '<i class="fas fa-sort" style="font-size:0.5rem;margin-left:2px;opacity:0.3;cursor:pointer;"></i>';
     return sortOrders[tableName][field] === 'asc' ? '<i class="fas fa-sort-up" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>' : '<i class="fas fa-sort-down" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>';
 }
 
@@ -354,7 +396,6 @@ function saveCategory() {
     };
     if (f) fileToBase64(f, sf); else sf(null);
 }
-
 // ==================== PRODUITS ====================
 function loadProductsPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-utensils"></i> Produits</h3><div style="display:flex;gap:10px;flex-wrap:wrap;"><select id="categoryFilter" onchange="filterProducts()"><option value="">Toutes catégories</option></select><button class="btn-add" onclick="openProductForm()"><i class="fas fa-plus"></i> Nouveau</button></div></div><div class="table-container"><table class="data-table" id="productsTable" style="font-size:0.7rem;"><thead><tr><th>Img</th>'+makeSortableHeader('products','nom','Nom','loadProducts')+makeSortableHeader('products','categorie','Catégorie','loadProducts')+makeSortableHeader('products','prixAchat','Achat','loadProducts')+makeSortableHeader('products','prixVente','Vente','loadProducts')+makeSortableHeader('products','prixPromo','Promo','loadProducts')+makeSortableHeader('products','profit','Profit','loadProducts')+makeSortableHeader('products','stock','Stock','loadProducts')+makeSortableHeader('products','vendues','Vendues','loadProducts')+makeSortableHeader('products','ca','CA','loadProducts')+makeSortableHeader('products','disponible','Dispo','loadProducts')+'<th>Temps</th><th>Desc</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="productsPagination"></div></div>';
