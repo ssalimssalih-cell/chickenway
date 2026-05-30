@@ -1,4 +1,4 @@
-// ==================== POS.JS AVEC BADGE COMMANDES EN LIGNE ET FIDÉLITÉ (DÉFAUT ACTIF) ====================
+// ==================== POS.JS AVEC BADGE COMMANDES EN LIGNE, FIDÉLITÉ CONFIGURABLE, MODALE ÉLARGIE ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
@@ -253,7 +253,7 @@ function renderPOS() {
     if (posStep === 2) setTimeout(posCalculateChange, 200);
 }
 
-// Commandes tables (modale)
+// Commandes tables (modale élargie)
 function posAfficherCommandesTables() {
     if (posCommandesTables.length === 0) { alert('Aucune commande table en attente.'); return; }
     var html = '<div style="max-height:70vh;overflow-y:auto;"><table class="data-table" style="width:100%;font-size:0.75rem;"><thead><tr><th>ID Commande</th><th>N° Table</th><th>Produits</th><th>Options</th><th>Total</th><th>Date/Heure</th><th>Actions</th></tr></thead><tbody>';
@@ -282,6 +282,12 @@ function posAfficherCommandesTables() {
     });
     html += '</tbody></table></div>';
     openModal('🛎️ Commandes tables en attente (' + posCommandesTables.length + ')', html);
+
+    // ➕ Agrandir la modale
+    setTimeout(function() {
+        var modal = document.getElementById('modalOverlay');
+        if (modal) modal.classList.add('modal-wide');
+    }, 50);
 }
 
 function posChargerCommandeTable(commandeId) {
@@ -422,4 +428,4 @@ async function posFinalizeSale() {
         alert(msg);posResetCart();renderPOS();CacheDB.sync();
     }catch(e){alert('Erreur: '+e.message);}
 }
-console.log('POS JS avec fidélité par défaut active');
+console.log('POS JS avec badges, fidélité configurable et modale élargie');
