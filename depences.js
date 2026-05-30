@@ -1,6 +1,6 @@
 // ==================== GESTION DES DÉPENSES (HIÉRARCHIQUE + SAISIE AUTRE) ====================
 
-// Structure complète (catégorie → sous‑catégories)
+// Structure des catégories et sous‑catégories
 var depenseCategories = {
     "Achats matières premières": ["Viande", "Poulet", "Poisson", "Légumes", "Fruits", "Produits laitiers", "Épices", "Huile"],
     "Boissons": ["Eau", "Sodas", "Jus", "Café", "Thé"],
@@ -14,7 +14,7 @@ var depenseCategories = {
     "Taxes et impôts": ["Taxes", "Impôts"]
 };
 
-// ---- Page principale des dépenses ----
+// ==================== PAGE PRINCIPALE ====================
 function loadDepensesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-money-bill-wave"></i> Dépenses</h3><button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="depensesTable" style="font-size:0.65rem;"><thead><tr>'+
         makeSortableHeader('depenses','id','ID','loadDepenses')+
@@ -27,7 +27,7 @@ function loadDepensesPage(c) {
     loadDepenses();
 }
 
-// ---- Chargement des données ----
+// ==================== CHARGEMENT DES DONNÉES ====================
 async function loadDepenses() {
     try {
         const cached = await CacheDB.getAll('depenses');
@@ -41,7 +41,7 @@ async function loadDepenses() {
     renderDepensesTable();
 }
 
-// ---- Affichage du tableau ----
+// ==================== AFFICHAGE DU TABLEAU ====================
 function renderDepensesTable() {
     var tb = document.querySelector('#depensesTable tbody');
     if (!tb) return;
@@ -62,7 +62,7 @@ function renderDepensesTable() {
     document.getElementById('depensesPagination').innerHTML = getPaginationHTML('depenses', data.length);
 }
 
-// ---- Formulaire (catégorie → sous‑catégories + champ manuel) ----
+// ==================== FORMULAIRE (CATÉGORIE → SOUS‑CATÉGORIES + CHAMP MANUEL) ====================
 function openDepenseForm(data) {
     data = data || {};
     var selectedCategorie = data.categorie || '';
