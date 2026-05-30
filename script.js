@@ -161,7 +161,7 @@ function buildMenu() {
             {p:'ventes',i:'fa-shopping-cart',l:'Ventes'},
             {p:'credits',i:'fa-credit-card',l:'Crédits'},
             {p:'depenses',i:'fa-money-bill-wave',l:'Dépenses'},
-            {p:'statistiques',i:'fa-chart-bar',l:'Statistiques'},  // ← AJOUT
+            {p:'statistiques',i:'fa-chart-bar',l:'Statistiques'},
             {p:'options',i:'fa-cog',l:'Options'}
         ];
         document.getElementById('sidebarRole').textContent = 'Admin';
@@ -227,7 +227,7 @@ function navigateTo(page) {
     else if (page === 'ventes' && typeof loadVentesPage === 'function') loadVentesPage(content);
     else if (page === 'credits' && typeof loadCreditsPage === 'function') loadCreditsPage(content);
     else if (page === 'depenses' && typeof loadDepensesPage === 'function') loadDepensesPage(content);
-    else if (page === 'statistiques' && typeof loadStatistiquesPage === 'function') loadStatistiquesPage(content); // ← AJOUT
+    else if (page === 'statistiques' && typeof loadStatistiquesPage === 'function') loadStatistiquesPage(content);
     else if (page === 'options' && typeof loadOptionsPage === 'function') loadOptionsPage(content);
     else if (page === 'dashboard' && typeof loadDashboardPage === 'function') loadDashboardPage(content);
     else content.innerHTML = '<div class="content-card"><h3>' + (titles[page] || 'Page') + '</h3><p style="text-align:center;padding:40px;">En développement</p></div>';
