@@ -465,6 +465,111 @@ input,select,textarea,button{max-width:100%}
     font-weight:700;display:flex;justify-content:space-between;align-items:center;
     font-size:2.0625rem;        /* 33px */
 }
+/* ==================== OPTIONS : SÉCURITÉ & MARKETING ==================== */
+/* Carte Sécurité : formulaire de changement de mot de passe */
+#changePasswordForm {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+
+#changePasswordForm .form-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+#changePasswordForm .form-group {
+    flex: 1;
+    min-width: 200px;
+}
+
+#changePasswordForm label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+}
+
+#changePasswordForm input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-family: 'Inter', sans-serif;
+    background: #fff;
+    transition: var(--transition);
+}
+
+#changePasswordForm input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.08);
+    outline: none;
+}
+
+/* Carte Programme marketing : contenu caché */
+#marketingProgramContent {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border);
+}
+
+#marketingProgramContent .form-group {
+    margin-right: 15px;
+    margin-bottom: 10px;
+}
+
+#marketingProgramContent label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    margin-bottom: 6px;
+}
+
+#marketingProgramContent select,
+#marketingProgramContent input[type="number"] {
+    padding: 10px 14px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    background: #fff;
+    font-family: 'Inter', sans-serif;
+    transition: var(--transition);
+}
+
+#marketingProgramContent select:focus,
+#marketingProgramContent input[type="number"]:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.08);
+    outline: none;
+}
+
+/* Boutons dans les cartes d'options */
+.content-card .card-header .btn-add {
+    /* espace supplémentaire si nécessaire */
+    margin-left: auto;
+}
+
+/* Ajustement sur mobile */
+@media (max-width: 768px) {
+    #changePasswordForm .form-group {
+        min-width: 100%;
+    }
+
+    #marketingProgramContent {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #marketingProgramContent .form-group {
+        margin-right: 0;
+        width: 100%;
+    }
+}
 
 /* ==================== RESPONSIVE ==================== */
 @media(max-width:1200px){
