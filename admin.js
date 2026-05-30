@@ -1051,7 +1051,27 @@ async function markCreditPaid(cid) {
 // ==================== OPTIONS ====================
 function loadOptionsPage(c) {
     if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') { c.innerHTML = '<p>Accès refusé</p>'; return; }
-    c.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-clock" style="color:#d97706;"></i></div><div class="stat-info"><span>En attente</span><span class="stat-value" id="pendingCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div><div class="stat-info"><span>Autorisés</span><span class="stat-value" id="authorizedCount">0</span></div></div><div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span>Total</span><span class="stat-value" id="totalUsers">0</span></div></div></div><div class="content-card"><div class="card-header"><h3>Utilisateurs</h3><button class="btn-add" onclick="loadUsersList()">Actualiser</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div></div>';
+    c.innerHTML = 
+    '<div class="stats-grid">'+
+        '<div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-clock" style="color:#d97706;"></i></div><div class="stat-info"><span>En attente</span><span class="stat-value" id="pendingCount">0</span></div></div>'+
+        '<div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-check-circle" style="color:#16a34a;"></i></div><div class="stat-info"><span>Autorisés</span><span class="stat-value" id="authorizedCount">0</span></div></div>'+
+        '<div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span>Total</span><span class="stat-value" id="totalUsers">0</span></div></div>'+
+    '</div>'+
+    '<div class="content-card">'+
+        '<div class="card-header"><h3><i class="fas fa-lock"></i> Sécurité</h3></div>'+
+        '<div class="form-row">'+
+            '<div class="form-group"><label>Mot de passe actuel</label><input type="password" id="currentPassword" placeholder="Mot de passe actuel"></div>'+
+        '</div>'+
+        '<div class="form-row">'+
+            '<div class="form-group"><label>Nouveau mot de passe</label><input type="password" id="newPassword" placeholder="6 caractères minimum"></div>'+
+            '<div class="form-group"><label>Confirmer le mot de passe</label><input type="password" id="confirmPassword" placeholder="Confirmer"></div>'+
+        '</div>'+
+        '<button class="btn-save" onclick="changeAdminPassword()" style="float:left;margin-top:10px;"><i class="fas fa-save"></i> Changer le mot de passe</button>'+
+    '</div>'+
+    '<div class="content-card">'+
+        '<div class="card-header"><h3>Utilisateurs</h3><button class="btn-add" onclick="loadUsersList()">Actualiser</button></div>'+
+        '<div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>'+
+    '</div>';
     loadUsersList();
 }
 
@@ -1083,6 +1103,49 @@ function blockUser(uid) {
 function deleteUserPermanently(uid) {
     if (confirm('Supprimer ?')) {
         CacheDB.write('users', uid, null, 'delete').then(function() { loadUsersList(); loadPendingRegistrations(); CacheDB.sync(); });
+    }
+}
+
+// ==================== CHANGEMENT DE MOT DE PASSE ADMIN ====================
+async function changeAdminPassword() {
+    var currentPass = document.getElementById('currentPassword').value.trim();
+    var newPass = document.getElementById('newPassword').value.trim();
+    var confirmPass = document.getElementById('confirmPassword').value.trim();
+
+    if (!currentPass || !newPass || !confirmPass) {
+        alert('Tous les champs sont obligatoires.');
+        return;
+    }
+    if (newPass.length < 6) {
+        alert('Le mot de passe doit contenir au moins 6 caractères.');
+        return;
+    }
+    if (newPass !== confirmPass) {
+        alert('Les mots de passe ne correspondent pas.');
+        return;
+    }
+
+    var user = auth.currentUser;
+    if (!user) {
+        alert('Aucun utilisateur connecté.');
+        return;
+    }
+
+    var credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
+    try {
+        await user.reauthenticateWithCredential(credential);
+        await user.updatePassword(newPass);
+        alert('✅ Mot de passe changé avec succès !');
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+    } catch (error) {
+        console.error(error);
+        if (error.code === 'auth/wrong-password') {
+            alert('❌ Mot de passe actuel incorrect.');
+        } else {
+            alert('Erreur : ' + error.message);
+        }
     }
 }
 
