@@ -15,6 +15,7 @@ var allDepensesData = [];
 var allCommandesData = [];
 var allVentesData = [];
 var allCreditsData = [];
+var allUsersData = [];                     // ✅ pour la liste des utilisateurs
 
 // Pagination
 var currentPages = {
@@ -25,14 +26,16 @@ var currentPages = {
     depenses: 1,
     commandes: 1,
     ventes: 1,
-    credits: 1
+    credits: 1,
+    users: 1                             // ✅ pagination utilisateurs
 };
-var itemsPerPage = 20;
+var itemsPerPage = 15;                    // ✅ 15 lignes maximum
 
 // Filtres
 var ventesPeriod = 'all', ventesSearch = '';
 var creditsPeriod = 'all', creditsSearch = '';
 var commandesPeriod = 'all', commandesSearch = '';
+var usersSearchQuery = '';               // ✅ recherche utilisateurs
 
 // Liste pour les fournisseurs (inchangée)
 var fournisseurCategoriesList = ['Alimentaire', 'Boissons', 'Emballage', 'Entretien', 'Viandes', 'Légumes', 'Sauces', 'Autre'];
@@ -299,7 +302,8 @@ function changePage(tableName, newPage) {
         depenses: renderDepensesTable,
         commandes: renderCommandesTable,
         ventes: renderVentesTable,
-        credits: renderCreditsTable
+        credits: renderCreditsTable,
+        users: renderUsersTable                // ✅
     };
     var dataArrays = {
         categories: allCategoriesData,
@@ -309,7 +313,8 @@ function changePage(tableName, newPage) {
         depenses: allDepensesData,
         commandes: window.filteredCommandes || allCommandesData,
         ventes: window.filteredVentes || allVentesData,
-        credits: window.filteredCredits || allCreditsData
+        credits: window.filteredCredits || allCreditsData,
+        users: window.filteredUsers || allUsersData   // ✅
     };
     var totalItems = (dataArrays[tableName] || []).length;
     var totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -1127,8 +1132,20 @@ function loadOptionsPage(c) {
         '</div>'+
     '</div>'+
     '<div class="content-card">'+
-        '<div class="card-header"><h3>Utilisateurs</h3><button class="btn-add" onclick="loadUsersList()">Actualiser</button></div>'+
-        '<div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>'+
+        '<div class="card-header"><h3>Utilisateurs</h3>'+
+        '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'+
+            '<input type="text" id="usersSearchInput" placeholder="🔍 Rechercher (nom, email, username)..." style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px; width:220px;" onkeyup="usersSearchQuery = this.value.trim().toLowerCase(); currentPages.users = 1; renderUsersTable();">'+
+            '<button class="btn-add" onclick="loadUsersList()"><i class="fas fa-sync"></i> Actualiser</button>'+
+        '</div></div>'+
+        '<div class="table-container"><table class="data-table" id="usersTable" style="font-size:0.85rem;"><thead><tr>'+
+            makeSortableHeader('users','username','Username','renderUsersTable')+
+            makeSortableHeader('users','nom','Nom','renderUsersTable')+
+            makeSortableHeader('users','email','Email','renderUsersTable')+
+            makeSortableHeader('users','role','Rôle','renderUsersTable')+
+            makeSortableHeader('users','authorized','Statut','renderUsersTable')+
+            '<th>Actions</th>'+
+        '</tr></thead><tbody></tbody></table></div>'+
+        '<div id="usersPagination"></div>'+
     '</div>';
     loadUsersList();
 }
@@ -1138,7 +1155,6 @@ function toggleMarketingProgram() {
     if (div) {
         if (div.classList.contains('hidden')) {
             div.classList.remove('hidden');
-            // Charger les paramètres au moment de l'affichage
             loadFideliteSettings();
         } else {
             div.classList.add('hidden');
@@ -1148,21 +1164,70 @@ function toggleMarketingProgram() {
 
 function loadUsersList() {
     db.collection('users').get().then(function(sn) {
-        var p = 0, a = 0; var tb = document.getElementById('usersTableBody'); tb.innerHTML = '';
-        if (sn.empty) { tb.innerHTML = '<tr><td colspan="6">Aucun</td></tr>'; }
-        var us = []; sn.forEach(function(dc) { us.push({ id: dc.id, data: dc.data() }); });
-        us.sort(function(x, y) { return (y.data.createdAt?.seconds || 0) - (x.data.createdAt?.seconds || 0); });
-        us.forEach(function(u) {
-            var d = u.data, id = u.id;
-            if (d.authorized === 'no') p++; else a++;
-            var badge = d.authorized === 'yes' ? '<span class="status-success">OK</span>' : '<span class="status-warning">En attente</span>';
-            var act = d.authorized === 'no' ? '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:5px;" onclick="approveUser(\'' + id + '\')">Accepter</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="rejectUser(\'' + id + '\')">Refuser</button>' : '<button style="padding:4px 8px;font-size:0.7rem;margin-right:5px;color:#d97706;border:none;background:#fef3c7;border-radius:6px;cursor:pointer;" onclick="blockUser(\'' + id + '\')">Bloquer</button><button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="deleteUserPermanently(\'' + id + '\')">Supprimer</button>';
-            tb.innerHTML += '<tr><td>@' + d.username + '</td><td>' + d.prenom + ' ' + d.nom + '</td><td>' + d.email + '</td><td>' + d.role + '</td><td>' + badge + '</td><td>' + act + '</td></tr>';
-        });
+        allUsersData = [];
+        if (!sn.empty) {
+            sn.forEach(function(dc) {
+                var d = dc.data();
+                d.id = dc.id;
+                d.fullName = (d.prenom + ' ' + d.nom).toLowerCase();
+                allUsersData.push(d);
+            });
+        }
+        var p = allUsersData.filter(u => u.authorized === 'no').length;
+        var a = allUsersData.filter(u => u.authorized === 'yes').length;
         document.getElementById('pendingCount').textContent = p;
         document.getElementById('authorizedCount').textContent = a;
-        document.getElementById('totalUsers').textContent = sn.size;
+        document.getElementById('totalUsers').textContent = allUsersData.length;
+
+        currentPages.users = 1;
+        renderUsersTable();
     });
+}
+
+function renderUsersTable() {
+    var tb = document.querySelector('#usersTable tbody');
+    if (!tb) return;
+
+    var data = allUsersData.slice();
+    if (usersSearchQuery) {
+        data = data.filter(function(u) {
+            return (u.email||'').toLowerCase().indexOf(usersSearchQuery) !== -1 ||
+                   (u.username||'').toLowerCase().indexOf(usersSearchQuery) !== -1 ||
+                   (u.fullName||'').indexOf(usersSearchQuery) !== -1;
+        });
+    }
+    window.filteredUsers = data;
+
+    data = applySort('users', data, 'username');
+    var pageData = getPageData('users', data);
+
+    tb.innerHTML = '';
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;">Aucun utilisateur trouvé</td></tr>';
+        document.getElementById('usersPagination').innerHTML = '';
+        return;
+    }
+
+    pageData.forEach(function(u) {
+        var badge = u.authorized === 'yes' ? '<span class="status-success">✅ OK</span>' : '<span class="status-warning">⏳ En attente</span>';
+        var act = u.authorized === 'no' ?
+            '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:4px;" onclick="approveUser(\'' + u.id + '\')">✔ Accepter</button>' +
+            '<button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="rejectUser(\'' + u.id + '\')">✖ Refuser</button>'
+            :
+            '<button style="padding:4px 8px;font-size:0.7rem;margin-right:4px;color:#d97706;border:none;background:#fef3c7;border-radius:6px;cursor:pointer;" onclick="blockUser(\'' + u.id + '\')">⛔ Bloquer</button>' +
+            '<button class="btn-delete" style="padding:4px 8px;font-size:0.7rem;" onclick="deleteUserPermanently(\'' + u.id + '\')">🗑 Supprimer</button>';
+        var row = '<tr>'+
+            '<td><strong>@' + (u.username||'') + '</strong></td>'+
+            '<td>' + (u.prenom||'') + ' ' + (u.nom||'') + '</td>'+
+            '<td>' + (u.email||'') + '</td>'+
+            '<td>' + (u.role||'') + '</td>'+
+            '<td>' + badge + '</td>'+
+            '<td>' + act + '</td>'+
+        '</tr>';
+        tb.innerHTML += row;
+    });
+
+    document.getElementById('usersPagination').innerHTML = getPaginationHTML('users', data.length);
 }
 
 function blockUser(uid) {
@@ -1222,7 +1287,6 @@ async function changeAdminPassword() {
         document.getElementById('currentPassword').value = '';
         document.getElementById('newPassword').value = '';
         document.getElementById('confirmPassword').value = '';
-        // Refermer le formulaire
         toggleChangePasswordForm();
     } catch (error) {
         console.error(error);
@@ -1245,7 +1309,6 @@ async function loadFideliteSettings() {
             points = doc.data().pointsParVente || 1;
         }
     } catch(e) {
-        // fallback localStorage
         active = localStorage.getItem('fidelite_active') === 'true';
         points = parseInt(localStorage.getItem('fidelite_points')) || 1;
     }
