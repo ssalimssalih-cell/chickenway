@@ -1,4 +1,4 @@
-// ==================== CLIENT.JS AVEC CACHE OFFLINE ====================
+// ==================== CLIENT.JS AVEC CACHE OFFLINE ET GESTION RECETTE ====================
 var clientCart = [];
 var clientCategoriesList = [];
 var clientProductsList = [];
@@ -30,7 +30,14 @@ async function loadClientCommanderPage() {
     // Chargement depuis le cache
     let cachedCategories = await CacheDB.getAll('categories');
     let cachedProducts = await CacheDB.getAll('products');
-    if (cachedCategories.length) clientCategoriesList = cachedCategories;
+    if (cachedCategories.length) clientCategoriesList = cachedCategories.map(function(cat) {
+        return {
+            id: cat.id,
+            nom: cat.nom,
+            imageBase64: cat.imageBase64,
+            recette: cat.recette || false   // ⬅️ ajout
+        };
+    });
     if (cachedProducts.length) clientProductsList = cachedProducts.filter(p => p.disponible !== false);
     renderClientPOS();
 
@@ -42,7 +49,12 @@ async function loadClientCommanderPage() {
         ]);
         clientCategoriesList = [];
         cs.forEach(d => {
-            let cat = { id: d.id, nom: d.data().nom, imageBase64: d.data().imageBase64 };
+            let cat = {
+                id: d.id,
+                nom: d.data().nom,
+                imageBase64: d.data().imageBase64,
+                recette: d.data().recette || false   // ⬅️ ajout
+            };
             clientCategoriesList.push(cat);
             CacheDB.set('categories', d.id, cat);
         });
@@ -50,13 +62,65 @@ async function loadClientCommanderPage() {
         ps.forEach(d => {
             const dd = d.data();
             if (dd.disponible !== false) {
-                let prod = { id: d.id, nom: dd.nom, prixVente: dd.prixVente||0, prixPromo: dd.prixPromo||0, stock: dd.stock, categorie: dd.categorie||'', imageBase64: dd.imageBase64||'' };
+                let prod = {
+                    id: d.id,
+                    nom: dd.nom,
+                    prixVente: dd.prixVente||0,
+                    prixPromo: dd.prixPromo||0,
+                    stock: dd.stock,
+                    categorie: dd.categorie||'',
+                    imageBase64: dd.imageBase64||''
+                };
                 clientProductsList.push(prod);
                 CacheDB.set('products', d.id, prod);
             }
         });
         renderClientPOS();
     } catch(e) { console.error('Erreur mise à jour catalogue client', e); }
+}
+
+// ==================== NOUVELLE FONCTION DE DÉCISION RECETTE ====================
+function clientAddToCartOrOpenOptions(pid) {
+    var p = clientProductsList.find(function(x) { return x.id === pid; });
+    if (!p) return;
+    if (p.stock !== undefined && p.stock <= 0) {
+        alert('Rupture de stock');
+        return;
+    }
+
+    // Vérifier si la catégorie du produit est marquée comme "recette"
+    var cat = clientCategoriesList.find(function(c) { return c.nom === p.categorie; });
+    var isRecette = cat && cat.recette === true;
+
+    if (isRecette) {
+        // Ouvrir le modal de personnalisation
+        clientCurrentProductId = pid;
+        clientOpenOptionsModal(pid);
+    } else {
+        // Ajout direct sans options
+        var existing = clientCart.find(function(x) { return x.id === pid; });
+        if (existing) {
+            if (p.stock !== undefined && existing.quantite >= p.stock) {
+                alert('Stock insuffisant');
+                return;
+            }
+            existing.quantite += 1;
+        } else {
+            var pr = p.prixPromo && p.prixPromo > 0 ? p.prixPromo : p.prixVente;
+            clientCart.push({
+                id: p.id,
+                nom: p.nom,
+                prixUnitaire: pr,
+                quantite: 1,
+                categorie: p.categorie || '',
+                sauces: [],
+                interdits: [],
+                epice: 'Normal',
+                sel: 'Normal'
+            });
+        }
+        renderClientPOS();
+    }
 }
 
 function clientOpenOptionsModal(pid) {
@@ -102,7 +166,11 @@ function renderClientPOS() {
     h += '</div><div class="pos-products-grid">';
     var f = clientProductsList; if (clientSelectedCategory!=='all') f = clientProductsList.filter(function(p){return p.categorie===clientSelectedCategory;});
     if (f.length===0) { h += '<div style="grid-column:1/-1;text-align:center;padding:40px;">Aucun produit</div>'; }
-    else { for (var j = 0; j < f.length; j++) { var p = f[j]; var pr = p.prixPromo&&p.prixPromo>0?p.prixPromo:p.prixVente; var hp = p.prixPromo&&p.prixPromo>0; h += '<div class="pos-product-card" onclick="clientOpenOptionsModal(\''+p.id+'\')">'; if (p.imageBase64) h += '<div class="pos-product-img"><img src="'+p.imageBase64+'" alt="'+p.nom+'"></div>'; else h += '<div class="pos-product-img pos-product-placeholder"><i class="fas fa-utensils"></i></div>'; h += '<div class="pos-product-info"><span class="pos-product-name">'+p.nom+'</span><span class="pos-product-price">'; if (hp) h += '<span class="pos-old-price">'+p.prixVente.toFixed(2)+'</span> <span class="pos-promo-price">'+pr.toFixed(2)+' MAD</span>'; else h += pr.toFixed(2)+' MAD'; h += '</span></div></div>'; } }
+    else { for (var j = 0; j < f.length; j++) { var p = f[j]; var pr = p.prixPromo&&p.prixPromo>0?p.prixPromo:p.prixVente; var hp = p.prixPromo&&p.prixPromo>0;
+        // ⬅️ Appel à la nouvelle fonction au lieu de clientOpenOptionsModal
+        h += '<div class="pos-product-card" onclick="clientAddToCartOrOpenOptions(\''+p.id+'\')">';
+        if (p.imageBase64) h += '<div class="pos-product-img"><img src="'+p.imageBase64+'" alt="'+p.nom+'"></div>'; else h += '<div class="pos-product-img pos-product-placeholder"><i class="fas fa-utensils"></i></div>';
+        h += '<div class="pos-product-info"><span class="pos-product-name">'+p.nom+'</span><span class="pos-product-price">'; if (hp) h += '<span class="pos-old-price">'+p.prixVente.toFixed(2)+'</span> <span class="pos-promo-price">'+pr.toFixed(2)+' MAD</span>'; else h += pr.toFixed(2)+' MAD'; h += '</span></div></div>'; } }
     h += '</div></div><div class="pos-cart-panel"><div class="pos-cart-header"><h3><i class="fas fa-shopping-cart"></i> Mon Panier <span class="pos-cart-badge">'+clientCart.length+'</span></h3><button class="pos-clear-btn" onclick="clientClearCart()"><i class="fas fa-trash-alt"></i> Vider</button></div><div class="pos-cart-items">';
     if (clientCart.length===0) { h += '<div class="pos-cart-empty"><i class="fas fa-shopping-basket"></i><p>Panier vide</p></div>'; }
     else { for (var k = 0; k < clientCart.length; k++) { var it = clientCart[k]; var opts = ''; if (it.sauces&&it.sauces.length>0) opts += ' <span style="color:#f39c12;font-size:0.6rem;">🥫'+it.sauces.join(',')+'</span>'; if (it.interdits&&it.interdits.length>0) opts += ' <span style="color:#ef4444;font-size:0.6rem;">🚫'+it.interdits.join(',')+'</span>'; if (it.epice&&it.epice!=='Normal') opts += ' <span style="color:#d97706;font-size:0.6rem;">🌶️'+it.epice+'</span>'; if (it.sel&&it.sel!=='Normal') opts += ' <span style="color:#4f46e5;font-size:0.6rem;">🧂'+it.sel+'</span>'; h += '<div class="pos-cart-item"><div class="pos-cart-item-info"><span class="pos-cart-item-name">'+it.nom+opts+'</span><span class="pos-cart-item-price">'+it.prixUnitaire.toFixed(2)+' MAD/u</span></div><div class="pos-cart-item-actions"><button class="pos-qty-btn" onclick="clientUpdateQty('+k+',-1)"><i class="fas fa-minus"></i></button><span class="pos-qty-value">'+it.quantite+'</span><button class="pos-qty-btn" onclick="clientUpdateQty('+k+',1)"><i class="fas fa-plus"></i></button><button class="pos-remove-btn" onclick="clientRemoveItem('+k+')"><i class="fas fa-times"></i></button></div><span class="pos-cart-item-total">'+(it.prixUnitaire*it.quantite).toFixed(2)+' MAD</span></div>'; } }
@@ -290,4 +358,4 @@ async function clientChangePassword() {
     }
 }
 
-console.log('Client JS avec cache offline OK');
+console.log('Client JS avec cache offline et gestion recette OK');
