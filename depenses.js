@@ -1,6 +1,6 @@
-// ==================== GESTION DES DÉPENSES (HIÉRARCHIQUE + SAISIE AUTRE) ====================
+// ==================== GESTION DES DÉPENSES (HIÉRARCHIQUE, FILTRES, RECHERCHE, TOTAL) ====================
 
-// Structure des catégories et sous‑catégories
+// Structure des catégories / sous‑catégories
 var depenseCategories = {
     "Achats matières premières": ["Viande", "Poulet", "Poisson", "Légumes", "Fruits", "Produits laitiers", "Épices", "Huile"],
     "Boissons": ["Eau", "Sodas", "Jus", "Café", "Thé"],
@@ -14,16 +14,39 @@ var depenseCategories = {
     "Taxes et impôts": ["Taxes", "Impôts"]
 };
 
+// Variables de filtre
+var depensesPeriod = 'all', depensesSearch = '', depensesCategoryFilter = '';
+
 // ==================== PAGE PRINCIPALE ====================
 function loadDepensesPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-money-bill-wave"></i> Dépenses</h3><button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="depensesTable" style="font-size:0.65rem;"><thead><tr>'+
+    var catOptions = '<option value="">Toutes les catégories</option>';
+    Object.keys(depenseCategories).forEach(function(cat) {
+        catOptions += '<option value="' + cat + '">' + cat + '</option>';
+    });
+
+    c.innerHTML = '<div class="content-card"><div class="card-header">'+
+        '<h3><i class="fas fa-money-bill-wave"></i> Dépenses <span id="depensesTotalDisplay" style="font-size:0.9rem;color:#16a34a;"></span></h3>'+
+        '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'+
+            '<input type="text" id="depensesSearchInput" placeholder="🔍 Rechercher..." style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px; width:200px;" onkeyup="depensesSearch = this.value; currentPages.depenses=1; applyDepensesFilters();">'+
+            '<select id="depensesPeriodSelect" style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px;" onchange="depensesPeriod = this.value; currentPages.depenses=1; applyDepensesFilters();">'+
+                getPeriodOptions('all')+
+            '</select>'+
+            '<select id="depensesCategorySelect" style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px;" onchange="depensesCategoryFilter = this.value; currentPages.depenses=1; applyDepensesFilters();">'+
+                catOptions+
+            '</select>'+
+            '<button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button>'+
+            '<button class="btn-add" onclick="loadDepenses()"><i class="fas fa-sync"></i> Actualiser</button>'+
+        '</div>'+
+    '</div>'+
+    '<div class="table-container"><table class="data-table" id="depensesTable" style="font-size:0.65rem;"><thead><tr>'+
         makeSortableHeader('depenses','id','ID','loadDepenses')+
         makeSortableHeader('depenses','titre','Titre','loadDepenses')+
         '<th>Catégorie</th><th>Sous‑catégorie</th>'+
         makeSortableHeader('depenses','montant','Montant','loadDepenses')+
         makeSortableHeader('depenses','description','Description','loadDepenses')+
         makeSortableHeader('depenses','createdAt','Date','loadDepenses')+
-        '<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="depensesPagination"></div></div>';
+        '<th>Actions</th>'+
+    '</tr></thead><tbody></tbody></table></div><div id="depensesPagination"></div></div>';
     loadDepenses();
 }
 
@@ -38,6 +61,19 @@ async function loadDepenses() {
         for (let doc of allDepensesData) await CacheDB.set('depenses', doc.id, doc);
     } catch(e){ console.error(e); }
     currentPages.depenses = 1;
+    applyDepensesFilters();
+}
+
+// ==================== APPLICATION DES FILTRES ====================
+function applyDepensesFilters() {
+    var filtered = filterByPeriod(allDepensesData, depensesPeriod);
+    if (depensesSearch) {
+        filtered = filterBySearch(filtered, depensesSearch, ['titre','description','categorie','sousCategories']);
+    }
+    if (depensesCategoryFilter) {
+        filtered = filtered.filter(function(d){ return d.categorie === depensesCategoryFilter; });
+    }
+    window.filteredDepenses = filtered;
     renderDepensesTable();
 }
 
@@ -45,24 +81,31 @@ async function loadDepenses() {
 function renderDepensesTable() {
     var tb = document.querySelector('#depensesTable tbody');
     if (!tb) return;
-    var data = applySort('depenses', allDepensesData.slice(), 'createdAt');
+    var data = applySort('depenses', (window.filteredDepenses || allDepensesData).slice(), 'createdAt');
     var pageData = getPageData('depenses', data);
     tb.innerHTML = '';
+
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Aucune dépense</td></tr>';
         document.getElementById('depensesPagination').innerHTML = '';
-        return;
+    } else {
+        for (var i = 0; i < pageData.length; i++) {
+            var d = pageData[i];
+            var dateCreated = d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString('fr-FR')+' '+new Date(d.createdAt.seconds*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '-';
+            var sousCategories = d.sousCategories ? d.sousCategories.join(', ') : '-';
+            tb.innerHTML += '<tr><td><small>'+(d.id||'').substring(0,6)+'</small></td><td><strong>'+(d.titre||d.description||'-')+'</strong></td><td><small>'+(d.categorie||'-')+'</small></td><td><small>'+sousCategories+'</small></td><td style="color:#ef4444;font-weight:700;">'+(d.montant||0).toFixed(2)+' MAD</td><td><small>'+(d.description||'-')+'</small></td><td><small>'+dateCreated+'</small></td><td><button class="btn-edit" onclick="editDepense(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDepense(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+        }
     }
-    for (var i = 0; i < pageData.length; i++) {
-        var d = pageData[i];
-        var dateCreated = d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString('fr-FR')+' '+new Date(d.createdAt.seconds*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '-';
-        var sousCategories = d.sousCategories ? d.sousCategories.join(', ') : '-';
-        tb.innerHTML += '<tr><td><small>'+(d.id||'').substring(0,6)+'</small></td><td><strong>'+(d.titre||d.description||'-')+'</strong></td><td><small>'+(d.categorie||'-')+'</small></td><td><small>'+sousCategories+'</small></td><td style="color:#ef4444;font-weight:700;">'+(d.montant||0).toFixed(2)+' MAD</td><td><small>'+(d.description||'-')+'</small></td><td><small>'+dateCreated+'</small></td><td><button class="btn-edit" onclick="editDepense(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDepense(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
-    }
+
+    // Total
+    var total = (window.filteredDepenses || allDepensesData).reduce(function(sum, d){ return sum + (d.montant||0); }, 0);
+    var totalDisplay = document.getElementById('depensesTotalDisplay');
+    if (totalDisplay) totalDisplay.textContent = '(Total : ' + total.toFixed(2) + ' MAD)';
+
     document.getElementById('depensesPagination').innerHTML = getPaginationHTML('depenses', data.length);
 }
 
-// ==================== FORMULAIRE (CATÉGORIE → SOUS‑CATÉGORIES + CHAMP MANUEL) ====================
+// ==================== FORMULAIRE (CATÉGORIE → SOUS‑CATÉGORIES + SAISIE AUTRE) ====================
 function openDepenseForm(data) {
     data = data || {};
     var selectedCategorie = data.categorie || '';
@@ -118,16 +161,12 @@ function saveDepense() {
 
     var categorie = document.getElementById('depCategorie').value;
     var sousCategories = [];
-    document.querySelectorAll('.dep-sous-cat-check:checked').forEach(function(cb) {
-        sousCategories.push(cb.value);
-    });
+    document.querySelectorAll('.dep-sous-cat-check:checked').forEach(function(cb) { sousCategories.push(cb.value); });
     var autre = document.getElementById('depAutreSousCat').value.trim();
     if (autre) sousCategories.push(autre);
 
     var d = {
-        titre: titre,
-        montant: montant,
-        categorie: categorie,
+        titre: titre, montant: montant, categorie: categorie,
         sousCategories: sousCategories,
         date: document.getElementById('depDate').value,
         description: document.getElementById('depDesc').value
