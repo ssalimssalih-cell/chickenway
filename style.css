@@ -213,13 +213,20 @@ input,select,textarea,button{max-width:100%}
     padding:24px;display:flex;align-items:center;gap:18px;
     box-shadow:var(--shadow-sm);transition:var(--transition);
     border:1px solid var(--border);cursor:default;
+    overflow: hidden; /* ← empêche tout débordement */
 }
 .stat-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-md)}
 .stat-icon{width:56px;height:56px;background:var(--primary-light);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .stat-icon i{font-size:1.5rem;color:var(--primary)}
 .stat-info{display:flex;flex-direction:column;min-width:0}
 .stat-label{font-size:0.82rem;color:var(--text-gray);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
-.stat-value{font-size:1.6rem;font-weight:800;color:var(--text-dark);letter-spacing:-0.5px;white-space:nowrap}
+/* ← correction ici : suppression de white-space: nowrap */
+.stat-value{
+    font-size:1.6rem;font-weight:800;color:var(--text-dark);
+    letter-spacing:-0.5px;
+    white-space: normal;
+    word-break: break-word;
+}
 
 /* Tables */
 .table-container{
@@ -502,16 +509,10 @@ input,select,textarea,button{max-width:100%}
     .pos-payment-btn{font-size:1rem;padding:14px}
     .pos-change-positive,.pos-change-negative{font-size:1.5rem;padding:15px 18px}
 
-    /* Stats : éviter débordement */
-    .stat-value {
-        font-size: 1.2rem !important;
-        white-space: normal !important;
-        word-break: break-all;
-    }
+    /* Stats : taille réduite + retour à la ligne */
+    .stat-value { font-size: 1.2rem !important; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
-
-/* Mobile */
 @media(max-width:768px){
     .login-wrapper{padding:15px;align-items:center;justify-content:center}
     .login-container,.register-container{
@@ -528,22 +529,10 @@ input,select,textarea,button{max-width:100%}
     .btn-login{font-size:1rem;padding:14px}
     .register-link{font-size:0.85rem}
 
-    .stat-value {
-        font-size: 1rem !important;
-        white-space: normal !important;
-        word-break: break-all;
-    }
-    .stats-grid {
-        grid-template-columns: 1fr;  /* une seule colonne */
-    }
-    .stat-card {
-        padding: 14px;
-        gap: 10px;
-    }
-    .stat-icon {
-        width: 40px;
-        height: 40px;
-    }
+    .stat-value { font-size: 1rem !important; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .stat-card { padding: 14px; gap: 10px; }
+    .stat-icon { width: 40px; height: 40px; }
 }
 @media(max-width:480px){
     .login-container,.register-container{border-radius:var(--radius-lg)}
@@ -557,15 +546,12 @@ input,select,textarea,button{max-width:100%}
     .pos-products-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}
     .pos-product-img{height:80px}
 
-    /* Paiement très petit écran : 20px */
     #posAmountGiven { font-size: 1.25rem !important; }
     .pos-summary-total{font-size:1.25rem}
     .pos-summary-total span:last-child{font-size:1.25rem}
     .pos-change-positive,.pos-change-negative{font-size:1.25rem;padding:12px 15px}
 
-    .stat-value {
-        font-size: 0.9rem !important;
-    }
+    .stat-value { font-size: 0.9rem !important; }
 }
 
 /* Safe area */
