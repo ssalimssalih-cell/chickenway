@@ -541,7 +541,7 @@ input,select,textarea,button{max-width:100%}
 
 /* Modale élargie (commandes tables) */
 .modal-wide .modal-content {
-    max-width: 950px;
+    max-width: 1050px;
 }
 
 /* ==================== RESPONSIVE ==================== */
