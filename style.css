@@ -406,7 +406,6 @@ input,select,textarea,button{max-width:100%}
     font-size:1.15rem;font-family:'Inter',sans-serif;
     transition:var(--transition);background:#fff;
 }
-/* Champ Montant donné : 33px */
 #posAmountGiven {
     font-size: 2.0625rem !important;   /* 33px */
     padding: 20px 22px;
@@ -484,6 +483,7 @@ input,select,textarea,button{max-width:100%}
     .pos-cart-panel{width:100%;min-width:100%;max-height:none}
     .pos-products-grid{max-height:400px}
 
+    /* Réduction modérée */
     .pos-cat-btn{font-size:0.82rem;padding:10px 18px}
     .pos-product-name{font-size:0.82rem}
     .pos-product-price{font-size:0.86rem}
@@ -501,8 +501,17 @@ input,select,textarea,button{max-width:100%}
     .pos-summary-total span:last-child{font-size:1.5rem}
     .pos-payment-btn{font-size:1rem;padding:14px}
     .pos-change-positive,.pos-change-negative{font-size:1.5rem;padding:15px 18px}
+
+    /* Stats : éviter débordement */
+    .stat-value {
+        font-size: 1.2rem !important;
+        white-space: normal !important;
+        word-break: break-all;
+    }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* Mobile */
 @media(max-width:768px){
     .login-wrapper{padding:15px;align-items:center;justify-content:center}
     .login-container,.register-container{
@@ -518,6 +527,23 @@ input,select,textarea,button{max-width:100%}
     .input-group input,.input-group select{font-size:1rem;padding:14px 12px 14px 0}
     .btn-login{font-size:1rem;padding:14px}
     .register-link{font-size:0.85rem}
+
+    .stat-value {
+        font-size: 1rem !important;
+        white-space: normal !important;
+        word-break: break-all;
+    }
+    .stats-grid {
+        grid-template-columns: 1fr;  /* une seule colonne */
+    }
+    .stat-card {
+        padding: 14px;
+        gap: 10px;
+    }
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+    }
 }
 @media(max-width:480px){
     .login-container,.register-container{border-radius:var(--radius-lg)}
@@ -536,6 +562,10 @@ input,select,textarea,button{max-width:100%}
     .pos-summary-total{font-size:1.25rem}
     .pos-summary-total span:last-child{font-size:1.25rem}
     .pos-change-positive,.pos-change-negative{font-size:1.25rem;padding:12px 15px}
+
+    .stat-value {
+        font-size: 0.9rem !important;
+    }
 }
 
 /* Safe area */
