@@ -1,10 +1,10 @@
-// ==================== ADMIN.JS COMPLET AVEC DÉPENSES HIÉRARCHIQUES + SAISIE AUTRE ====================
+// ==================== ADMIN.JS COMPLET AVEC TRI, FILTRES, PAGINATION ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
 var sortOrders = {};
 var clientSearchQuery = '';
-var pendingUsersData = [];
+var pendingUsersData = [];   // pour les inscriptions en attente
 
 // Données complètes pour les listes
 var allCategoriesData = [];
@@ -36,33 +36,664 @@ var commandesPeriod = 'all', commandesSearch = '';
 
 // Listes pour les catégories
 var fournisseurCategoriesList = ['Alimentaire', 'Boissons', 'Emballage', 'Entretien', 'Viandes', 'Légumes', 'Sauces', 'Autre'];
-
-// Nouvelle structure des dépenses (catégorie → sous‑catégories)
-var depenseCategories = {
-    "Achats matières premières": ["Viande", "Poulet", "Poisson", "Légumes", "Fruits", "Produits laitiers", "Épices", "Huile"],
-    "Boissons": ["Eau", "Sodas", "Jus", "Café", "Thé"],
-    "Emballages": ["Sacs", "Boîtes", "Gobelets", "Serviettes"],
-    "Personnel": ["Salaires", "Avances", "Primes", "CNSS"],
-    "Charges du local": ["Loyer", "Eau", "Électricité", "Gaz", "Internet", "Téléphone"],
-    "Maintenance": ["Réparation cuisine", "Climatisation", "Plomberie", "Matériel"],
-    "Marketing": ["Publicité Facebook", "Publicité Instagram", "Flyers", "Promotions"],
-    "Administratif": ["Comptable", "Logiciel POS", "Frais bancaires", "Assurances"],
-    "Transport et livraison": ["Carburant", "Entretien véhicule", "Frais de livraison"],
-    "Taxes et impôts": ["Taxes", "Impôts"]
-};
+var depenseCategoriesList = ['Électricité', 'Internet', 'Publicité', 'Viande', 'Poulet', 'Fruits', 'Légumes', 'Boissons', 'Emballage', 'Entretien', 'Loyer', 'Salaire', 'Transport', 'Autre'];
 
 // ==================== DASHBOARD ====================
 function loadDashboardPage(c) {
-    c.innerHTML = '<div class="stats-grid">...'; // inchangé
-    // ... tout le code existant du dashboard, inscriptions, etc.
+    c.innerHTML = '<div class="stats-grid"><div class="stat-card"><div class="stat-icon"><i class="fas fa-utensils"></i></div><div class="stat-info"><span class="stat-label">Produits</span><span class="stat-value" id="productsCount">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-info"><span class="stat-label">Clients</span><span class="stat-value" id="clientsCount">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-layer-group"></i></div><div class="stat-info"><span class="stat-label">Catégories</span><span class="stat-value" id="categoriesCount">0</span></div></div><div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-cart"></i></div><div class="stat-info"><span class="stat-label">Ventes</span><span class="stat-value" id="ventesCount">0</span></div></div></div><div class="content-card"><div class="card-header"><h3><i class="fas fa-bell"></i> Inscriptions en attente</h3><button class="btn-add" onclick="loadPendingRegistrations()"><i class="fas fa-sync"></i> Actualiser</button></div><div id="pendingRegistrations">Chargement...</div></div>';
+    loadDashboardStats(); loadPendingRegistrations();
 }
-// (Tout le code précédent pour dashboard, inscriptions, modal, tri, pagination, catégories, produits, clients, fournisseurs, reste inchangé)
 
-// ... (je ne répète pas les fonctions déjà présentes dans ton fichier actuel, elles sont toutes conservées)
+function loadDashboardStats() {
+    db.collection('products').get().then(function(s){var e=document.getElementById('productsCount');if(e)e.textContent=s.size;});
+    db.collection('clients').get().then(function(s){var e=document.getElementById('clientsCount');if(e)e.textContent=s.size;});
+    db.collection('categories').get().then(function(s){var e=document.getElementById('categoriesCount');if(e)e.textContent=s.size;});
+    db.collection('ventes').get().then(function(s){var e=document.getElementById('ventesCount');if(e)e.textContent=s.size;});
+}
 
-// ==================== DÉPENSES (NOUVELLE VERSION) ====================
+// ==================== INSCRIPTIONS EN ATTENTE (AVEC TRI) ====================
+function loadPendingRegistrations() {
+    var d = document.getElementById('pendingRegistrations'); if (!d) return;
+    d.innerHTML = '<div class="table-container"><table class="data-table" id="pendingTable"><thead><tr>' +
+        makeSortableHeader('pending', 'prenom', 'Utilisateur', 'renderPendingTable') +
+        makeSortableHeader('pending', 'email', 'Email', 'renderPendingTable') +
+        makeSortableHeader('pending', 'role', 'Rôle', 'renderPendingTable') +
+        makeSortableHeader('pending', 'createdAt', 'Date', 'renderPendingTable') +
+        '<th>Actions</th></tr></thead><tbody></tbody></table></div>';
+
+    db.collection('users').where('authorized', '==', 'no').get().then(function(s) {
+        pendingUsersData = [];
+        if (!s.empty) {
+            s.forEach(function(dc) {
+                var userData = dc.data();
+                pendingUsersData.push({
+                    id: dc.id,
+                    prenom: userData.prenom + ' ' + userData.nom,
+                    email: userData.email,
+                    role: userData.role,
+                    createdAt: userData.createdAt,
+                    data: userData
+                });
+            });
+        }
+        renderPendingTable();
+    }).catch(function(err) {
+        console.error(err);
+        pendingUsersData = [];
+        renderPendingTable();
+    });
+}
+
+function renderPendingTable() {
+    var tb = document.querySelector('#pendingTable tbody');
+    if (!tb) return;
+    
+    var data = applySort('pending', pendingUsersData.slice(), 'createdAt');
+    
+    tb.innerHTML = '';
+    if (data.length === 0) {
+        tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#16a34a;">Aucune inscription en attente</td></tr>';
+        return;
+    }
+    
+    data.forEach(function(x) {
+        var dt = x.createdAt ? new Date(x.createdAt.seconds * 1000).toLocaleDateString('fr-FR') : 'N/A';
+        var row = '<tr>';
+        row += '<td><strong>' + x.prenom + '</strong> (@' + x.data.username + ')</td>';
+        row += '<td>' + x.email + '</td>';
+        row += '<td>' + x.role + '</td>';
+        row += '<td>' + dt + '</td>';
+        row += '<td><button class="btn-add" style="padding:4px 10px;font-size:0.7rem;margin-right:5px;" onclick="approveUser(\'' + x.id + '\')"><i class="fas fa-check"></i> Accepter</button><button class="btn-delete" style="padding:4px 10px;font-size:0.7rem;" onclick="rejectUser(\'' + x.id + '\')"><i class="fas fa-times"></i> Refuser</button></td>';
+        row += '</tr>';
+        tb.innerHTML += row;
+    });
+}
+
+async function approveUser(uid) {
+    if (confirm('Accepter ?')) {
+        await CacheDB.write('users', uid, { authorized: 'yes', approvedAt: firebase.firestore.FieldValue.serverTimestamp() }, 'update');
+        alert('Accepté');
+        loadPendingRegistrations();
+        if (typeof loadUsersList === 'function') loadUsersList();
+        CacheDB.sync();
+    }
+}
+
+async function rejectUser(uid) {
+    if (confirm('Refuser et supprimer ?')) {
+        await CacheDB.write('users', uid, null, 'delete');
+        alert('Supprimé');
+        loadPendingRegistrations();
+        if (typeof loadUsersList === 'function') loadUsersList();
+        CacheDB.sync();
+    }
+}
+
+// ==================== MODAL & CRUD (avec offline) ====================
+function openModal(t, b) {
+    document.getElementById('modalTitle').textContent = t;
+    document.getElementById('modalBody').innerHTML = b;
+    document.getElementById('modalOverlay').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('modalOverlay').classList.add('hidden');
+    editingId = null;
+    currentCollection = '';
+}
+
+function fileToBase64(f, cb) {
+    if (!f) { cb(null); return; }
+    var r = new FileReader();
+    r.onload = function(e) { cb(e.target.result); };
+    r.readAsDataURL(f);
+}
+
+function previewImage(inp, pid) {
+    var p = document.getElementById(pid);
+    if (!p) return;
+    if (inp.files && inp.files[0]) {
+        var r = new FileReader();
+        r.onload = function(e) { p.innerHTML = '<img src="' + e.target.result + '" style="max-width:100px;margin-top:5px;border-radius:8px;">'; };
+        r.readAsDataURL(inp.files[0]);
+    }
+}
+
+async function saveDocument(cn, data, cb) {
+    try {
+        let resultId;
+        if (editingId) {
+            data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+            resultId = await CacheDB.write(cn, editingId, data, 'update');
+        } else {
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            resultId = await CacheDB.write(cn, null, data, 'add');
+        }
+        if (cb) cb();
+        refreshCurrentPage();
+        CacheDB.sync();
+    } catch (err) { alert('Erreur: ' + err.message); }
+}
+
+async function deleteDocument(cn, id) {
+    if (confirm('Confirmer la suppression ?')) {
+        await CacheDB.write(cn, id, null, 'delete');
+        alert('Supprimé');
+        refreshCurrentPage();
+        CacheDB.sync();
+    }
+}
+
+function refreshCurrentPage() {
+    var t = document.getElementById('pageTitle').textContent;
+    var m = { 'Catégories': 'categories', 'Produits': 'products', 'Clients': 'clients', 'Fournisseurs': 'fournisseurs', 'Dépenses': 'depenses', 'Ventes': 'ventes', 'Crédits': 'credits', 'Commandes en ligne': 'commandes' };
+    navigateTo(m[t] || 'dashboard');
+}
+
+function editDocument(cn, id) {
+    db.collection(cn).doc(id).get().then(function(doc) {
+        if (doc.exists) { editingId = id; currentCollection = cn; openEditForm(cn, doc.data()); }
+    });
+}
+
+function openEditForm(cn, data) {
+    if (cn === 'categories') openCategoryForm(data);
+    else if (cn === 'products') openProductForm(data);
+    else if (cn === 'clients') openClientForm(data);
+    else if (cn === 'fournisseurs') openFournisseurForm(data);
+    else if (cn === 'depenses') openDepenseForm(data);
+}
+
+// ==================== SYSTÈME DE TRI UNIVERSEL ====================
+function sortTableData(tableName, field, loadFn) {
+    if (!sortOrders[tableName]) sortOrders[tableName] = {};
+    if (!sortOrders[tableName][field]) sortOrders[tableName][field] = 'asc';
+    else sortOrders[tableName][field] = sortOrders[tableName][field] === 'asc' ? 'desc' : 'asc';
+    Object.keys(sortOrders[tableName]).forEach(function(k) { if (k !== field) sortOrders[tableName][k] = null; });
+    if (typeof loadFn === 'string') window[loadFn]();
+    else if (typeof loadFn === 'function') loadFn();
+}
+
+function getSortIcon(tableName, field) {
+    if (!sortOrders[tableName] || !sortOrders[tableName][field]) return '<i class="fas fa-sort" style="font-size:0.5rem;margin-left:2px;opacity:0.3;cursor:pointer;"></i>';
+    return sortOrders[tableName][field] === 'asc' ? '<i class="fas fa-sort-up" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>' : '<i class="fas fa-sort-down" style="font-size:0.55rem;margin-left:2px;color:#f39c12;"></i>';
+}
+
+function applySort(tableName, data, defaultField) {
+    if (!sortOrders[tableName]) sortOrders[tableName] = {};
+    var activeField = Object.keys(sortOrders[tableName]).find(function(k) { return sortOrders[tableName][k]; });
+    if (!activeField) activeField = defaultField;
+    var order = sortOrders[tableName][activeField] || 'asc';
+    return data.sort(function(a, b) {
+        var va = a[activeField], vb = b[activeField];
+        if (va === undefined || va === null) va = '';
+        if (vb === undefined || vb === null) vb = '';
+        if (typeof va === 'number' && typeof vb === 'number') return order === 'asc' ? va - vb : vb - va;
+        va = String(va).toLowerCase();
+        vb = String(vb).toLowerCase();
+        if (order === 'asc') return va > vb ? 1 : (va < vb ? -1 : 0);
+        else return va < vb ? 1 : (va > vb ? -1 : 0);
+    });
+}
+
+function makeSortableHeader(tableName, field, label, loadFnName) {
+    return '<th onclick="sortTableData(\'' + tableName + '\',\'' + field + '\', \'' + loadFnName + '\')" style="cursor:pointer;white-space:nowrap;">' + label + ' ' + getSortIcon(tableName, field) + '</th>';
+}
+
+// ==================== PAGINATION ====================
+function getPaginationHTML(tableName, totalItems) {
+    var totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (totalPages <= 1) return '';
+    var page = currentPages[tableName] || 1;
+    var html = '<div style="display:flex; justify-content:center; align-items:center; gap:10px; margin-top:15px; flex-wrap:wrap;">';
+    html += '<button onclick="changePage(\'' + tableName + '\', ' + (page-1) + ')" ' + (page <= 1 ? 'disabled' : '') + ' style="padding:8px 16px; border:1px solid #e2e8f0; border-radius:8px; background:white; cursor:pointer;">« Précédent</button>';
+    html += '<span style="font-weight:600;">Page ' + page + ' / ' + totalPages + '</span>';
+    html += '<button onclick="changePage(\'' + tableName + '\', ' + (page+1) + ')" ' + (page >= totalPages ? 'disabled' : '') + ' style="padding:8px 16px; border:1px solid #e2e8f0; border-radius:8px; background:white; cursor:pointer;">Suivant »</button>';
+    html += '</div>';
+    return html;
+}
+
+function changePage(tableName, newPage) {
+    var renderFunctions = {
+        categories: renderCategoriesTable,
+        products: renderProductsTable,
+        clients: renderClientsTable,
+        fournisseurs: renderFournisseursTable,
+        depenses: renderDepensesTable,
+        commandes: renderCommandesTable,
+        ventes: renderVentesTable,
+        credits: renderCreditsTable
+    };
+    var dataArrays = {
+        categories: allCategoriesData,
+        products: allProductsData,
+        clients: allClientsData,
+        fournisseurs: allFournisseursData,
+        depenses: allDepensesData,
+        commandes: window.filteredCommandes || allCommandesData,
+        ventes: window.filteredVentes || allVentesData,
+        credits: window.filteredCredits || allCreditsData
+    };
+    var totalItems = (dataArrays[tableName] || []).length;
+    var totalPages = Math.ceil(totalItems / itemsPerPage);
+    if (newPage < 1 || newPage > totalPages) return;
+    currentPages[tableName] = newPage;
+    if (renderFunctions[tableName]) renderFunctions[tableName]();
+}
+
+function getPageData(tableName, dataArray) {
+    var page = currentPages[tableName] || 1;
+    var start = (page - 1) * itemsPerPage;
+    return dataArray.slice(start, start + itemsPerPage);
+}
+
+// ==================== FILTRES DATE/RECHERCHE ====================
+function getPeriodOptions(selected) {
+    var periods = [
+        {value:'all', text:'Toutes les dates'},
+        {value:'1', text:'Aujourd\'hui'},
+        {value:'3', text:'3 jours'},
+        {value:'7', text:'7 jours'},
+        {value:'15', text:'15 jours'},
+        {value:'30', text:'1 mois'},
+        {value:'90', text:'3 mois'},
+        {value:'365', text:'1 an'}
+    ];
+    return periods.map(p => '<option value="'+p.value+'" '+ (selected==p.value?'selected':'') +'>'+p.text+'</option>').join('');
+}
+
+function filterByPeriod(data, period) {
+    if (!period || period === 'all') return data;
+    var now = Date.now();
+    var days = parseInt(period);
+    if (isNaN(days)) return data;
+    var cutoff = now - days * 86400000;
+    return data.filter(function(d) {
+        if (!d.createdAt || !d.createdAt.seconds) return false;
+        return d.createdAt.seconds * 1000 >= cutoff;
+    });
+}
+
+function filterBySearch(data, query, fields) {
+    if (!query) return data;
+    var q = query.toLowerCase().trim();
+    return data.filter(function(d) {
+        for (var i = 0; i < fields.length; i++) {
+            var val = fields[i];
+            if (val.startsWith('items.')) {
+                var itemField = val.split('.')[1];
+                if (d.items && Array.isArray(d.items)) {
+                    for (var j = 0; j < d.items.length; j++) {
+                        var it = d.items[j];
+                        if (it[itemField] && String(it[itemField]).toLowerCase().indexOf(q) !== -1) return true;
+                    }
+                }
+            } else {
+                var fieldVal = d[val];
+                if (fieldVal && String(fieldVal).toLowerCase().indexOf(q) !== -1) return true;
+            }
+        }
+        return false;
+    });
+}
+
+// ==================== CATÉGORIES ====================
+function loadCategoriesPage(c) {
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>' + makeSortableHeader('categories', 'nom', 'Nom', 'loadCategories') + makeSortableHeader('categories', 'description', 'Description', 'loadCategories') + makeSortableHeader('categories', 'ca', 'CA', 'loadCategories') + makeSortableHeader('categories', 'profit', 'Profit', 'loadCategories') + '<th>Nb Produits</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="categoriesPagination"></div></div>';
+    loadCategories();
+}
+
+async function loadCategories() {
+    try {
+        const cached = await CacheDB.getAll('categories');
+        if (cached.length) allCategoriesData = cached;
+        const snapshot = await db.collection('categories').get();
+        allCategoriesData = [];
+        snapshot.forEach(d => { allCategoriesData.push({ id: d.id, ...d.data() }); });
+        for (let doc of allCategoriesData) await CacheDB.set('categories', doc.id, doc);
+    } catch(e) { console.error(e); }
+    currentPages.categories = 1;
+    renderCategoriesTable();
+}
+
+async function renderCategoriesTable() {
+    var tb = document.querySelector('#categoriesTable tbody');
+    if (!tb) return;
+    var data = applySort('categories', allCategoriesData.slice(), 'nom');
+    var pageData = getPageData('categories', data);
+    tb.innerHTML = '';
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">Aucune catégorie</td></tr>';
+        document.getElementById('categoriesPagination').innerHTML = '';
+        return;
+    }
+    for (var i = 0; i < pageData.length; i++) {
+        var d = pageData[i];
+        var pc = 0;
+        try { var ps = await db.collection('products').where('categorie', '==', d.nom).get(); pc = ps.size; } catch(e){}
+        var im = d.imageBase64 ? '<img src="' + d.imageBase64 + '" style="width:35px;height:35px;object-fit:cover;border-radius:6px;">' : '<i class="fas fa-folder fa-2x" style="color:#f39c12;"></i>';
+        var pcol = (d.profit || 0) >= 0 ? '#16a34a' : '#dc2626';
+        tb.innerHTML += '<tr><td>' + im + '</td><td><strong>' + (d.nom||'') + '</strong></td><td>' + (d.description||'-') + '</td><td>' + (d.ca||0).toFixed(2)+' MAD</td><td style="color:'+pcol+';">'+(d.profit||0).toFixed(2)+' MAD</td><td>'+pc+'</td><td><button class="btn-edit" onclick="editDocument(\'categories\',\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'categories\',\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+    }
+    document.getElementById('categoriesPagination').innerHTML = getPaginationHTML('categories', data.length);
+}
+
+function openCategoryForm(data) {
+    data = data || {};
+    var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="catImage" onchange="previewImage(this,\'catPreview\')"><div id="catPreview">'+(data.imageBase64?'<img src="'+data.imageBase64+'" style="max-width:100px;">':'')+'</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="catNom" value="'+(data.nom||'')+'" required></div><div class="form-group"><label>Description</label><textarea id="catDesc">'+(data.description||'')+'</textarea></div></div><div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="catCA" value="'+(data.ca||0)+'" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="catProfit" value="'+(data.profit||0)+'" step="0.01"></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveCategory()">Enregistrer</button>';
+    currentCollection = 'categories';
+    openModal(editingId?'Modifier Catégorie':'Nouvelle Catégorie', h);
+}
+
+function saveCategory() {
+    var n = document.getElementById('catNom').value;
+    if (!n) { alert('Nom obligatoire'); return; }
+    var f = document.getElementById('catImage').files[0];
+    var sf = function(img) {
+        var d = { nom: n, description: document.getElementById('catDesc').value, ca: parseFloat(document.getElementById('catCA').value)||0, profit: parseFloat(document.getElementById('catProfit').value)||0 };
+        if (img) d.imageBase64 = img;
+        saveDocument('categories', d, function() { closeModal(); refreshCurrentPage(); });
+    };
+    if (f) fileToBase64(f, sf); else sf(null);
+}
+// ==================== PRODUITS ====================
+function loadProductsPage(c) {
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-utensils"></i> Produits</h3><div style="display:flex;gap:10px;flex-wrap:wrap;"><select id="categoryFilter" onchange="filterProducts()"><option value="">Toutes catégories</option></select><button class="btn-add" onclick="openProductForm()"><i class="fas fa-plus"></i> Nouveau</button></div></div><div class="table-container"><table class="data-table" id="productsTable" style="font-size:0.7rem;"><thead><tr><th>Img</th>'+makeSortableHeader('products','nom','Nom','loadProducts')+makeSortableHeader('products','categorie','Catégorie','loadProducts')+makeSortableHeader('products','prixAchat','Achat','loadProducts')+makeSortableHeader('products','prixVente','Vente','loadProducts')+makeSortableHeader('products','prixPromo','Promo','loadProducts')+makeSortableHeader('products','profit','Profit','loadProducts')+makeSortableHeader('products','stock','Stock','loadProducts')+makeSortableHeader('products','vendues','Vendues','loadProducts')+makeSortableHeader('products','ca','CA','loadProducts')+makeSortableHeader('products','disponible','Dispo','loadProducts')+'<th>Temps</th><th>Desc</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="productsPagination"></div></div>';
+    loadCategoriesInFilter(); loadProducts();
+}
+
+async function loadCategoriesInFilter() {
+    var s = document.getElementById('categoryFilter');
+    if (!s) return;
+    try {
+        var sn = await db.collection('categories').get();
+        s.innerHTML = '<option value="">Toutes catégories</option>';
+        sn.forEach(function(d) { s.innerHTML += '<option value="'+d.data().nom+'">'+d.data().nom+'</option>'; });
+    } catch(e){}
+}
+
+function filterProducts() {
+    selectedCategoryFilter = document.getElementById('categoryFilter').value;
+    currentPages.products = 1;
+    renderProductsTable();
+}
+
+async function loadProducts() {
+    try {
+        const cached = await CacheDB.getAll('products');
+        if (cached.length) allProductsData = cached;
+        const snapshot = await db.collection('products').get();
+        allProductsData = [];
+        snapshot.forEach(d => {
+            let dd = d.data();
+            dd.id = d.id;
+            let prix = (dd.prixPromo && dd.prixPromo > 0) ? dd.prixPromo : (dd.prixVente||0);
+            dd.profit = (prix - (dd.prixAchat||0));
+            allProductsData.push(dd);
+        });
+        for (let doc of allProductsData) await CacheDB.set('products', doc.id, doc);
+    } catch(e){ console.error(e); }
+    currentPages.products = 1;
+    renderProductsTable();
+}
+
+function renderProductsTable() {
+    var tb = document.querySelector('#productsTable tbody');
+    if (!tb) return;
+    var data = allProductsData.slice();
+    if (selectedCategoryFilter) data = data.filter(function(d) { return d.categorie === selectedCategoryFilter; });
+    data = applySort('products', data, 'nom');
+    var pageData = getPageData('products', data);
+    tb.innerHTML = '';
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:30px;">Aucun produit</td></tr>';
+        document.getElementById('productsPagination').innerHTML = '';
+        return;
+    }
+    for (var i = 0; i < pageData.length; i++) {
+        var d = pageData[i];
+        var im = d.imageBase64 ? '<img src="'+d.imageBase64+'" style="width:30px;height:30px;object-fit:cover;border-radius:4px;">' : '<i class="fas fa-utensils" style="color:#94a3b8;"></i>';
+        var disp = d.disponible !== false ? '<span class="status-success">Oui</span>' : '<span class="status-danger">Non</span>';
+        var profitVal = (d.profit !== undefined && !isNaN(d.profit)) ? d.profit : 0;
+        var pc = profitVal >= 0 ? '#16a34a' : '#dc2626';
+        tb.innerHTML += '<tr><td>'+im+'</td><td><strong>'+(d.nom||'')+'</strong></td><td>'+(d.categorie||'-')+'</td><td>'+((d.prixAchat||0).toFixed(2))+'</td><td>'+((d.prixVente||0).toFixed(2))+'</td><td>'+((d.prixPromo||0).toFixed(2))+'</td><td style="color:'+pc+';">'+profitVal.toFixed(2)+'</td><td>'+(d.stock||0)+'</td><td>'+(d.vendues||0)+'</td><td>'+((d.ca||0).toFixed(2))+'</td><td>'+disp+'</td><td>'+(d.tempsPrep||'-')+'</td><td>'+(d.description||'-')+'</td><td><button class="btn-edit" onclick="editDocument(\'products\',\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'products\',\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+    }
+    document.getElementById('productsPagination').innerHTML = getPaginationHTML('products', data.length);
+}
+
+async function openProductForm(data) {
+    data = data || {};
+    var co = '';
+    try {
+        var cs = await db.collection('categories').get();
+        cs.forEach(function(d) { var sel = data.categorie === d.data().nom ? 'selected' : ''; co += '<option value="' + d.data().nom + '" ' + sel + '>' + d.data().nom + '</option>'; });
+    } catch (e) {}
+    var ip = data.imageBase64 ? '<img src="' + data.imageBase64 + '" style="max-width:100px;">' : '';
+    var dy = data.disponible !== false ? 'selected' : '', dn = data.disponible === false ? 'selected' : '';
+    var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="prodImage" onchange="previewImage(this,\'prodPreview\')"><div id="prodPreview">' + ip + '</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="prodNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Catégorie</label><select id="prodCat"><option value="">-</option>' + co + '</select></div></div><div class="form-row"><div class="form-group"><label>Prix Achat</label><input type="number" id="prodPA" value="' + (data.prixAchat || 0) + '" step="0.01"></div><div class="form-group"><label>Prix Vente</label><input type="number" id="prodPV" value="' + (data.prixVente || 0) + '" step="0.01"></div></div><div class="form-row"><div class="form-group"><label>Prix Promo</label><input type="number" id="prodPromo" value="' + (data.prixPromo || 0) + '" step="0.01"></div><div class="form-group"><label>Stock</label><input type="number" id="prodStock" value="' + (data.stock || 0) + '"></div></div><div class="form-row"><div class="form-group"><label>Temps Prep</label><input type="text" id="prodTemps" value="' + (data.tempsPrep || '') + '" placeholder="15 min"></div><div class="form-group"><label>Disponible</label><select id="prodDispo"><option value="1" ' + dy + '>Oui</option><option value="0" ' + dn + '>Non</option></select></div></div><div class="form-row"><div class="form-group"><label>Description</label><textarea id="prodDesc">' + (data.description || '') + '</textarea></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveProduct()">Enregistrer</button>';
+    currentCollection = 'products';
+    openModal(editingId ? 'Modifier Produit' : 'Nouveau Produit', h);
+}
+
+function saveProduct() {
+    var n = document.getElementById('prodNom').value;
+    if (!n) { alert('Nom obligatoire'); return; }
+    var f = document.getElementById('prodImage').files[0];
+    var sf = function(img) {
+        var d = { nom: n, categorie: document.getElementById('prodCat').value, prixAchat: parseFloat(document.getElementById('prodPA').value) || 0, prixVente: parseFloat(document.getElementById('prodPV').value) || 0, prixPromo: parseFloat(document.getElementById('prodPromo').value) || 0, stock: parseInt(document.getElementById('prodStock').value) || 0, vendues: 0, ca: 0, tempsPrep: document.getElementById('prodTemps').value, disponible: document.getElementById('prodDispo').value === '1', description: document.getElementById('prodDesc').value };
+        if (img) d.imageBase64 = img;
+        saveDocument('products', d, function() { closeModal(); refreshCurrentPage(); });
+    };
+    if (f) fileToBase64(f, sf);
+    else sf(null);
+}
+
+// ==================== CLIENTS ====================
+function loadClientsPage(c) {
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+makeSortableHeader('clients','createdAt','Date créé','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="clientsPagination"></div></div>';
+    loadClients();
+}
+
+function clientSearch(query) { clientSearchQuery = query.toLowerCase().trim(); currentPages.clients = 1; renderClientsTable(); }
+
+async function loadClients() {
+    try {
+        const cached = await CacheDB.getAll('clients');
+        if (cached.length) allClientsData = cached;
+        const snapshot = await db.collection('clients').get();
+        allClientsData = [];
+        snapshot.forEach(d => { let dd = d.data(); dd.id = d.id; allClientsData.push(dd); });
+        for (let doc of allClientsData) await CacheDB.set('clients', doc.id, doc);
+    } catch(e){ console.error(e); }
+    currentPages.clients = 1;
+    renderClientsTable();
+}
+
+function renderClientsTable() {
+    var tb = document.querySelector('#clientsTable tbody');
+    if (!tb) return;
+    var data = allClientsData.slice();
+    if (clientSearchQuery) {
+        data = data.filter(function(d) {
+            return (d.nom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.prenom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.username||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.email||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.telephone||'').toLowerCase().indexOf(clientSearchQuery)!==-1;
+        });
+    }
+    data = applySort('clients', data, 'nom');
+    var pageData = getPageData('clients', data);
+    tb.innerHTML = '';
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:30px;">Aucun client</td></tr>';
+        document.getElementById('clientsPagination').innerHTML = '';
+        return;
+    }
+    for (var i = 0; i < pageData.length; i++) {
+        var d = pageData[i];
+        var dateCreated = d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString('fr-FR')+' '+new Date(d.createdAt.seconds*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '-';
+        var row = '<tr>';
+        row += '<td><small>'+(d.id||'').substring(0,6)+'</small></td>';
+        row += '<td><strong>'+(d.nom||'')+'</strong></td>';
+        row += '<td>'+(d.prenom||'')+'</td>';
+        row += '<td>@'+(d.username||'')+'</td>';
+        row += '<td>'+(d.genre||'-')+'</td>';
+        row += '<td><small>'+(d.adresse||'-')+'</small></td>';
+        row += '<td><small>'+(d.email||'-')+'</small></td>';
+        row += '<td>'+(d.telephone||'-')+'</td>';
+        row += '<td>'+(d.whatsapp||'-')+'</td>';
+        row += '<td>'+(d.facebook||'-')+'</td>';
+        row += '<td>'+(d.instagram||'-')+'</td>';
+        row += '<td style="color:#16a34a;font-weight:600;">'+(d.ca||0).toFixed(2)+'</td>';
+        row += '<td style="color:#16a34a;">'+(d.profit||0).toFixed(2)+'</td>';
+        row += '<td style="color:#f39c12;font-weight:600;">'+(d.pointsFidelite||0)+'</td>';
+        row += '<td><small>'+(d.allergies?d.allergies.join(', '):'-')+'</small></td>';
+        row += '<td><small>'+(d.aime?d.aime.join(', '):'-')+'</small></td>';
+        row += '<td><small>'+(d.deteste?d.deteste.join(', '):'-')+'</small></td>';
+        row += '<td><small>'+dateCreated+'</small></td>';
+        row += '<td><button class="btn-edit" onclick="editClient(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteClient(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td>';
+        row += '</tr>';
+        tb.innerHTML += row;
+    }
+    document.getElementById('clientsPagination').innerHTML = getPaginationHTML('clients', data.length);
+}
+
+function openClientForm(data) {
+    data = data || {};
+    var h = '';
+    h += '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="cliNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Prénom *</label><input type="text" id="cliPrenom" value="' + (data.prenom || '') + '" required></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Username</label><input type="text" id="cliUsername" value="' + (data.username || '') + '"></div><div class="form-group"><label>Genre</label><select id="cliGenre"><option value="">-</option><option value="M" ' + (data.genre === 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (data.genre === 'F' ? 'selected' : '') + '>F</option></select></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Adresse</label><input type="text" id="cliAdresse" value="' + (data.adresse || '') + '"></div><div class="form-group"><label>Email</label><input type="email" id="cliEmail" value="' + (data.email || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Téléphone</label><input type="text" id="cliTel" value="' + (data.telephone || '') + '"></div><div class="form-group"><label>WhatsApp</label><input type="text" id="cliWhatsapp" value="' + (data.whatsapp || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Facebook</label><input type="text" id="cliFacebook" value="' + (data.facebook || '') + '"></div><div class="form-group"><label>Instagram</label><input type="text" id="cliInstagram" value="' + (data.instagram || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="cliCA" value="' + (data.ca || 0) + '" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="cliProfit" value="' + (data.profit || 0) + '" step="0.01"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Points Fidélité</label><input type="number" id="cliPoints" value="' + (data.pointsFidelite || 0) + '"></div><div class="form-group"><label>Description</label><textarea id="cliDesc">' + (data.description || '') + '</textarea></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Allergies (virgules)</label><input type="text" id="cliAllergies" value="' + (data.allergies ? data.allergies.join(', ') : '') + '" placeholder="gluten, lactose"></div><div class="form-group"><label>Aime (virgules)</label><input type="text" id="cliAime" value="' + (data.aime ? data.aime.join(', ') : '') + '" placeholder="poulet, poisson"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Déteste (virgules)</label><input type="text" id="cliDeteste" value="' + (data.deteste ? data.deteste.join(', ') : '') + '" placeholder="oignon, tomate"></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveClient()">Enregistrer</button>';
+    currentCollection = 'clients';
+    openModal(editingId ? 'Modifier Client' : 'Nouveau Client', h);
+}
+
+function saveClient() {
+    var n = document.getElementById('cliNom').value, p = document.getElementById('cliPrenom').value;
+    if (!n || !p) { alert('Nom et Prénom obligatoires'); return; }
+    var d = {
+        nom: n, prenom: p, username: document.getElementById('cliUsername').value,
+        genre: document.getElementById('cliGenre').value, adresse: document.getElementById('cliAdresse').value,
+        email: document.getElementById('cliEmail').value, telephone: document.getElementById('cliTel').value,
+        whatsapp: document.getElementById('cliWhatsapp').value, facebook: document.getElementById('cliFacebook').value,
+        instagram: document.getElementById('cliInstagram').value, ca: parseFloat(document.getElementById('cliCA').value) || 0,
+        profit: parseFloat(document.getElementById('cliProfit').value) || 0,
+        pointsFidelite: parseInt(document.getElementById('cliPoints').value) || 0,
+        allergies: document.getElementById('cliAllergies').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        aime: document.getElementById('cliAime').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        deteste: document.getElementById('cliDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        description: document.getElementById('cliDesc').value
+    };
+    if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    saveDocument('clients', d, function() { closeModal(); loadClients(); });
+}
+
+function editClient(id) {
+    db.collection('clients').doc(id).get().then(function(doc) {
+        if (doc.exists) { editingId = id; currentCollection = 'clients'; openClientForm(doc.data()); }
+    });
+}
+
+function deleteClient(id) {
+    if (confirm('Supprimer ce client ?')) {
+        CacheDB.write('clients', id, null, 'delete').then(function() { alert('Supprimé'); loadClients(); CacheDB.sync(); });
+    }
+}
+
+// ==================== FOURNISSEURS ====================
+function loadFournisseursPage(c) {
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-truck"></i> Fournisseurs</h3><button class="btn-add" onclick="openFournisseurForm()"><i class="fas fa-plus"></i> Ajouter</button></div><div class="table-container"><table class="data-table" id="fournisseursTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('fournisseurs','id','ID','loadFournisseurs')+makeSortableHeader('fournisseurs','nom','Nom','loadFournisseurs')+makeSortableHeader('fournisseurs','prenom','Prénom','loadFournisseurs')+makeSortableHeader('fournisseurs','societe','Société','loadFournisseurs')+makeSortableHeader('fournisseurs','telephone','Tél','loadFournisseurs')+makeSortableHeader('fournisseurs','whatsapp','WhatsApp','loadFournisseurs')+makeSortableHeader('fournisseurs','email','Email','loadFournisseurs')+makeSortableHeader('fournisseurs','adresse','Adresse','loadFournisseurs')+makeSortableHeader('fournisseurs','description','Description','loadFournisseurs')+makeSortableHeader('fournisseurs','ca','CA','loadFournisseurs')+'<th>Catégories</th>'+makeSortableHeader('fournisseurs','createdAt','Date créé','loadFournisseurs')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="fournisseursPagination"></div></div>';
+    loadFournisseurs();
+}
+
+async function loadFournisseurs() {
+    try {
+        const cached = await CacheDB.getAll('fournisseurs');
+        if (cached.length) allFournisseursData = cached;
+        const snapshot = await db.collection('fournisseurs').get();
+        allFournisseursData = [];
+        snapshot.forEach(d => { let dd = d.data(); dd.id = d.id; allFournisseursData.push(dd); });
+        for (let doc of allFournisseursData) await CacheDB.set('fournisseurs', doc.id, doc);
+    } catch(e){ console.error(e); }
+    currentPages.fournisseurs = 1;
+    renderFournisseursTable();
+}
+
+function renderFournisseursTable() {
+    var tb = document.querySelector('#fournisseursTable tbody');
+    if (!tb) return;
+    var data = applySort('fournisseurs', allFournisseursData.slice(), 'nom');
+    var pageData = getPageData('fournisseurs', data);
+    tb.innerHTML = '';
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;">Aucun fournisseur</td></tr>';
+        document.getElementById('fournisseursPagination').innerHTML = '';
+        return;
+    }
+    for (var i = 0; i < pageData.length; i++) {
+        var d = pageData[i];
+        var dateCreated = d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString('fr-FR')+' '+new Date(d.createdAt.seconds*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '-';
+        var categories = d.categories ? d.categories.join(', ') : '-';
+        tb.innerHTML += '<tr><td><small>'+(d.id||'').substring(0,6)+'</small></td><td><strong>'+(d.nom||'')+'</strong></td><td>'+(d.prenom||'')+'</td><td>'+(d.societe||'-')+'</td><td>'+(d.telephone||'-')+'</td><td>'+(d.whatsapp||'-')+'</td><td><small>'+(d.email||'-')+'</small></td><td><small>'+(d.adresse||'-')+'</small></td><td><small>'+(d.description||'-')+'</small></td><td>'+(d.ca||0).toFixed(2)+' MAD</td><td><small>'+categories+'</small></td><td><small>'+dateCreated+'</small></td><td><button class="btn-edit" onclick="editFournisseur(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteFournisseur(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+    }
+    document.getElementById('fournisseursPagination').innerHTML = getPaginationHTML('fournisseurs', data.length);
+}
+
+function openFournisseurForm(data) {
+    data = data || {};
+    var selectedCategories = data.categories || [];
+    var h = '';
+    h += '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="fourNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Prénom</label><input type="text" id="fourPrenom" value="' + (data.prenom || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Société</label><input type="text" id="fourSociete" value="' + (data.societe || '') + '"></div><div class="form-group"><label>Téléphone</label><input type="text" id="fourTel" value="' + (data.telephone || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>WhatsApp</label><input type="text" id="fourWhatsapp" value="' + (data.whatsapp || '') + '"></div><div class="form-group"><label>Email</label><input type="email" id="fourEmail" value="' + (data.email || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Adresse</label><input type="text" id="fourAdresse" value="' + (data.adresse || '') + '"></div><div class="form-group"><label>CA</label><input type="number" id="fourCA" value="' + (data.ca || 0) + '" step="0.01"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Description</label><textarea id="fourDesc">' + (data.description || '') + '</textarea></div></div>';
+    h += '<div class="form-row"><div class="form-group" style="min-width:100%;"><label>Catégories (plusieurs choix possibles)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;">';
+    fournisseurCategoriesList.forEach(function(cat) {
+        var checked = selectedCategories.indexOf(cat) !== -1 ? 'checked' : '';
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.8rem;"><input type="checkbox" class="four-cat-check" value="' + cat + '" ' + checked + '> ' + cat + '</label>';
+    });
+    h += '</div></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveFournisseur()">Enregistrer</button>';
+    currentCollection = 'fournisseurs';
+    openModal(editingId ? 'Modifier Fournisseur' : 'Nouveau Fournisseur', h);
+}
+
+function saveFournisseur() {
+    var nom = document.getElementById('fourNom').value;
+    if (!nom) { alert('Nom obligatoire'); return; }
+    var categories = [];
+    document.querySelectorAll('.four-cat-check:checked').forEach(function(cb) { categories.push(cb.value); });
+    var d = {
+        nom: nom, prenom: document.getElementById('fourPrenom').value, societe: document.getElementById('fourSociete').value,
+        telephone: document.getElementById('fourTel').value, whatsapp: document.getElementById('fourWhatsapp').value,
+        email: document.getElementById('fourEmail').value, adresse: document.getElementById('fourAdresse').value,
+        ca: parseFloat(document.getElementById('fourCA').value) || 0, description: document.getElementById('fourDesc').value,
+        categories: categories
+    };
+    if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    saveDocument('fournisseurs', d, function() { closeModal(); loadFournisseurs(); });
+}
+
+function editFournisseur(id) {
+    db.collection('fournisseurs').doc(id).get().then(function(doc) {
+        if (doc.exists) { editingId = id; currentCollection = 'fournisseurs'; openFournisseurForm(doc.data()); }
+    });
+}
+
+function deleteFournisseur(id) {
+    if (confirm('Supprimer ce fournisseur ?')) {
+        CacheDB.write('fournisseurs', id, null, 'delete').then(function() { alert('Supprimé'); loadFournisseurs(); CacheDB.sync(); });
+    }
+}
+
+// ==================== DÉPENSES ====================
 function loadDepensesPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-money-bill-wave"></i> Dépenses</h3><button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="depensesTable" style="font-size:0.65rem;"><thead><tr>'+makeSortableHeader('depenses','id','ID','loadDepenses')+makeSortableHeader('depenses','titre','Titre','loadDepenses')+'<th>Catégorie</th><th>Sous‑catégorie</th>'+makeSortableHeader('depenses','montant','Montant','loadDepenses')+makeSortableHeader('depenses','description','Description','loadDepenses')+makeSortableHeader('depenses','createdAt','Date','loadDepenses')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="depensesPagination"></div></div>';
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-money-bill-wave"></i> Dépenses</h3><button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="depensesTable" style="font-size:0.65rem;"><thead><tr>'+makeSortableHeader('depenses','id','ID','loadDepenses')+makeSortableHeader('depenses','titre','Titre','loadDepenses')+'<th>Catégorie</th>'+makeSortableHeader('depenses','montant','Montant','loadDepenses')+makeSortableHeader('depenses','description','Description','loadDepenses')+makeSortableHeader('depenses','createdAt','Date','loadDepenses')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="depensesPagination"></div></div>';
     loadDepenses();
 }
 
@@ -86,94 +717,46 @@ function renderDepensesTable() {
     var pageData = getPageData('depenses', data);
     tb.innerHTML = '';
     if (pageData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Aucune dépense</td></tr>';
+        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">Aucune dépense</td></tr>';
         document.getElementById('depensesPagination').innerHTML = '';
         return;
     }
     for (var i = 0; i < pageData.length; i++) {
         var d = pageData[i];
         var dateCreated = d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString('fr-FR')+' '+new Date(d.createdAt.seconds*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '-';
-        var sousCategories = d.sousCategories ? d.sousCategories.join(', ') : '-';
-        tb.innerHTML += '<tr><td><small>'+(d.id||'').substring(0,6)+'</small></td><td><strong>'+(d.titre||d.description||'-')+'</strong></td><td><small>'+(d.categorie||'-')+'</small></td><td><small>'+sousCategories+'</small></td><td style="color:#ef4444;font-weight:700;">'+(d.montant||0).toFixed(2)+' MAD</td><td><small>'+(d.description||'-')+'</small></td><td><small>'+dateCreated+'</small></td><td><button class="btn-edit" onclick="editDepense(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDepense(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+        var categories = d.categories ? d.categories.join(', ') : '-';
+        tb.innerHTML += '<tr><td><small>'+(d.id||'').substring(0,6)+'</small></td><td><strong>'+(d.titre||d.description||'-')+'</strong></td><td><small>'+categories+'</small></td><td style="color:#ef4444;font-weight:700;">'+(d.montant||0).toFixed(2)+' MAD</td><td><small>'+(d.description||'-')+'</small></td><td><small>'+dateCreated+'</small></td><td><button class="btn-edit" onclick="editDepense(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDepense(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
     }
     document.getElementById('depensesPagination').innerHTML = getPaginationHTML('depenses', data.length);
 }
 
 function openDepenseForm(data) {
     data = data || {};
-    var selectedCategorie = data.categorie || '';
-    var selectedSousCategories = data.sousCategories || [];
-
-    var catOptions = '<option value="">-- Choisir --</option>';
-    Object.keys(depenseCategories).forEach(function(cat) {
-        var sel = selectedCategorie === cat ? 'selected' : '';
-        catOptions += '<option value="' + cat + '" ' + sel + '>' + cat + '</option>';
-    });
-
+    var selectedCategories = data.categories || [];
     var h = '';
     h += '<div class="form-row"><div class="form-group"><label>Titre *</label><input type="text" id="depTitre" value="' + (data.titre || '') + '" required></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="' + (data.montant || 0) + '" step="0.01" required></div></div>';
-    h += '<div class="form-row"><div class="form-group"><label>Catégorie</label><select id="depCategorie" onchange="updateDepSousCategories()" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;">' + catOptions + '</select></div></div>';
-    h += '<div class="form-row"><div class="form-group" style="min-width:100%;"><label>Sous‑catégories</label><div id="depSousCategories" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;"></div></div></div>';
-    // Champ pour sous‑catégorie manuelle
-    h += '<div class="form-row"><div class="form-group"><label>Autre sous‑catégorie (manuelle)</label><input type="text" id="depAutreSousCat" placeholder="Ajouter une sous‑catégorie non listée" style="width:100%;"></div></div>';
+    h += '<div class="form-row"><div class="form-group" style="min-width:100%;"><label>Catégories (plusieurs choix possibles)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;">';
+    depenseCategoriesList.forEach(function(cat) {
+        var checked = selectedCategories.indexOf(cat) !== -1 ? 'checked' : '';
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.8rem;"><input type="checkbox" class="dep-cat-check" value="' + cat + '" ' + checked + '> ' + cat + '</label>';
+    });
+    h += '</div></div></div>';
     h += '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="' + (data.date || new Date().toISOString().split('T')[0]) + '"></div></div>';
     h += '<div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">' + (data.description || '') + '</textarea></div></div>';
     h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>';
-
     currentCollection = 'depenses';
     openModal(editingId ? 'Modifier Dépense' : 'Nouvelle Dépense', h);
-
-    setTimeout(function() {
-        updateDepSousCategories();
-        // Cocher les sous‑catégories déjà sélectionnées
-        if (selectedSousCategories.length > 0) {
-            selectedSousCategories.forEach(function(sc) {
-                var cb = document.querySelector('.dep-sous-cat-check[value="' + sc.replace(/"/g, '&quot;') + '"]');
-                if (cb) cb.checked = true;
-                else {
-                    // Si non trouvé, c'est une sous‑catégorie personnalisée : pré-remplir le champ manuel
-                    document.getElementById('depAutreSousCat').value = sc;
-                }
-            });
-        }
-    }, 100);
-}
-
-// Met à jour les cases à cocher des sous‑catégories selon la catégorie sélectionnée
-function updateDepSousCategories() {
-    var cat = document.getElementById('depCategorie').value;
-    var container = document.getElementById('depSousCategories');
-    if (!container) return;
-    container.innerHTML = '';
-    if (cat && depenseCategories[cat]) {
-        depenseCategories[cat].forEach(function(sc) {
-            container.innerHTML += '<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.8rem;">' +
-                '<input type="checkbox" class="dep-sous-cat-check" value="' + sc + '"> ' + sc + '</label>';
-        });
-    }
 }
 
 function saveDepense() {
     var titre = document.getElementById('depTitre').value.trim();
     var montant = parseFloat(document.getElementById('depMontant').value) || 0;
     if (!titre || !montant) { alert('Titre et montant obligatoires'); return; }
-
-    var categorie = document.getElementById('depCategorie').value;
-    var sousCategories = [];
-    document.querySelectorAll('.dep-sous-cat-check:checked').forEach(function(cb) {
-        sousCategories.push(cb.value);
-    });
-    // Ajouter la sous‑catégorie manuelle si renseignée
-    var autre = document.getElementById('depAutreSousCat').value.trim();
-    if (autre) sousCategories.push(autre);
-
+    var categories = [];
+    document.querySelectorAll('.dep-cat-check:checked').forEach(function(cb) { categories.push(cb.value); });
     var d = {
-        titre: titre,
-        montant: montant,
-        categorie: categorie,
-        sousCategories: sousCategories,
-        date: document.getElementById('depDate').value,
-        description: document.getElementById('depDesc').value
+        titre: titre, montant: montant, categories: categories,
+        date: document.getElementById('depDate').value, description: document.getElementById('depDesc').value
     };
     if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
     saveDocument('depenses', d, function() { closeModal(); loadDepenses(); });
@@ -191,15 +774,6 @@ function deleteDepense(id) {
     }
 }
 
-// ... (tout le reste du code : commandes, ventes, crédits, options, etc. reste inchangé)
-// Assurez-vous que les fonctions suivantes sont bien présentes dans votre fichier, elles n'ont pas changé :
-// loadCommandesPage, loadCommandes, renderCommandesTable, validateCommande, payCommande, cancelCommande
-// loadVentesPage, loadVentes, renderVentesTable, editVente, saveEditVente, deleteVente, payerVente, printFacture, imprimerFacture
-// loadCreditsPage, loadCredits, renderCreditsTable, editCredit, saveEditCredit, deleteCredit, markCreditPaid
-// loadOptionsPage, loadUsersList, blockUser, deleteUserPermanently
-// Et toutes les fonctions de tri, pagination, etc.
-
-console.log('Admin JS avec dépenses hiérarchiques OK');
 // ==================== COMMANDES EN LIGNE ====================
 function loadCommandesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'+
