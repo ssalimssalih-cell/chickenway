@@ -1,4 +1,4 @@
-// ==================== ADMIN.JS COMPLET (DÉPENSES DÉPLACÉES DANS depenses.js) ====================
+// ==================== ADMIN.JS COMPLET (AVEC CHAMP RECETTE) ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
@@ -379,9 +379,9 @@ function filterBySearch(data, query, fields) {
     });
 }
 
-// ==================== CATÉGORIES ====================
+// ==================== CATÉGORIES (MODIFIÉE AVEC RECETTE) ====================
 function loadCategoriesPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>' + makeSortableHeader('categories', 'nom', 'Nom', 'loadCategories') + makeSortableHeader('categories', 'description', 'Description', 'loadCategories') + makeSortableHeader('categories', 'ca', 'CA', 'loadCategories') + makeSortableHeader('categories', 'profit', 'Profit', 'loadCategories') + '<th>Nb Produits</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="categoriesPagination"></div></div>';
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>' + makeSortableHeader('categories', 'nom', 'Nom', 'loadCategories') + makeSortableHeader('categories', 'description', 'Description', 'loadCategories') + makeSortableHeader('categories', 'ca', 'CA', 'loadCategories') + makeSortableHeader('categories', 'profit', 'Profit', 'loadCategories') + '<th>Nb Produits</th><th>Recette</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="categoriesPagination"></div></div>';
     loadCategories();
 }
 
@@ -405,7 +405,7 @@ async function renderCategoriesTable() {
     var pageData = getPageData('categories', data);
     tb.innerHTML = '';
     if (pageData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">Aucune catégorie</td></tr>';
+        tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Aucune catégorie</td></tr>';
         document.getElementById('categoriesPagination').innerHTML = '';
         return;
     }
@@ -415,14 +415,19 @@ async function renderCategoriesTable() {
         try { var ps = await db.collection('products').where('categorie', '==', d.nom).get(); pc = ps.size; } catch(e){}
         var im = d.imageBase64 ? '<img src="' + d.imageBase64 + '" style="width:35px;height:35px;object-fit:cover;border-radius:6px;">' : '<i class="fas fa-folder fa-2x" style="color:#f39c12;"></i>';
         var pcol = (d.profit || 0) >= 0 ? '#16a34a' : '#dc2626';
-        tb.innerHTML += '<tr><td>' + im + '</td><td><strong>' + (d.nom||'') + '</strong></td><td>' + (d.description||'-') + '</td><td>' + (d.ca||0).toFixed(2)+' MAD</td><td style="color:'+pcol+';">'+(d.profit||0).toFixed(2)+' MAD</td><td>'+pc+'</td><td><button class="btn-edit" onclick="editDocument(\'categories\',\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'categories\',\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+        var recetteBadge = d.recette ? '<span class="status-success">✅ Oui</span>' : '<span class="status-warning">❌ Non</span>';
+        tb.innerHTML += '<tr><td>' + im + '</td><td><strong>' + (d.nom||'') + '</strong></td><td>' + (d.description||'-') + '</td><td>' + (d.ca||0).toFixed(2)+' MAD</td><td style="color:'+pcol+';">'+(d.profit||0).toFixed(2)+' MAD</td><td>'+pc+'</td><td>'+recetteBadge+'</td><td><button class="btn-edit" onclick="editDocument(\'categories\',\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDocument(\'categories\',\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
     }
     document.getElementById('categoriesPagination').innerHTML = getPaginationHTML('categories', data.length);
 }
 
 function openCategoryForm(data) {
     data = data || {};
-    var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="catImage" onchange="previewImage(this,\'catPreview\')"><div id="catPreview">'+(data.imageBase64?'<img src="'+data.imageBase64+'" style="max-width:100px;">':'')+'</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="catNom" value="'+(data.nom||'')+'" required></div><div class="form-group"><label>Description</label><textarea id="catDesc">'+(data.description||'')+'</textarea></div></div><div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="catCA" value="'+(data.ca||0)+'" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="catProfit" value="'+(data.profit||0)+'" step="0.01"></div></div><button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveCategory()">Enregistrer</button>';
+    var recetteChecked = data.recette ? 'checked' : '';
+    var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="catImage" onchange="previewImage(this,\'catPreview\')"><div id="catPreview">'+(data.imageBase64?'<img src="'+data.imageBase64+'" style="max-width:100px;">':'')+'</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="catNom" value="'+(data.nom||'')+'" required></div><div class="form-group"><label>Description</label><textarea id="catDesc">'+(data.description||'')+'</textarea></div></div><div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="catCA" value="'+(data.ca||0)+'" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="catProfit" value="'+(data.profit||0)+'" step="0.01"></div></div>';
+    // Champ Recette
+    h += '<div class="form-row"><div class="form-group"><label>Recette</label><div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="catRecette" ' + recetteChecked + ' style="width:20px; height:20px;"><span>Activer la personnalisation (sauces, interdits, épices…)</span></div></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveCategory()">Enregistrer</button>';
     currentCollection = 'categories';
     openModal(editingId?'Modifier Catégorie':'Nouvelle Catégorie', h);
 }
@@ -431,8 +436,9 @@ function saveCategory() {
     var n = document.getElementById('catNom').value;
     if (!n) { alert('Nom obligatoire'); return; }
     var f = document.getElementById('catImage').files[0];
+    var recette = document.getElementById('catRecette').checked;
     var sf = function(img) {
-        var d = { nom: n, description: document.getElementById('catDesc').value, ca: parseFloat(document.getElementById('catCA').value)||0, profit: parseFloat(document.getElementById('catProfit').value)||0 };
+        var d = { nom: n, description: document.getElementById('catDesc').value, ca: parseFloat(document.getElementById('catCA').value)||0, profit: parseFloat(document.getElementById('catProfit').value)||0, recette: recette };
         if (img) d.imageBase64 = img;
         saveDocument('categories', d, function() { closeModal(); refreshCurrentPage(); });
     };
@@ -1331,4 +1337,4 @@ async function saveFideliteSettings() {
     alert('✅ Paramètres de fidélité enregistrés');
 }
 
-console.log('Admin JS (dépenses déplacées dans depenses.js) prêt.');
+console.log('Admin JS (avec champ Recette) prêt.');
