@@ -1110,17 +1110,20 @@ function loadOptionsPage(c) {
         '</div>'+
     '</div>'+
     '<div class="content-card">'+
-        '<div class="card-header"><h3><i class="fas fa-star"></i> Programme de fidélité</h3></div>'+
-        '<div style="display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap;">'+
-            '<div class="form-group">'+
-                '<label>Activer le programme</label>'+
-                '<select id="fideliteActifSelect"><option value="1">✅ Actif</option><option value="0">❌ Inactif</option></select>'+
+        '<div class="card-header"><h3><i class="fas fa-bullhorn"></i> Programme marketing</h3>'+
+        '<button class="btn-add" onclick="toggleMarketingProgram()"><i class="fas fa-cog"></i> Gérer le programme de fidélité</button></div>'+
+        '<div id="marketingProgramContent" class="hidden" style="margin-top:15px;">'+
+            '<div style="display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap;">'+
+                '<div class="form-group">'+
+                    '<label>Activer le programme</label>'+
+                    '<select id="fideliteActifSelect"><option value="1">✅ Actif</option><option value="0">❌ Inactif</option></select>'+
+                '</div>'+
+                '<div class="form-group">'+
+                    '<label>Points par vente</label>'+
+                    '<input type="number" id="fidelitePointsInput" value="1" min="1" step="1" style="width:100px;">'+
+                '</div>'+
+                '<button class="btn-save" onclick="saveFideliteSettings()" style="float:none;margin:0;height:44px;"><i class="fas fa-save"></i> Enregistrer</button>'+
             '</div>'+
-            '<div class="form-group">'+
-                '<label>Points par vente</label>'+
-                '<input type="number" id="fidelitePointsInput" value="1" min="1" step="1" style="width:100px;">'+
-            '</div>'+
-            '<button class="btn-save" onclick="saveFideliteSettings()" style="float:none;margin:0;height:44px;"><i class="fas fa-save"></i> Enregistrer</button>'+
         '</div>'+
     '</div>'+
     '<div class="content-card">'+
@@ -1128,7 +1131,19 @@ function loadOptionsPage(c) {
         '<div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody id="usersTableBody"></tbody></table></div>'+
     '</div>';
     loadUsersList();
-    loadFideliteSettings();
+}
+
+function toggleMarketingProgram() {
+    var div = document.getElementById('marketingProgramContent');
+    if (div) {
+        if (div.classList.contains('hidden')) {
+            div.classList.remove('hidden');
+            // Charger les paramètres au moment de l'affichage
+            loadFideliteSettings();
+        } else {
+            div.classList.add('hidden');
+        }
+    }
 }
 
 function loadUsersList() {
@@ -1234,8 +1249,10 @@ async function loadFideliteSettings() {
         active = localStorage.getItem('fidelite_active') === 'true';
         points = parseInt(localStorage.getItem('fidelite_points')) || 1;
     }
-    document.getElementById('fideliteActifSelect').value = active ? '1' : '0';
-    document.getElementById('fidelitePointsInput').value = points;
+    var actifSelect = document.getElementById('fideliteActifSelect');
+    var pointsInput = document.getElementById('fidelitePointsInput');
+    if (actifSelect) actifSelect.value = active ? '1' : '0';
+    if (pointsInput) pointsInput.value = points;
 }
 
 async function saveFideliteSettings() {
