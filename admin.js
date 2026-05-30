@@ -1,4 +1,4 @@
-// ==================== ADMIN.JS COMPLET (AVEC CHAMP RECETTE) ====================
+// ==================== ADMIN.JS COMPLET (AVEC CHAMP RECETTE + CORRECTIFS) ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
@@ -6,7 +6,7 @@ var sortOrders = {};
 var clientSearchQuery = '';
 var pendingUsersData = [];
 
-// Données complètes pour les listes (les données dépenses sont utilisées par depenses.js)
+// Données complètes pour les listes
 var allCategoriesData = [];
 var allProductsData = [];
 var allClientsData = [];
@@ -15,9 +15,9 @@ var allDepensesData = [];
 var allCommandesData = [];
 var allVentesData = [];
 var allCreditsData = [];
-var allUsersData = [];                     // ✅ pour la liste des utilisateurs
+var allUsersData = [];
 
-// ✅ Nouvelle variable pour sauvegarder l'image existante lors d'une édition
+// ✅ Variable pour conserver l'image lors d'une édition
 var editCategoryData = null;
 
 // Pagination
@@ -30,17 +30,17 @@ var currentPages = {
     commandes: 1,
     ventes: 1,
     credits: 1,
-    users: 1                             // ✅ pagination utilisateurs
+    users: 1
 };
-var itemsPerPage = 15;                    // ✅ 15 lignes maximum
+var itemsPerPage = 15;
 
 // Filtres
 var ventesPeriod = 'all', ventesSearch = '';
 var creditsPeriod = 'all', creditsSearch = '';
 var commandesPeriod = 'all', commandesSearch = '';
-var usersSearchQuery = '';               // ✅ recherche utilisateurs
+var usersSearchQuery = '';
 
-// Liste pour les fournisseurs (inchangée)
+// Liste pour les fournisseurs
 var fournisseurCategoriesList = ['Alimentaire', 'Boissons', 'Emballage', 'Entretien', 'Viandes', 'Légumes', 'Sauces', 'Autre'];
 
 // ==================== DASHBOARD ====================
@@ -56,7 +56,7 @@ function loadDashboardStats() {
     db.collection('ventes').get().then(function(s){var e=document.getElementById('ventesCount');if(e)e.textContent=s.size;});
 }
 
-// ==================== INSCRIPTIONS EN ATTENTE (AVEC TRI) ====================
+// ==================== INSCRIPTIONS EN ATTENTE ====================
 function loadPendingRegistrations() {
     var d = document.getElementById('pendingRegistrations'); if (!d) return;
     d.innerHTML = '<div class="table-container"><table class="data-table" id="pendingTable"><thead><tr>' +
@@ -172,7 +172,7 @@ async function rejectUser(uid) {
     }
 }
 
-// ==================== MODAL & CRUD (avec offline) ====================
+// ==================== MODAL & CRUD ====================
 function openModal(t, b) {
     document.getElementById('modalTitle').textContent = t;
     document.getElementById('modalBody').innerHTML = b;
@@ -183,7 +183,7 @@ function closeModal() {
     document.getElementById('modalOverlay').classList.add('hidden');
     editingId = null;
     currentCollection = '';
-    editCategoryData = null;  // ✅ On nettoie aussi la sauvegarde d'image
+    editCategoryData = null;  // ✅ nettoyage
 }
 
 function fileToBase64(f, cb) {
@@ -248,7 +248,7 @@ function openEditForm(cn, data) {
     else if (cn === 'depenses') openDepenseForm(data);
 }
 
-// ==================== SYSTÈME DE TRI UNIVERSEL ====================
+// ==================== SYSTÈME DE TRI ====================
 function sortTableData(tableName, field, loadFn) {
     if (!sortOrders[tableName]) sortOrders[tableName] = {};
     if (!sortOrders[tableName][field]) sortOrders[tableName][field] = 'asc';
@@ -307,7 +307,7 @@ function changePage(tableName, newPage) {
         commandes: renderCommandesTable,
         ventes: renderVentesTable,
         credits: renderCreditsTable,
-        users: renderUsersTable                // ✅
+        users: renderUsersTable
     };
     var dataArrays = {
         categories: allCategoriesData,
@@ -318,7 +318,7 @@ function changePage(tableName, newPage) {
         commandes: window.filteredCommandes || allCommandesData,
         ventes: window.filteredVentes || allVentesData,
         credits: window.filteredCredits || allCreditsData,
-        users: window.filteredUsers || allUsersData   // ✅
+        users: window.filteredUsers || allUsersData
     };
     var totalItems = (dataArrays[tableName] || []).length;
     var totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -333,7 +333,7 @@ function getPageData(tableName, dataArray) {
     return dataArray.slice(start, start + itemsPerPage);
 }
 
-// ==================== FILTRES DATE/RECHERCHE ====================
+// ==================== FILTRES ====================
 function getPeriodOptions(selected) {
     var periods = [
         {value:'all', text:'Toutes les dates'},
@@ -383,13 +383,13 @@ function filterBySearch(data, query, fields) {
     });
 }
 
-// ==================== CATÉGORIES (CORRIGÉE : DOUBLON + IMAGE) ====================
+// ==================== CATÉGORIES (CORRIGÉE) ====================
 function loadCategoriesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>' + makeSortableHeader('categories', 'nom', 'Nom', 'loadCategories') + makeSortableHeader('categories', 'description', 'Description', 'loadCategories') + makeSortableHeader('categories', 'ca', 'CA', 'loadCategories') + makeSortableHeader('categories', 'profit', 'Profit', 'loadCategories') + '<th>Nb Produits</th><th>Recette</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="categoriesPagination"></div></div>';
     loadCategories();
 }
 
-// ✅ Correction du doublon : vidage préalable, puis chargement depuis Firestore, puis mise à jour du cache
+// ✅ Correction du doublon : on ne précharge plus le cache avant Firestore
 async function loadCategories() {
     allCategoriesData = [];
     currentPages.categories = 1;
@@ -404,7 +404,7 @@ async function loadCategories() {
             allCategoriesData.push({ id: d.id, ...d.data() });
         });
 
-        // Mise à jour du cache
+        // Mise à jour du cache avec les données fraîches
         for (let doc of allCategoriesData) {
             await CacheDB.set('categories', doc.id, doc);
         }
@@ -441,13 +441,12 @@ async function renderCategoriesTable() {
     document.getElementById('categoriesPagination').innerHTML = getPaginationHTML('categories', data.length);
 }
 
-// ✅ Correction de l'image à l'édition : conservation de l'ancienne image si aucune nouvelle n'est choisie
+// ✅ Correction image édition : conservation de l'image si aucune nouvelle choisie
 function openCategoryForm(data) {
     data = data || {};
-    editCategoryData = data;   // Sauvegarde les données d'origine (contient l'image)
+    editCategoryData = data;   // stocke les données originales
     var recetteChecked = data.recette ? 'checked' : '';
     var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="catImage" onchange="previewImage(this,\'catPreview\')"><div id="catPreview">'+(data.imageBase64?'<img src="'+data.imageBase64+'" style="max-width:100px;">':'')+'</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="catNom" value="'+(data.nom||'')+'" required></div><div class="form-group"><label>Description</label><textarea id="catDesc">'+(data.description||'')+'</textarea></div></div><div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="catCA" value="'+(data.ca||0)+'" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="catProfit" value="'+(data.profit||0)+'" step="0.01"></div></div>';
-    // Champ Recette
     h += '<div class="form-row"><div class="form-group"><label>Recette</label><div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="catRecette" ' + recetteChecked + ' style="width:20px; height:20px;"><span>Activer la personnalisation (sauces, interdits, épices…)</span></div></div></div>';
     h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveCategory()">Enregistrer</button>';
     currentCollection = 'categories';
@@ -460,7 +459,7 @@ function saveCategory() {
     var f = document.getElementById('catImage').files[0];
     var recette = document.getElementById('catRecette').checked;
 
-    // Si on est en édition et qu'aucun nouveau fichier n'est sélectionné, on garde l'image existante
+    // Si édition et pas de nouveau fichier, on garde l'image existante
     var existingImage = (editingId && editCategoryData) ? editCategoryData.imageBase64 : null;
 
     var sf = function(img) {
@@ -471,7 +470,7 @@ function saveCategory() {
             profit: parseFloat(document.getElementById('catProfit').value)||0,
             recette: recette
         };
-        d.imageBase64 = img || existingImage;   // Nouvelle image ou conservation de l'ancienne
+        d.imageBase64 = img || existingImage;
         saveDocument('categories', d, function() { closeModal(); refreshCurrentPage(); });
     };
     if (f) fileToBase64(f, sf); else sf(null);
