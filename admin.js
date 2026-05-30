@@ -1058,15 +1058,18 @@ function loadOptionsPage(c) {
         '<div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-users" style="color:#4f46e5;"></i></div><div class="stat-info"><span>Total</span><span class="stat-value" id="totalUsers">0</span></div></div>'+
     '</div>'+
     '<div class="content-card">'+
-        '<div class="card-header"><h3><i class="fas fa-lock"></i> Sécurité</h3></div>'+
-        '<div class="form-row">'+
-            '<div class="form-group"><label>Mot de passe actuel</label><input type="password" id="currentPassword" placeholder="Mot de passe actuel"></div>'+
+        '<div class="card-header"><h3><i class="fas fa-lock"></i> Sécurité</h3>'+
+        '<button class="btn-add" onclick="toggleChangePasswordForm()"><i class="fas fa-key"></i> Changer le mot de passe</button></div>'+
+        '<div id="changePasswordForm" class="hidden" style="margin-top:15px;">'+
+            '<div class="form-row">'+
+                '<div class="form-group"><label>Mot de passe actuel</label><input type="password" id="currentPassword" placeholder="Mot de passe actuel"></div>'+
+            '</div>'+
+            '<div class="form-row">'+
+                '<div class="form-group"><label>Nouveau mot de passe</label><input type="password" id="newPassword" placeholder="6 caractères minimum"></div>'+
+                '<div class="form-group"><label>Confirmer le mot de passe</label><input type="password" id="confirmPassword" placeholder="Confirmer"></div>'+
+            '</div>'+
+            '<button class="btn-save" onclick="changeAdminPassword()" style="float:left;margin-top:10px;"><i class="fas fa-save"></i> Changer le mot de passe</button>'+
         '</div>'+
-        '<div class="form-row">'+
-            '<div class="form-group"><label>Nouveau mot de passe</label><input type="password" id="newPassword" placeholder="6 caractères minimum"></div>'+
-            '<div class="form-group"><label>Confirmer le mot de passe</label><input type="password" id="confirmPassword" placeholder="Confirmer"></div>'+
-        '</div>'+
-        '<button class="btn-save" onclick="changeAdminPassword()" style="float:left;margin-top:10px;"><i class="fas fa-save"></i> Changer le mot de passe</button>'+
     '</div>'+
     '<div class="content-card">'+
         '<div class="card-header"><h3>Utilisateurs</h3><button class="btn-add" onclick="loadUsersList()">Actualiser</button></div>'+
@@ -1106,6 +1109,18 @@ function deleteUserPermanently(uid) {
     }
 }
 
+// ==================== AFFICHAGE / MASQUAGE FORMULAIRE MOT DE PASSE ====================
+function toggleChangePasswordForm() {
+    var form = document.getElementById('changePasswordForm');
+    if (form) {
+        if (form.classList.contains('hidden')) {
+            form.classList.remove('hidden');
+        } else {
+            form.classList.add('hidden');
+        }
+    }
+}
+
 // ==================== CHANGEMENT DE MOT DE PASSE ADMIN ====================
 async function changeAdminPassword() {
     var currentPass = document.getElementById('currentPassword').value.trim();
@@ -1139,6 +1154,8 @@ async function changeAdminPassword() {
         document.getElementById('currentPassword').value = '';
         document.getElementById('newPassword').value = '';
         document.getElementById('confirmPassword').value = '';
+        // Refermer le formulaire
+        toggleChangePasswordForm();
     } catch (error) {
         console.error(error);
         if (error.code === 'auth/wrong-password') {
