@@ -17,6 +17,9 @@ var allVentesData = [];
 var allCreditsData = [];
 var allUsersData = [];                     // ✅ pour la liste des utilisateurs
 
+// ✅ Nouvelle variable pour sauvegarder l'image existante lors d'une édition
+var editCategoryData = null;
+
 // Pagination
 var currentPages = {
     categories: 1,
@@ -180,6 +183,7 @@ function closeModal() {
     document.getElementById('modalOverlay').classList.add('hidden');
     editingId = null;
     currentCollection = '';
+    editCategoryData = null;  // ✅ On nettoie aussi la sauvegarde d'image
 }
 
 function fileToBase64(f, cb) {
@@ -379,22 +383,38 @@ function filterBySearch(data, query, fields) {
     });
 }
 
-// ==================== CATÉGORIES (MODIFIÉE AVEC RECETTE) ====================
+// ==================== CATÉGORIES (CORRIGÉE : DOUBLON + IMAGE) ====================
 function loadCategoriesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>' + makeSortableHeader('categories', 'nom', 'Nom', 'loadCategories') + makeSortableHeader('categories', 'description', 'Description', 'loadCategories') + makeSortableHeader('categories', 'ca', 'CA', 'loadCategories') + makeSortableHeader('categories', 'profit', 'Profit', 'loadCategories') + '<th>Nb Produits</th><th>Recette</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="categoriesPagination"></div></div>';
     loadCategories();
 }
 
+// ✅ Correction du doublon : vidage préalable, puis chargement depuis Firestore, puis mise à jour du cache
 async function loadCategories() {
+    allCategoriesData = [];
+    currentPages.categories = 1;
+
+    var tb = document.querySelector('#categoriesTable tbody');
+    if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Chargement...</td></tr>';
+
     try {
-        const cached = await CacheDB.getAll('categories');
-        if (cached.length) allCategoriesData = cached;
         const snapshot = await db.collection('categories').get();
         allCategoriesData = [];
-        snapshot.forEach(d => { allCategoriesData.push({ id: d.id, ...d.data() }); });
-        for (let doc of allCategoriesData) await CacheDB.set('categories', doc.id, doc);
-    } catch(e) { console.error(e); }
-    currentPages.categories = 1;
+        snapshot.forEach(d => {
+            allCategoriesData.push({ id: d.id, ...d.data() });
+        });
+
+        // Mise à jour du cache
+        for (let doc of allCategoriesData) {
+            await CacheDB.set('categories', doc.id, doc);
+        }
+    } catch(e) {
+        console.error(e);
+        // En cas d'échec, on utilise le cache
+        const cached = await CacheDB.getAll('categories');
+        allCategoriesData = cached || [];
+    }
+
     renderCategoriesTable();
 }
 
@@ -421,8 +441,10 @@ async function renderCategoriesTable() {
     document.getElementById('categoriesPagination').innerHTML = getPaginationHTML('categories', data.length);
 }
 
+// ✅ Correction de l'image à l'édition : conservation de l'ancienne image si aucune nouvelle n'est choisie
 function openCategoryForm(data) {
     data = data || {};
+    editCategoryData = data;   // Sauvegarde les données d'origine (contient l'image)
     var recetteChecked = data.recette ? 'checked' : '';
     var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="catImage" onchange="previewImage(this,\'catPreview\')"><div id="catPreview">'+(data.imageBase64?'<img src="'+data.imageBase64+'" style="max-width:100px;">':'')+'</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="catNom" value="'+(data.nom||'')+'" required></div><div class="form-group"><label>Description</label><textarea id="catDesc">'+(data.description||'')+'</textarea></div></div><div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="catCA" value="'+(data.ca||0)+'" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="catProfit" value="'+(data.profit||0)+'" step="0.01"></div></div>';
     // Champ Recette
@@ -437,9 +459,19 @@ function saveCategory() {
     if (!n) { alert('Nom obligatoire'); return; }
     var f = document.getElementById('catImage').files[0];
     var recette = document.getElementById('catRecette').checked;
+
+    // Si on est en édition et qu'aucun nouveau fichier n'est sélectionné, on garde l'image existante
+    var existingImage = (editingId && editCategoryData) ? editCategoryData.imageBase64 : null;
+
     var sf = function(img) {
-        var d = { nom: n, description: document.getElementById('catDesc').value, ca: parseFloat(document.getElementById('catCA').value)||0, profit: parseFloat(document.getElementById('catProfit').value)||0, recette: recette };
-        if (img) d.imageBase64 = img;
+        var d = {
+            nom: n,
+            description: document.getElementById('catDesc').value,
+            ca: parseFloat(document.getElementById('catCA').value)||0,
+            profit: parseFloat(document.getElementById('catProfit').value)||0,
+            recette: recette
+        };
+        d.imageBase64 = img || existingImage;   // Nouvelle image ou conservation de l'ancienne
         saveDocument('categories', d, function() { closeModal(); refreshCurrentPage(); });
     };
     if (f) fileToBase64(f, sf); else sf(null);
@@ -1337,4 +1369,4 @@ async function saveFideliteSettings() {
     alert('✅ Paramètres de fidélité enregistrés');
 }
 
-console.log('Admin JS (avec champ Recette) prêt.');
+console.log('Admin JS (avec champ Recette + correctifs) prêt.');
