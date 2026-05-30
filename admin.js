@@ -108,14 +108,52 @@ function renderPendingTable() {
     });
 }
 
+// ==================== APPROBATION / REJET ====================
 async function approveUser(uid) {
-    if (confirm('Accepter ?')) {
-        await CacheDB.write('users', uid, { authorized: 'yes', approvedAt: firebase.firestore.FieldValue.serverTimestamp() }, 'update');
-        alert('Accepté');
-        loadPendingRegistrations();
-        if (typeof loadUsersList === 'function') loadUsersList();
-        CacheDB.sync();
+    if (!confirm('Accepter cet utilisateur ?')) return;
+
+    let userDoc;
+    try {
+        userDoc = await db.collection('users').doc(uid).get();
+        if (!userDoc.exists) {
+            alert('Utilisateur introuvable');
+            return;
+        }
+    } catch(e) {
+        alert('Erreur lors de la récupération des données utilisateur');
+        return;
     }
+
+    const userData = userDoc.data();
+
+    await CacheDB.write('users', uid, {
+        authorized: 'yes',
+        approvedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, 'update');
+
+    if (userData.role === 'client') {
+        const clientData = {
+            nom: userData.nom || '',
+            prenom: userData.prenom || '',
+            email: userData.email || '',
+            telephone: userData.telephone || '',
+            username: userData.username || '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        const existingClient = await db.collection('clients').doc(uid).get();
+        if (existingClient.exists) {
+            await CacheDB.write('clients', uid, clientData, 'update');
+        } else {
+            await CacheDB.write('clients', uid, clientData, 'set');
+        }
+    }
+
+    alert('✅ Utilisateur accepté avec succès');
+    loadPendingRegistrations();
+    if (typeof loadUsersList === 'function') loadUsersList();
+    if (typeof loadClients === 'function') loadClients();
+    CacheDB.sync();
 }
 
 async function rejectUser(uid) {
