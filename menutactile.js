@@ -1,4 +1,4 @@
-// ==================== MENU TACTILE CLIENT (QR CODE TABLE) ====================
+// ==================== MENU TACTILE CLIENT (QR CODE TABLE) - AVEC GESTION RECETTE ====================
 var menuTableNum = null;
 var menuCart = [];
 var menuCategories = [];
@@ -52,7 +52,7 @@ function initMenuTactile(tableNum) {
     loadMenuData();
 }
 
-// ==================== CHARGEMENT ====================
+// ==================== CHARGEMENT DES DONNÉES (AVEC RECETTE) ====================
 async function loadMenuData() {
     try {
         var content = document.getElementById('menuTactileContent');
@@ -69,7 +69,8 @@ async function loadMenuData() {
             menuCategories.push({
                 id: d.id,
                 nom: d.data().nom || 'Sans nom',
-                imageBase64: d.data().imageBase64 || ''
+                imageBase64: d.data().imageBase64 || '',
+                recette: d.data().recette || false   // ⬅️ ajout
             });
         });
 
@@ -100,7 +101,47 @@ async function loadMenuData() {
     }
 }
 
-// ==================== RENDU PRINCIPAL ====================
+// ==================== NOUVELLE FONCTION DE DÉCISION RECETTE ====================
+function menuAddToCartOrOpenOptions(pid) {
+    var p = menuProducts.find(function(x) { return x.id === pid; });
+    if (!p) return;
+    if (p.stock !== undefined && p.stock <= 0) {
+        alert('⚠️ Rupture de stock.');
+        return;
+    }
+
+    var cat = menuCategories.find(function(c) { return c.nom === p.categorie; });
+    var isRecette = cat && cat.recette === true;
+
+    if (isRecette) {
+        menuCurrentProductId = pid;
+        menuOpenOptions(pid);
+    } else {
+        var existing = menuCart.find(function(x) { return x.id === pid; });
+        if (existing) {
+            if (p.stock !== undefined && existing.quantite >= p.stock) {
+                alert('Stock insuffisant');
+                return;
+            }
+            existing.quantite += 1;
+        } else {
+            var price = (p.prixPromo && p.prixPromo > 0) ? p.prixPromo : p.prixVente;
+            menuCart.push({
+                id: p.id,
+                nom: p.nom,
+                prixUnitaire: price,
+                quantite: 1,
+                sauces: [],
+                interdits: [],
+                epice: 'Normal',
+                sel: 'Normal'
+            });
+        }
+        renderMenuTactile();
+    }
+}
+
+// ==================== RENDU PRINCIPAL (modifié) ====================
 function renderMenuTactile() {
     var content = document.getElementById('menuTactileContent');
     if (!content) return;
@@ -137,7 +178,8 @@ function renderMenuTactile() {
             var p = filtered[j];
             var price = (p.prixPromo && p.prixPromo>0) ? p.prixPromo : p.prixVente;
             var outOfStock = p.stock !== undefined && p.stock <= 0;
-            html += '<div onclick="'+(outOfStock?'':'menuOpenOptions(\''+p.id+'\')')+'" style="background:#fff; border:2px solid '+(outOfStock?'#fecaca':'#e2e8f0')+'; border-radius:16px; padding:10px; cursor:'+(outOfStock?'not-allowed':'pointer')+'; opacity:'+(outOfStock?'0.5':'1')+'; text-align:center;">';
+            // ⬅️ Appel à la nouvelle fonction au lieu de menuOpenOptions
+            html += '<div onclick="'+(outOfStock?'':'menuAddToCartOrOpenOptions(\''+p.id+'\')')+'" style="background:#fff; border:2px solid '+(outOfStock?'#fecaca':'#e2e8f0')+'; border-radius:16px; padding:10px; cursor:'+(outOfStock?'not-allowed':'pointer')+'; opacity:'+(outOfStock?'0.5':'1')+'; text-align:center;">';
             if (p.imageBase64) html += '<div style="height:100px; border-radius:12px; overflow:hidden; margin-bottom:6px;"><img src="'+p.imageBase64+'" style="width:100%; height:100%; object-fit:cover;"></div>';
             else html += '<div style="height:100px; border-radius:12px; background:#f1f5f9; display:flex; align-items:center; justify-content:center; font-size:2rem;">🍗</div>';
             html += '<div style="font-weight:600; font-size:0.9rem;">'+p.nom+'</div>';
@@ -179,7 +221,6 @@ function renderMenuTactile() {
 function menuFilterCategory(cat) {
     menuSelectedCategory = cat;
     renderMenuTactile();
-    // Remonter en haut après changement
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -202,7 +243,7 @@ function menuCalcTotal() {
     return menuCart.reduce((sum, item) => sum + (item.prixUnitaire * item.quantite), 0);
 }
 
-// ==================== OPTIONS PRODUITS ====================
+// ==================== OPTIONS PRODUITS (INCHANGÉ) ====================
 function menuOpenOptions(pid) {
     var p = menuProducts.find(x => x.id === pid);
     if (!p) return;
@@ -307,4 +348,4 @@ async function menuValiderCommande() {
     }
 }
 
-console.log('🍽️ Menu tactile - Version fixe, scroll vertical uniquement');
+console.log('🍽️ Menu tactile avec gestion recette - Version fixe, scroll vertical uniquement');
