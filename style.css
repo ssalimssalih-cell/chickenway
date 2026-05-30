@@ -322,15 +322,17 @@ input,select,textarea,button{max-width:100%}
 .pos-categories-bar{display:flex;gap:10px;margin-bottom:22px;overflow-x:auto;padding-bottom:14px;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;scrollbar-width:thin}
 .pos-categories-bar::-webkit-scrollbar{height:6px}
 
+/* Boutons catégories agrandis */
 .pos-cat-btn{
-    display:flex;align-items:center;gap:7px;
-    padding:12px 24px;border:2px solid var(--border);
+    display:flex;align-items:center;gap:8px;
+    padding:14px 26px;          /* ← plus grand */
+    border:2px solid var(--border);
     border-radius:50px;background:#fff;color:var(--text-dark);
-    font-weight:600;font-size:0.92rem;
+    font-weight:600;font-size:1rem;   /* ← plus grand */
     cursor:pointer;white-space:nowrap;
     transition:var(--transition);font-family:'Inter',sans-serif;flex-shrink:0;
 }
-.pos-cat-btn img{width:24px;height:24px;border-radius:6px;object-fit:cover}
+.pos-cat-btn img{width:26px;height:26px;border-radius:6px;object-fit:cover}
 .pos-cat-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-light)}
 .pos-cat-btn.active{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border-color:var(--primary);box-shadow:0 6px 18px rgba(245,158,11,0.3)}
 
@@ -568,7 +570,7 @@ input,select,textarea,button{max-width:100%}
     .pos-cart-panel{width:100%;min-width:100%;max-height:none}
     .pos-products-grid{max-height:400px}
 
-    .pos-cat-btn{font-size:0.82rem;padding:10px 18px}
+    .pos-cat-btn{font-size:0.9rem;padding:12px 22px}
     .pos-product-name{font-size:0.82rem}
     .pos-product-price{font-size:0.86rem}
     .pos-cart-item-name{font-size:0.88rem}
