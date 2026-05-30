@@ -1,15 +1,6 @@
 // ==================== STATISTIQUES PROFESSIONNELLES (ADMIN UNIQUEMENT) ====================
 var statsCharts = {};
 
-function toDate(val) {
-    if (!val) return null;
-    if (val.toDate && typeof val.toDate === 'function') return val.toDate();
-    if (val.seconds) return new Date(val.seconds * 1000);
-    if (typeof val === 'string') return new Date(val);
-    if (val instanceof Date) return val;
-    return null;
-}
-
 function loadStatistiquesPage(c) {
     if (!window.currentUserData || window.currentUserData.userData.role !== 'admin') {
         c.innerHTML = '<div class="content-card"><p style="text-align:center;padding:40px;color:#ef4444;"><i class="fas fa-lock" style="font-size:2rem;display:block;margin-bottom:10px;"></i>Accès réservé à l\'administrateur</p></div>';
@@ -42,7 +33,17 @@ function loadStatistiquesPage(c) {
     loadStatistiques();
 }
 
+function toDate(val) {
+    if (!val) return null;
+    if (val.toDate && typeof val.toDate === 'function') return val.toDate();
+    if (val.seconds) return new Date(val.seconds * 1000);
+    if (typeof val === 'string') return new Date(val);
+    if (val instanceof Date) return val;
+    return null;
+}
+
 async function loadStatistiques() {
+    // Détruire les anciens graphiques
     Object.values(statsCharts).forEach(chart => chart.destroy());
     statsCharts = {};
 
@@ -100,8 +101,6 @@ async function loadStatistiques() {
         categoriesSnap.forEach(d => { categories.push({ id: d.id, ...d.data() }); });
         var clients = [];
         clientsSnap.forEach(d => { clients.push({ id: d.id, ...d.data() }); });
-
-        console.log('Statistiques : ventes =', ventes.length, 'credits =', credits.length, 'depenses =', depenses.length);
 
         // KPI
         var totalVentes = ventes.reduce((sum, v) => sum + (v.total || 0), 0);
@@ -187,21 +186,21 @@ async function loadStatistiques() {
             });
         });
 
-        var statsHTML = `
-        <div class="stats-grid" style="margin-bottom:20px;">
-            <div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-money-bill-wave" style="color:#16a34a;"></i></div><div class="stat-info"><span class="stat-label">Chiffre d'affaires</span><span class="stat-value">${totalVentes.toFixed(2)} MAD</span></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-shopping-cart" style="color:#4f46e5;"></i></div><div class="stat-info"><span class="stat-label">Ventes</span><span class="stat-value">${nbVentes}</span></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-chart-line" style="color:#f39c12;"></i></div><div class="stat-info"><span class="stat-label">Profit brut</span><span class="stat-value" style="color:${totalProfit>=0?'#16a34a':'#ef4444'};">${totalProfit.toFixed(2)} MAD</span></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:#fce7f3;"><i class="fas fa-shopping-basket" style="color:#ec4899;"></i></div><div class="stat-info"><span class="stat-label">Panier moyen</span><span class="stat-value">${panierMoyen.toFixed(2)} MAD</span></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:#fee2e2;"><i class="fas fa-coins" style="color:#ef4444;"></i></div><div class="stat-info"><span class="stat-label">Dépenses</span><span class="stat-value">${totalDepenses.toFixed(2)} MAD</span></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-credit-card" style="color:#d97706;"></i></div><div class="stat-info"><span class="stat-label">Crédits impayés</span><span class="stat-value">${totalCreditsImpayes.toFixed(2)} MAD</span></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:#e0e7ff;"><i class="fas fa-balance-scale" style="color:#4f46e5;"></i></div><div class="stat-info"><span class="stat-label">Bénéfice net</span><span class="stat-value" style="color:${(totalProfit - totalDepenses) >= 0 ? '#16a34a' : '#ef4444'};">${(totalProfit - totalDepenses).toFixed(2)} MAD</span></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:#dcfce7;"><i class="fas fa-users" style="color:#16a34a;"></i></div><div class="stat-info"><span class="stat-label">Clients</span><span class="stat-value">${nbClients}</span></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:#f0fdf4;"><i class="fas fa-utensils" style="color:#16a34a;"></i></div><div class="stat-info"><span class="stat-label">Produits</span><span class="stat-value">${nbProduits}</span></div></div>
-            <div class="stat-card"><div class="stat-icon" style="background:#fef3c7;"><i class="fas fa-chart-pie" style="color:#f39c12;"></i></div><div class="stat-info"><span class="stat-label">Taux conversion</span><span class="stat-value">${tauxConversion.toFixed(1)}%</span></div></div>
-        </div>
-        `;
+        // Construction HTML responsive
+        var statsHTML = '<div class="stats-grid" style="margin-bottom:20px;">';
+        statsHTML += buildStatCard('Chiffre d\'affaires', totalVentes.toFixed(2) + ' MAD', 'fa-money-bill-wave', '#dcfce7', '#16a34a');
+        statsHTML += buildStatCard('Ventes', nbVentes.toString(), 'fa-shopping-cart', '#e0e7ff', '#4f46e5');
+        statsHTML += buildStatCard('Profit brut', totalProfit.toFixed(2) + ' MAD', 'fa-chart-line', '#fef3c7', '#f39c12');
+        statsHTML += buildStatCard('Panier moyen', panierMoyen.toFixed(2) + ' MAD', 'fa-shopping-basket', '#fce7f3', '#ec4899');
+        statsHTML += buildStatCard('Dépenses', totalDepenses.toFixed(2) + ' MAD', 'fa-coins', '#fee2e2', '#ef4444');
+        statsHTML += buildStatCard('Crédits impayés', totalCreditsImpayes.toFixed(2) + ' MAD', 'fa-credit-card', '#fef3c7', '#d97706');
+        statsHTML += buildStatCard('Bénéfice net', (totalProfit - totalDepenses).toFixed(2) + ' MAD', 'fa-balance-scale', '#e0e7ff', '#4f46e5');
+        statsHTML += buildStatCard('Clients', nbClients.toString(), 'fa-users', '#dcfce7', '#16a34a');
+        statsHTML += buildStatCard('Produits', nbProduits.toString(), 'fa-utensils', '#f0fdf4', '#16a34a');
+        statsHTML += buildStatCard('Taux conversion', tauxConversion.toFixed(1) + '%', 'fa-chart-pie', '#fef3c7', '#f39c12');
+        statsHTML += '</div>';
 
+        // Graphiques
         statsHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">';
         statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📈 Évolution du CA</h4><canvas id="salesChart" style="max-height:250px;"></canvas></div>';
         statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">💳 Méthodes de paiement</h4><canvas id="paymentChart" style="max-height:250px;"></canvas></div>';
@@ -220,12 +219,7 @@ async function loadStatistiques() {
 
         statsContent.innerHTML = statsHTML;
 
-        // Tracer les graphiques si Chart.js est disponible
-        if (typeof Chart === 'undefined') {
-            console.warn('Chart.js non chargé');
-            return;
-        }
-
+        // Tracer les graphiques (Chart.js)
         setTimeout(() => {
             try {
                 var ctx1 = document.getElementById('salesChart')?.getContext('2d');
@@ -303,14 +297,25 @@ async function loadStatistiques() {
 
     } catch(e) {
         console.error('Erreur statistiques :', e);
-        if (statsContent) {
-            statsContent.innerHTML = `
-            <div style="text-align:center; padding:40px;">
-                <i class="fas fa-exclamation-triangle" style="font-size:2rem; color:#ef4444;"></i>
-                <p style="color:#ef4444; margin-top:10px;">Erreur lors du chargement des statistiques</p>
-                <p style="color:#64748b; font-size:0.85rem; margin-top:5px;">${e.message || e}</p>
-                <p style="color:#94a3b8; font-size:0.75rem; margin-top:10px;">Vérifiez la connexion et les autorisations Firestore.</p>
-            </div>`;
-        }
+        statsContent.innerHTML = `
+        <div style="text-align:center; padding:40px;">
+            <i class="fas fa-exclamation-triangle" style="font-size:2rem; color:#ef4444;"></i>
+            <p style="color:#ef4444; margin-top:10px;">Erreur lors du chargement des statistiques</p>
+            <p style="color:#64748b; font-size:0.85rem; margin-top:5px;">${e.message || e}</p>
+        </div>`;
     }
+}
+
+// Fonction utilitaire pour construire les cartes statistiques responsives
+function buildStatCard(label, value, icon, bgColor, iconColor) {
+    return `
+    <div class="stat-card">
+        <div class="stat-icon" style="background:${bgColor};">
+            <i class="fas ${icon}" style="color:${iconColor};"></i>
+        </div>
+        <div class="stat-info">
+            <span class="stat-label">${label}</span>
+            <span class="stat-value" style="color:${value.includes('-') ? '#ef4444' : '#1e293b'}; white-space: normal; word-break: break-word; hyphens: auto;">${value}</span>
+        </div>
+    </div>`;
 }
