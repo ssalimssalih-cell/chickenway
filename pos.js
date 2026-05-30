@@ -1,4 +1,4 @@
-// ==================== POS.JS AVEC BADGE COMMANDES EN LIGNE TOUJOURS VISIBLE ====================
+// ==================== POS.JS AVEC BADGE COMMANDES EN LIGNE ET FIDÉLITÉ ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
@@ -365,7 +365,38 @@ async function posFinalizeSale() {
             delete window.posVenteId;
         }
         for(var i=0;i<posCart.length;i++){var it=posCart[i];try{var pr=await db.collection('products').doc(it.id).get();if(pr.exists){var pd=pr.data();await CacheDB.write('products',it.id,{stock:Math.max(0,(pd.stock||0)-it.quantite),vendues:(pd.vendues||0)+it.quantite,ca:(pd.ca||0)+(it.prixUnitaire*it.quantite),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},'update');}}catch(e){}}
-        if(posCurrentClient&&posCurrentClient.id&&paid){try{var cr=await db.collection('clients').doc(posCurrentClient.id).get();if(cr.exists){var cd=cr.data();await CacheDB.write('clients',posCurrentClient.id,{ca:(cd.ca||0)+t,profit:(cd.profit||0)+profitTotal,updatedAt:firebase.firestore.FieldValue.serverTimestamp()},'update');}}catch(e){}}
+        if(posCurrentClient&&posCurrentClient.id&&paid){
+            try{
+                var cr=await db.collection('clients').doc(posCurrentClient.id).get();
+                if(cr.exists){
+                    var cd=cr.data();
+                    var updateData = {
+                        ca:(cd.ca||0)+t,
+                        profit:(cd.profit||0)+profitTotal,
+                        updatedAt:firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    // ===== FIDÉLITÉ CONFIGURABLE =====
+                    var fideliteActive = false;
+                    var pointsParVente = 1;
+                    try {
+                        const fDoc = await db.collection('settings').doc('fidelite').get();
+                        if (fDoc.exists) {
+                            fideliteActive = fDoc.data().active === true;
+                            pointsParVente = fDoc.data().pointsParVente || 1;
+                        }
+                    } catch(e) {
+                        // fallback localStorage
+                        fideliteActive = localStorage.getItem('fidelite_active') === 'true';
+                        pointsParVente = parseInt(localStorage.getItem('fidelite_points')) || 1;
+                    }
+                    if (fideliteActive) {
+                        updateData.pointsFidelite = (cd.pointsFidelite || 0) + pointsParVente;
+                    }
+                    // ================================
+                    await CacheDB.write('clients', posCurrentClient.id, updateData, 'update');
+                }
+            }catch(e){}
+        }
         var msg='✅ Vente: '+fn+'\n💰 Total: '+t.toFixed(2)+' MAD';
         if(posPaymentMethod==='espece'&&posAmountGiven>t)msg+='\n💵 Rendu: '+change.toFixed(2)+' MAD';
         if(statutPaiement==='crédit')msg+='\n📋 Crédit enregistré.';
@@ -374,4 +405,4 @@ async function posFinalizeSale() {
         alert(msg);posResetCart();renderPOS();CacheDB.sync();
     }catch(e){alert('Erreur: '+e.message);}
 }
-console.log('POS JS avec badges toujours visibles');
+console.log('POS JS avec fidélité configurable');
