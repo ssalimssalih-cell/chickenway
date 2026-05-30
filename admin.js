@@ -1,12 +1,12 @@
-// ==================== ADMIN.JS COMPLET AVEC TRI, FILTRES, PAGINATION ====================
+// ==================== ADMIN.JS COMPLET (DÉPENSES DÉPLACÉES DANS depenses.js) ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
 var sortOrders = {};
 var clientSearchQuery = '';
-var pendingUsersData = [];   // pour les inscriptions en attente
+var pendingUsersData = [];
 
-// Données complètes pour les listes
+// Données complètes pour les listes (les données dépenses sont utilisées par depenses.js)
 var allCategoriesData = [];
 var allProductsData = [];
 var allClientsData = [];
@@ -34,9 +34,8 @@ var ventesPeriod = 'all', ventesSearch = '';
 var creditsPeriod = 'all', creditsSearch = '';
 var commandesPeriod = 'all', commandesSearch = '';
 
-// Listes pour les catégories
+// Liste pour les fournisseurs (inchangée)
 var fournisseurCategoriesList = ['Alimentaire', 'Boissons', 'Emballage', 'Entretien', 'Viandes', 'Légumes', 'Sauces', 'Autre'];
-var depenseCategoriesList = ['Électricité', 'Internet', 'Publicité', 'Viande', 'Poulet', 'Fruits', 'Légumes', 'Boissons', 'Emballage', 'Entretien', 'Loyer', 'Salaire', 'Transport', 'Autre'];
 
 // ==================== DASHBOARD ====================
 function loadDashboardPage(c) {
@@ -396,6 +395,7 @@ function saveCategory() {
     };
     if (f) fileToBase64(f, sf); else sf(null);
 }
+
 // ==================== PRODUITS ====================
 function loadProductsPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-utensils"></i> Produits</h3><div style="display:flex;gap:10px;flex-wrap:wrap;"><select id="categoryFilter" onchange="filterProducts()"><option value="">Toutes catégories</option></select><button class="btn-add" onclick="openProductForm()"><i class="fas fa-plus"></i> Nouveau</button></div></div><div class="table-container"><table class="data-table" id="productsTable" style="font-size:0.7rem;"><thead><tr><th>Img</th>'+makeSortableHeader('products','nom','Nom','loadProducts')+makeSortableHeader('products','categorie','Catégorie','loadProducts')+makeSortableHeader('products','prixAchat','Achat','loadProducts')+makeSortableHeader('products','prixVente','Vente','loadProducts')+makeSortableHeader('products','prixPromo','Promo','loadProducts')+makeSortableHeader('products','profit','Profit','loadProducts')+makeSortableHeader('products','stock','Stock','loadProducts')+makeSortableHeader('products','vendues','Vendues','loadProducts')+makeSortableHeader('products','ca','CA','loadProducts')+makeSortableHeader('products','disponible','Dispo','loadProducts')+'<th>Temps</th><th>Desc</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="productsPagination"></div></div>';
@@ -688,89 +688,6 @@ function editFournisseur(id) {
 function deleteFournisseur(id) {
     if (confirm('Supprimer ce fournisseur ?')) {
         CacheDB.write('fournisseurs', id, null, 'delete').then(function() { alert('Supprimé'); loadFournisseurs(); CacheDB.sync(); });
-    }
-}
-
-// ==================== DÉPENSES ====================
-function loadDepensesPage(c) {
-    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-money-bill-wave"></i> Dépenses</h3><button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="depensesTable" style="font-size:0.65rem;"><thead><tr>'+makeSortableHeader('depenses','id','ID','loadDepenses')+makeSortableHeader('depenses','titre','Titre','loadDepenses')+'<th>Catégorie</th>'+makeSortableHeader('depenses','montant','Montant','loadDepenses')+makeSortableHeader('depenses','description','Description','loadDepenses')+makeSortableHeader('depenses','createdAt','Date','loadDepenses')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="depensesPagination"></div></div>';
-    loadDepenses();
-}
-
-async function loadDepenses() {
-    try {
-        const cached = await CacheDB.getAll('depenses');
-        if (cached.length) allDepensesData = cached;
-        const snapshot = await db.collection('depenses').get();
-        allDepensesData = [];
-        snapshot.forEach(d => { let dd = d.data(); dd.id = d.id; allDepensesData.push(dd); });
-        for (let doc of allDepensesData) await CacheDB.set('depenses', doc.id, doc);
-    } catch(e){ console.error(e); }
-    currentPages.depenses = 1;
-    renderDepensesTable();
-}
-
-function renderDepensesTable() {
-    var tb = document.querySelector('#depensesTable tbody');
-    if (!tb) return;
-    var data = applySort('depenses', allDepensesData.slice(), 'createdAt');
-    var pageData = getPageData('depenses', data);
-    tb.innerHTML = '';
-    if (pageData.length === 0) {
-        tb.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;">Aucune dépense</td></tr>';
-        document.getElementById('depensesPagination').innerHTML = '';
-        return;
-    }
-    for (var i = 0; i < pageData.length; i++) {
-        var d = pageData[i];
-        var dateCreated = d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString('fr-FR')+' '+new Date(d.createdAt.seconds*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '-';
-        var categories = d.categories ? d.categories.join(', ') : '-';
-        tb.innerHTML += '<tr><td><small>'+(d.id||'').substring(0,6)+'</small></td><td><strong>'+(d.titre||d.description||'-')+'</strong></td><td><small>'+categories+'</small></td><td style="color:#ef4444;font-weight:700;">'+(d.montant||0).toFixed(2)+' MAD</td><td><small>'+(d.description||'-')+'</small></td><td><small>'+dateCreated+'</small></td><td><button class="btn-edit" onclick="editDepense(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDepense(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
-    }
-    document.getElementById('depensesPagination').innerHTML = getPaginationHTML('depenses', data.length);
-}
-
-function openDepenseForm(data) {
-    data = data || {};
-    var selectedCategories = data.categories || [];
-    var h = '';
-    h += '<div class="form-row"><div class="form-group"><label>Titre *</label><input type="text" id="depTitre" value="' + (data.titre || '') + '" required></div><div class="form-group"><label>Montant *</label><input type="number" id="depMontant" value="' + (data.montant || 0) + '" step="0.01" required></div></div>';
-    h += '<div class="form-row"><div class="form-group" style="min-width:100%;"><label>Catégories (plusieurs choix possibles)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;">';
-    depenseCategoriesList.forEach(function(cat) {
-        var checked = selectedCategories.indexOf(cat) !== -1 ? 'checked' : '';
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.8rem;"><input type="checkbox" class="dep-cat-check" value="' + cat + '" ' + checked + '> ' + cat + '</label>';
-    });
-    h += '</div></div></div>';
-    h += '<div class="form-row"><div class="form-group"><label>Date</label><input type="date" id="depDate" value="' + (data.date || new Date().toISOString().split('T')[0]) + '"></div></div>';
-    h += '<div class="form-row"><div class="form-group"><label>Description</label><textarea id="depDesc">' + (data.description || '') + '</textarea></div></div>';
-    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveDepense()">Enregistrer</button>';
-    currentCollection = 'depenses';
-    openModal(editingId ? 'Modifier Dépense' : 'Nouvelle Dépense', h);
-}
-
-function saveDepense() {
-    var titre = document.getElementById('depTitre').value.trim();
-    var montant = parseFloat(document.getElementById('depMontant').value) || 0;
-    if (!titre || !montant) { alert('Titre et montant obligatoires'); return; }
-    var categories = [];
-    document.querySelectorAll('.dep-cat-check:checked').forEach(function(cb) { categories.push(cb.value); });
-    var d = {
-        titre: titre, montant: montant, categories: categories,
-        date: document.getElementById('depDate').value, description: document.getElementById('depDesc').value
-    };
-    if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-    saveDocument('depenses', d, function() { closeModal(); loadDepenses(); });
-}
-
-function editDepense(id) {
-    db.collection('depenses').doc(id).get().then(function(doc) {
-        if (doc.exists) { editingId = id; currentCollection = 'depenses'; openDepenseForm(doc.data()); }
-    });
-}
-
-function deleteDepense(id) {
-    if (confirm('Supprimer cette dépense ?')) {
-        CacheDB.write('depenses', id, null, 'delete').then(function() { alert('Supprimée'); loadDepenses(); CacheDB.sync(); });
     }
 }
 
@@ -1169,200 +1086,4 @@ function deleteUserPermanently(uid) {
     }
 }
 
-// ==================== STATISTIQUES ====================
-function loadStatistiquesPage(c) {
-    var html = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-chart-bar"></i> Statistiques du restaurant</h3>' +
-        '<div style="display:flex; gap:10px; align-items:center;">' +
-        '<select id="statPeriodSelect" style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px;" onchange="loadStatistiques()">' +
-        '<option value="1">Aujourd\'hui</option>' +
-        '<option value="7" selected>7 derniers jours</option>' +
-        '<option value="30">30 derniers jours</option>' +
-        '<option value="all">Tout</option>' +
-        '</select>' +
-        '<button class="btn-add" onclick="loadStatistiques()"><i class="fas fa-sync"></i> Actualiser</button>' +
-        '</div></div>' +
-        '<div id="statsContent" style="text-align:center;padding:40px;">Chargement...</div></div>';
-    c.innerHTML = html;
-    loadStatistiques();
-}
-
-async function loadStatistiques() {
-    var period = document.getElementById('statPeriodSelect')?.value || '7';
-    var now = new Date();
-    var startDate = null;
-    if (period !== 'all') {
-        var days = parseInt(period);
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days);
-    }
-
-    try {
-        var [ventesSnap, creditsSnap, depensesSnap, commandesSnap, produitsSnap, categoriesSnap, clientsSnap] = await Promise.all([
-            db.collection('ventes').orderBy('createdAt', 'desc').limit(2000).get(),
-            db.collection('credits').orderBy('createdAt', 'desc').limit(2000).get(),
-            db.collection('depenses').orderBy('createdAt', 'desc').limit(2000).get(),
-            db.collection('commandes').orderBy('createdAt', 'desc').limit(2000).get(),
-            db.collection('products').get(),
-            db.collection('categories').get(),
-            db.collection('clients').get()
-        ]);
-
-        var ventes = [];
-        ventesSnap.forEach(d => { var dd = d.data(); dd.id = d.id; if (!startDate || (dd.createdAt && dd.createdAt.toDate() >= startDate)) ventes.push(dd); });
-
-        var credits = [];
-        creditsSnap.forEach(d => { var dd = d.data(); dd.id = d.id; if (!startDate || (dd.createdAt && dd.createdAt.toDate() >= startDate)) credits.push(dd); });
-
-        var depenses = [];
-        depensesSnap.forEach(d => { var dd = d.data(); dd.id = d.id; if (!startDate || (dd.createdAt && dd.createdAt.toDate() >= startDate)) depenses.push(dd); });
-
-        var commandes = [];
-        commandesSnap.forEach(d => { var dd = d.data(); dd.id = d.id; if (!startDate || (dd.createdAt && dd.createdAt.toDate() >= startDate)) commandes.push(dd); });
-
-        var produits = [];
-        produitsSnap.forEach(d => { produits.push({ id: d.id, ...d.data() }); });
-        var categories = [];
-        categoriesSnap.forEach(d => { categories.push({ id: d.id, ...d.data() }); });
-        var clients = [];
-        clientsSnap.forEach(d => { clients.push({ id: d.id, ...d.data() }); });
-
-        var totalVentes = ventes.reduce((sum, v) => sum + (v.total || 0), 0);
-        var totalProfit = ventes.reduce((sum, v) => {
-            var profit = 0;
-            if (v.items) {
-                v.items.forEach(it => {
-                    var pa = it.prixAchat || 0, pv = it.prixVente || 0, pp = it.prixPromo || 0, pvr = (pp > 0) ? pp : pv, q = it.quantite || 1;
-                    profit += (pvr - pa) * q;
-                });
-            }
-            return sum + profit;
-        }, 0);
-        var totalDepenses = depenses.reduce((sum, d) => sum + (d.montant || 0), 0);
-        var totalCreditsImpayes = credits.filter(c => !c.paid).reduce((sum, c) => sum + (c.remainingAmount || c.total || 0), 0);
-        var nbVentes = ventes.length;
-        var panierMoyen = nbVentes > 0 ? totalVentes / nbVentes : 0;
-        var nbClients = clients.length;
-        var nbProduits = produits.length;
-        var nbCommandes = commandes.length;
-
-        var productSales = {};
-        ventes.forEach(v => {
-            if (v.items) {
-                v.items.forEach(it => {
-                    var nom = it.nom || 'Sans nom';
-                    if (!productSales[nom]) productSales[nom] = 0;
-                    productSales[nom] += (it.quantite || 0);
-                });
-            }
-        });
-        var topProduits = Object.entries(productSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-        var categoryCA = {};
-        ventes.forEach(v => {
-            if (v.items) {
-                v.items.forEach(it => {
-                    var cat = produits.find(p => p.nom === it.nom)?.categorie || 'Sans catégorie';
-                    if (!categoryCA[cat]) categoryCA[cat] = 0;
-                    categoryCA[cat] += (it.prixVente || it.prixUnitaire || 0) * (it.quantite || 0);
-                });
-            }
-        });
-        var topCategories = Object.entries(categoryCA).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-        var dailySales = {};
-        var daysToShow = period === 'all' ? 30 : parseInt(period);
-        var today = new Date();
-        for (var i = daysToShow - 1; i >= 0; i--) {
-            var d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
-            var key = d.toISOString().split('T')[0];
-            dailySales[key] = 0;
-        }
-        ventes.forEach(v => {
-            if (v.createdAt) {
-                var dateKey = v.createdAt.toDate().toISOString().split('T')[0];
-                if (dailySales[dateKey] !== undefined) {
-                    dailySales[dateKey] += v.total || 0;
-                }
-            }
-        });
-
-        var statsHTML = '<div class="stats-grid" style="margin-bottom:20px;">' +
-            '<div class="stat-card"><div class="stat-icon"><i class="fas fa-money-bill-wave" style="color:#16a34a;"></i></div><div class="stat-info"><span class="stat-label">Chiffre d\'affaires</span><span class="stat-value">' + totalVentes.toFixed(2) + ' MAD</span></div></div>' +
-            '<div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-cart"></i></div><div class="stat-info"><span class="stat-label">Ventes</span><span class="stat-value">' + nbVentes + '</span></div></div>' +
-            '<div class="stat-card"><div class="stat-icon"><i class="fas fa-chart-line" style="color:#f39c12;"></i></div><div class="stat-info"><span class="stat-label">Profit</span><span class="stat-value" style="color:'+(totalProfit>=0?'#16a34a':'#ef4444')+';">' + totalProfit.toFixed(2) + ' MAD</span></div></div>' +
-            '<div class="stat-card"><div class="stat-icon"><i class="fas fa-shopping-basket"></i></div><div class="stat-info"><span class="stat-label">Panier moyen</span><span class="stat-value">' + panierMoyen.toFixed(2) + ' MAD</span></div></div>' +
-            '<div class="stat-card"><div class="stat-icon"><i class="fas fa-coins" style="color:#ef4444;"></i></div><div class="stat-info"><span class="stat-label">Dépenses</span><span class="stat-value">' + totalDepenses.toFixed(2) + ' MAD</span></div></div>' +
-            '<div class="stat-card"><div class="stat-icon"><i class="fas fa-credit-card"></i></div><div class="stat-info"><span class="stat-label">Crédits impayés</span><span class="stat-value">' + totalCreditsImpayes.toFixed(2) + ' MAD</span></div></div>' +
-            '<div class="stat-card"><div class="stat-icon"><i class="fas fa-balance-scale" style="color:#4f46e5;"></i></div><div class="stat-info"><span class="stat-label">Bénéfice net</span><span class="stat-value" style="color:'+(totalProfit - totalDepenses >=0?'#16a34a':'#ef4444')+';">' + (totalProfit - totalDepenses).toFixed(2) + ' MAD</span></div></div>' +
-            '<div class="stat-card"><div class="stat-icon"><i class="fas fa-users"></i></div><div class="stat-info"><span class="stat-label">Clients</span><span class="stat-value">' + nbClients + '</span></div></div>' +
-            '</div>';
-
-        statsHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">';
-        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">🏆 Top 5 produits</h4><table class="data-table"><thead><tr><th>Produit</th><th>Quantité vendue</th></tr></thead><tbody>';
-        topProduits.forEach(p => {
-            statsHTML += '<tr><td>' + p[0] + '</td><td>' + p[1] + '</td></tr>';
-        });
-        statsHTML += '</tbody></table></div>';
-
-        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📊 Top 5 catégories</h4><table class="data-table"><thead><tr><th>Catégorie</th><th>CA (MAD)</th></tr></thead><tbody>';
-        topCategories.forEach(cat => {
-            statsHTML += '<tr><td>' + cat[0] + '</td><td>' + cat[1].toFixed(2) + '</td></tr>';
-        });
-        statsHTML += '</tbody></table></div>';
-        statsHTML += '</div>';
-
-        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📈 Ventes par jour</h4><canvas id="salesChart" width="600" height="300" style="max-width:100%;"></canvas></div>';
-
-        document.getElementById('statsContent').innerHTML = statsHTML;
-
-        setTimeout(function() {
-            var ctx = document.getElementById('salesChart')?.getContext('2d');
-            if (!ctx) return;
-            var labels = Object.keys(dailySales);
-            var values = Object.values(dailySales);
-            var maxVal = Math.max(...values, 1);
-            var width = ctx.canvas.width;
-            var height = ctx.canvas.height;
-            var padding = 40;
-            var chartWidth = width - 2 * padding;
-            var chartHeight = height - 2 * padding;
-
-            ctx.clearRect(0, 0, width, height);
-            ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(0, 0, width, height);
-
-            ctx.beginPath();
-            ctx.strokeStyle = '#cbd5e1';
-            ctx.moveTo(padding, padding);
-            ctx.lineTo(padding, height - padding);
-            ctx.lineTo(width - padding, height - padding);
-            ctx.stroke();
-
-            var barWidth = chartWidth / labels.length * 0.7;
-            var gap = chartWidth / labels.length * 0.3;
-            for (var i = 0; i < labels.length; i++) {
-                var barHeight = (values[i] / maxVal) * chartHeight;
-                var x = padding + i * (chartWidth / labels.length) + gap / 2;
-                var y = height - padding - barHeight;
-                ctx.fillStyle = '#f39c12';
-                ctx.fillRect(x, y, barWidth, barHeight);
-
-                if (i % Math.ceil(labels.length / 10) === 0) {
-                    ctx.fillStyle = '#64748b';
-                    ctx.font = '10px Inter';
-                    ctx.fillText(labels[i].substr(5), x + barWidth/2 - 15, height - padding + 15);
-                }
-            }
-
-            ctx.fillStyle = '#64748b';
-            ctx.font = '10px Inter';
-            ctx.fillText(maxVal.toFixed(0) + ' MAD', padding + 5, padding - 5);
-
-        }, 100);
-
-    } catch(e) {
-        console.error(e);
-        document.getElementById('statsContent').innerHTML = '<p style="text-align:center;color:#ef4444;">Erreur lors du chargement des statistiques.</p>';
-    }
-}
-
-console.log('Admin JS complet avec Statistiques OK');
+console.log('Admin JS (dépenses déplacées dans depenses.js) prêt.');
