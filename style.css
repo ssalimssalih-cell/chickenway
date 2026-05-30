@@ -213,14 +213,13 @@ input,select,textarea,button{max-width:100%}
     padding:24px;display:flex;align-items:center;gap:18px;
     box-shadow:var(--shadow-sm);transition:var(--transition);
     border:1px solid var(--border);cursor:default;
-    overflow: hidden; /* ← empêche tout débordement */
+    overflow: hidden;
 }
 .stat-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-md)}
 .stat-icon{width:56px;height:56px;background:var(--primary-light);border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .stat-icon i{font-size:1.5rem;color:var(--primary)}
 .stat-info{display:flex;flex-direction:column;min-width:0}
 .stat-label{font-size:0.82rem;color:var(--text-gray);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
-/* ← correction ici : suppression de white-space: nowrap */
 .stat-value{
     font-size:1.6rem;font-weight:800;color:var(--text-dark);
     letter-spacing:-0.5px;
@@ -465,26 +464,23 @@ input,select,textarea,button{max-width:100%}
     font-weight:700;display:flex;justify-content:space-between;align-items:center;
     font-size:2.0625rem;        /* 33px */
 }
+
 /* ==================== OPTIONS : SÉCURITÉ & MARKETING ==================== */
-/* Carte Sécurité : formulaire de changement de mot de passe */
 #changePasswordForm {
     margin-top: 15px;
     padding-top: 15px;
     border-top: 1px solid var(--border);
 }
-
 #changePasswordForm .form-row {
     display: flex;
     gap: 15px;
     margin-bottom: 15px;
     flex-wrap: wrap;
 }
-
 #changePasswordForm .form-group {
     flex: 1;
     min-width: 200px;
 }
-
 #changePasswordForm label {
     display: block;
     font-size: 0.85rem;
@@ -492,7 +488,6 @@ input,select,textarea,button{max-width:100%}
     color: var(--text-dark);
     margin-bottom: 6px;
 }
-
 #changePasswordForm input {
     width: 100%;
     padding: 10px 14px;
@@ -503,25 +498,20 @@ input,select,textarea,button{max-width:100%}
     background: #fff;
     transition: var(--transition);
 }
-
 #changePasswordForm input:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.08);
     outline: none;
 }
-
-/* Carte Programme marketing : contenu caché */
 #marketingProgramContent {
     margin-top: 15px;
     padding-top: 15px;
     border-top: 1px solid var(--border);
 }
-
 #marketingProgramContent .form-group {
     margin-right: 15px;
     margin-bottom: 10px;
 }
-
 #marketingProgramContent label {
     display: block;
     font-size: 0.85rem;
@@ -529,7 +519,6 @@ input,select,textarea,button{max-width:100%}
     color: var(--text-dark);
     margin-bottom: 6px;
 }
-
 #marketingProgramContent select,
 #marketingProgramContent input[type="number"] {
     padding: 10px 14px;
@@ -540,35 +529,19 @@ input,select,textarea,button{max-width:100%}
     font-family: 'Inter', sans-serif;
     transition: var(--transition);
 }
-
 #marketingProgramContent select:focus,
 #marketingProgramContent input[type="number"]:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.08);
     outline: none;
 }
-
-/* Boutons dans les cartes d'options */
 .content-card .card-header .btn-add {
-    /* espace supplémentaire si nécessaire */
     margin-left: auto;
 }
 
-/* Ajustement sur mobile */
-@media (max-width: 768px) {
-    #changePasswordForm .form-group {
-        min-width: 100%;
-    }
-
-    #marketingProgramContent {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    #marketingProgramContent .form-group {
-        margin-right: 0;
-        width: 100%;
-    }
+/* Modale élargie (commandes tables) */
+.modal-wide .modal-content {
+    max-width: 950px;
 }
 
 /* ==================== RESPONSIVE ==================== */
@@ -595,7 +568,6 @@ input,select,textarea,button{max-width:100%}
     .pos-cart-panel{width:100%;min-width:100%;max-height:none}
     .pos-products-grid{max-height:400px}
 
-    /* Réduction modérée */
     .pos-cat-btn{font-size:0.82rem;padding:10px 18px}
     .pos-product-name{font-size:0.82rem}
     .pos-product-price{font-size:0.86rem}
@@ -605,7 +577,6 @@ input,select,textarea,button{max-width:100%}
     .pos-cart-total-row span:last-child{font-size:1.5rem}
     .pos-validate-btn,.pos-finalize-btn{font-size:1.05rem;padding:16px}
 
-    /* Paiement tablette : ~24px */
     .pos-payment-section label{font-size:1rem}
     .pos-payment-section input,.pos-payment-section select{font-size:1rem;padding:14px}
     #posAmountGiven { font-size: 1.5rem !important; }
@@ -614,9 +585,14 @@ input,select,textarea,button{max-width:100%}
     .pos-payment-btn{font-size:1rem;padding:14px}
     .pos-change-positive,.pos-change-negative{font-size:1.5rem;padding:15px 18px}
 
-    /* Stats : taille réduite + retour à la ligne */
     .stat-value { font-size: 1.2rem !important; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
+
+    #changePasswordForm .form-group,
+    #marketingProgramContent .form-group {
+        min-width: 100%;
+        margin-right: 0;
+    }
 }
 @media(max-width:768px){
     .login-wrapper{padding:15px;align-items:center;justify-content:center}
