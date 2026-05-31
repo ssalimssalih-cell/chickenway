@@ -1,4 +1,4 @@
-// ==================== POS.JS COMPLET (INTERDITS = INGRÉDIENTS DE LA RECETTE) ====================
+// ==================== POS.JS COMPLET (INTERDITS N'AFFECTENT PAS LE STOCK) ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
@@ -275,7 +275,7 @@ function posAddToCartOrOpenOptions(pid) {
     }
 }
 
-// ✅ Nouvelle version : charge les ingrédients du produit et les utilise pour les interdits
+// ✅ Charge les ingrédients réels du produit pour les interdits
 async function posOpenOptionsModal(pid) {
     var p = posProductsList.find(function(x) { return x.id === pid; });
     if (!p) return;
@@ -304,7 +304,7 @@ async function posOpenOptionsModal(pid) {
     });
     h += '</div></div>';
 
-    // Interdits : si le produit a des ingrédients, on les utilise, sinon liste par défaut
+    // Interdits = ingrédients réels du produit (ou fallback)
     var interditsArray = posCurrentProductIngredients.length > 0 ?
         posCurrentProductIngredients.map(function(ing) { return ing.nom; }) :
         posInterditsList;
@@ -523,7 +523,7 @@ function posGoToStep1() { posStep = 1; delete window.posCommandeId; delete windo
 function posSetPaymentMethod(m) { if ((m === 'credit' || m === 'partiel') && (!posCurrentClient || !posCurrentClient.id)) { alert('Client requis pour crédit/partiel.'); return; } posPaymentMethod = m; posAmountGiven = 0; renderPOS(); }
 function posCalculateChange() { var ai = document.getElementById('posAmountGiven'), cd = document.getElementById('posChangeDisplay'); if (!ai || !cd) return; var st = posCalculateTotal(); var t = st - posDiscountMAD; posAmountGiven = parseFloat(ai.value) || 0; var c = posAmountGiven - t; if (posAmountGiven > 0) { cd.innerHTML = c >= 0 ? '<div class="pos-change-positive"><span>Rendu</span><span>' + c.toFixed(2) + ' MAD</span></div>' : '<div class="pos-change-negative"><span>Manquant</span><span>' + Math.abs(c).toFixed(2) + ' MAD</span></div>'; } else { cd.innerHTML = ''; } }
 
-// ==================== FINALISATION AVEC DÉDUCTION STOCK INGRÉDIENTS ====================
+// ==================== FINALISATION AVEC EXCLUSION DES INTERDITS DU STOCK ====================
 async function posFinalizeSale() {
     var st = posCalculateTotal(); var t = st - posDiscountMAD;
     if (!posCurrentClient && !posCurrentTable) { alert('Client ou table requis.'); return; }
@@ -580,7 +580,7 @@ async function posFinalizeSale() {
             delete window.posVenteId;
         }
 
-        // ✅ Mise à jour du stock (ingrédients ou produit fini)
+        // ✅ Mise à jour du stock (ingrédients ou produit fini) EN IGNORANT LES INTERDITS
         for (var i = 0; i < posCart.length; i++) {
             var it = posCart[i];
             try {
@@ -588,8 +588,14 @@ async function posFinalizeSale() {
                 if (productDoc.exists) {
                     var productData = productDoc.data();
                     if (productData.ingredients && productData.ingredients.length > 0) {
+                        // Récupère la liste des ingrédients exclus pour cet item
+                        var interditsItem = it.interdits || [];
                         for (var j = 0; j < productData.ingredients.length; j++) {
                             var ing = productData.ingredients[j];
+                            // Si l'ingrédient est dans les interdits, on ne le déduit pas
+                            if (interditsItem.indexOf(ing.nom) !== -1) {
+                                continue;
+                            }
                             var stockDoc = await db.collection('stock').doc(ing.idStock).get();
                             if (stockDoc.exists) {
                                 var stockData = stockDoc.data();
@@ -602,6 +608,7 @@ async function posFinalizeSale() {
                             }
                         }
                     } else {
+                        // Pas de recette : décrémenter le stock du produit fini
                         var pr = await db.collection('products').doc(it.id).get();
                         if (pr.exists) {
                             var pd = pr.data();
@@ -666,4 +673,4 @@ async function posFinalizeSale() {
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS avec profit corrigé, déduction stock ingrédients, interdits personnalisés');
+console.log('POS JS avec profit corrigé, interdits exclus du stock, ingrédients réels');
