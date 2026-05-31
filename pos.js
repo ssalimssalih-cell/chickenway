@@ -1,9 +1,9 @@
-// ==================== POS.JS COMPLET (PROFIT CORRECT, RECETTE, DÉDUCTION STOCK) ====================
+// ==================== POS.JS COMPLET (INTERDITS = INGRÉDIENTS DE LA RECETTE) ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
 var posSaucesList = ['Ketchup','Sauce Hot','Cheezy','Sauce Burger','Algérienne','Barbecue','Mayonnaise','Harissa','Samouraï','Andalouse'];
-var posInterditsList = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade'];
+var posInterditsList = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade']; // fallback si pas d'ingrédients
 var posEpicesList = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var posSelList = ['Normal','Moins de sel','Sans sel'];
 
@@ -11,7 +11,10 @@ var posCommandesTables = [];
 var posCommandesTablesCount = 0;
 var posCommandesEnLigneCount = 0;
 
-// ✅ Enrichit les items d'une commande avec le prix d'achat réel depuis la liste des produits chargée
+// Stocke les ingrédients du produit en cours de personnalisation
+var posCurrentProductIngredients = [];
+
+// Enrichit les items avec le prix d'achat réel
 function posEnrichirItemsAvecPrixAchat(items) {
     return items.map(function(item) {
         var produit = posProductsList.find(function(p) { return p.id === item.id; });
@@ -272,22 +275,47 @@ function posAddToCartOrOpenOptions(pid) {
     }
 }
 
-function posOpenOptionsModal(pid) {
+// ✅ Nouvelle version : charge les ingrédients du produit et les utilise pour les interdits
+async function posOpenOptionsModal(pid) {
     var p = posProductsList.find(function(x) { return x.id === pid; });
     if (!p) return;
     if (p.stock !== undefined && p.stock <= 0) { alert('Rupture'); return; }
+
+    // Récupérer les ingrédients du produit depuis Firestore
+    try {
+        const doc = await db.collection('products').doc(pid).get();
+        if (doc.exists) {
+            var productData = doc.data();
+            posCurrentProductIngredients = productData.ingredients || [];
+        } else {
+            posCurrentProductIngredients = [];
+        }
+    } catch(e) {
+        posCurrentProductIngredients = [];
+    }
+
     posCurrentProductId = pid;
     var h = '<h4>' + p.nom + '</h4>';
+
+    // Sauces (inchangé)
     h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Sauces:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
     posSaucesList.forEach(function(s) {
         h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-sauce-check" value="' + s + '"> ' + s + '</label>';
     });
     h += '</div></div>';
-    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🚫 Interdits:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
-    posInterditsList.forEach(function(s) {
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-interdit-check" value="' + s + '"> ' + s + '</label>';
+
+    // Interdits : si le produit a des ingrédients, on les utilise, sinon liste par défaut
+    var interditsArray = posCurrentProductIngredients.length > 0 ?
+        posCurrentProductIngredients.map(function(ing) { return ing.nom; }) :
+        posInterditsList;
+
+    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🚫 Interdits (ingrédients à exclure) :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+    interditsArray.forEach(function(ingredient) {
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-interdit-check" value="' + ingredient + '"> ' + ingredient + '</label>';
     });
     h += '</div></div>';
+
+    // Épices et Sel (inchangés)
     h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
     posEpicesList.forEach(function(s, idx) {
         h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="pos-epice" value="' + s + '" ' + (idx === 0 ? 'checked' : '') + '> ' + s + '</label>';
@@ -298,6 +326,7 @@ function posOpenOptionsModal(pid) {
         h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="pos-sel" value="' + s + '" ' + (idx === 0 ? 'checked' : '') + '> ' + s + '</label>';
     });
     h += '</div></div>';
+
     h += '<div style="text-align:right;"><button class="btn-cancel" onclick="closeModal()" style="float:none;margin-right:8px;">Annuler</button><button class="btn-save" onclick="posConfirmOptions()" style="float:none;">Ajouter</button></div>';
     openModal('Personnaliser', h);
 }
@@ -558,14 +587,13 @@ async function posFinalizeSale() {
                 var productDoc = await db.collection('products').doc(it.id).get();
                 if (productDoc.exists) {
                     var productData = productDoc.data();
-                    // Si le produit a une recette (ingrédients), on les consomme
                     if (productData.ingredients && productData.ingredients.length > 0) {
                         for (var j = 0; j < productData.ingredients.length; j++) {
                             var ing = productData.ingredients[j];
                             var stockDoc = await db.collection('stock').doc(ing.idStock).get();
                             if (stockDoc.exists) {
                                 var stockData = stockDoc.data();
-                                var qteUtilisee = ing.quantite * it.quantite;   // quantité dans l'unité de l'ingrédient
+                                var qteUtilisee = ing.quantite * it.quantite;
                                 var newQte = Math.max(0, (stockData.quantite || 0) - qteUtilisee);
                                 await CacheDB.write('stock', ing.idStock, {
                                     quantite: newQte,
@@ -574,7 +602,6 @@ async function posFinalizeSale() {
                             }
                         }
                     } else {
-                        // Pas de recette : décrémenter le stock du produit fini
                         var pr = await db.collection('products').doc(it.id).get();
                         if (pr.exists) {
                             var pd = pr.data();
@@ -639,4 +666,4 @@ async function posFinalizeSale() {
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS avec profit corrigé, déduction stock ingrédients, recette, badges, fidélité et modale élargie');
+console.log('POS JS avec profit corrigé, déduction stock ingrédients, interdits personnalisés');
