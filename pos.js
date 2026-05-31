@@ -1,4 +1,4 @@
-// ==================== POS.JS COMPLET (PROFIT CORRECT, RECETTE, BADGES, FIDÉLITÉ) ====================
+// ==================== POS.JS COMPLET (PROFIT CORRECT, RECETTE, DÉDUCTION STOCK) ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
@@ -81,7 +81,7 @@ async function loadPosPage(c) {
         localStorage.removeItem('posCommandeData');
         posCart = [];
         if (cmd.items) {
-            var enriched = posEnrichirItemsAvecPrixAchat(cmd.items);   // ✅ Prix d'achat réel
+            var enriched = posEnrichirItemsAvecPrixAchat(cmd.items);
             enriched.forEach(function(item) {
                 posCart.push({
                     id: item.id, nom: item.nom,
@@ -108,7 +108,7 @@ async function loadPosPage(c) {
         localStorage.removeItem('posPayerVente');
         posCart = [];
         if (v.items) {
-            var enriched = posEnrichirItemsAvecPrixAchat(v.items);      // ✅ Prix d'achat réel
+            var enriched = posEnrichirItemsAvecPrixAchat(v.items);
             enriched.forEach(function(item) {
                 posCart.push({
                     id: item.id, nom: item.nom,
@@ -135,9 +135,6 @@ async function loadPosPage(c) {
     await posChargerCommandesEnLigneCount();
     renderPOS();
 }
-
-// ... (les fonctions posChargerCommandesTables, posChargerCommandesEnLigneCount, posResetCart, etc. restent identiques)
-// Je les inclus ci-dessous pour la complétude, mais elles sont inchangées.
 
 async function posChargerCommandesTables() {
     try {
@@ -448,7 +445,6 @@ function posAfficherCommandesTables() {
     }, 50);
 }
 
-// ✅ Chargement d'une commande table avec prix d'achat enrichi
 function posChargerCommandeTable(commandeId) {
     var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
     if (!cmd) return;
@@ -498,7 +494,7 @@ function posGoToStep1() { posStep = 1; delete window.posCommandeId; delete windo
 function posSetPaymentMethod(m) { if ((m === 'credit' || m === 'partiel') && (!posCurrentClient || !posCurrentClient.id)) { alert('Client requis pour crédit/partiel.'); return; } posPaymentMethod = m; posAmountGiven = 0; renderPOS(); }
 function posCalculateChange() { var ai = document.getElementById('posAmountGiven'), cd = document.getElementById('posChangeDisplay'); if (!ai || !cd) return; var st = posCalculateTotal(); var t = st - posDiscountMAD; posAmountGiven = parseFloat(ai.value) || 0; var c = posAmountGiven - t; if (posAmountGiven > 0) { cd.innerHTML = c >= 0 ? '<div class="pos-change-positive"><span>Rendu</span><span>' + c.toFixed(2) + ' MAD</span></div>' : '<div class="pos-change-negative"><span>Manquant</span><span>' + Math.abs(c).toFixed(2) + ' MAD</span></div>'; } else { cd.innerHTML = ''; } }
 
-// ==================== FINALISATION DE LA VENTE (PROFIT CORRECT GRÂCE AUX PRIX D'ACHAT RÉELS) ====================
+// ==================== FINALISATION AVEC DÉDUCTION STOCK INGRÉDIENTS ====================
 async function posFinalizeSale() {
     var st = posCalculateTotal(); var t = st - posDiscountMAD;
     if (!posCurrentClient && !posCurrentTable) { alert('Client ou table requis.'); return; }
@@ -554,19 +550,42 @@ async function posFinalizeSale() {
             }
             delete window.posVenteId;
         }
-        // Mise à jour des stocks
+
+        // ✅ Mise à jour du stock (ingrédients ou produit fini)
         for (var i = 0; i < posCart.length; i++) {
             var it = posCart[i];
             try {
-                var pr = await db.collection('products').doc(it.id).get();
-                if (pr.exists) {
-                    var pd = pr.data();
-                    await CacheDB.write('products', it.id, {
-                        stock: Math.max(0, (pd.stock || 0) - it.quantite),
-                        vendues: (pd.vendues || 0) + it.quantite,
-                        ca: (pd.ca || 0) + (it.prixUnitaire * it.quantite),
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, 'update');
+                var productDoc = await db.collection('products').doc(it.id).get();
+                if (productDoc.exists) {
+                    var productData = productDoc.data();
+                    // Si le produit a une recette (ingrédients), on les consomme
+                    if (productData.ingredients && productData.ingredients.length > 0) {
+                        for (var j = 0; j < productData.ingredients.length; j++) {
+                            var ing = productData.ingredients[j];
+                            var stockDoc = await db.collection('stock').doc(ing.idStock).get();
+                            if (stockDoc.exists) {
+                                var stockData = stockDoc.data();
+                                var qteUtilisee = ing.quantite * it.quantite;   // quantité dans l'unité de l'ingrédient
+                                var newQte = Math.max(0, (stockData.quantite || 0) - qteUtilisee);
+                                await CacheDB.write('stock', ing.idStock, {
+                                    quantite: newQte,
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                }, 'update');
+                            }
+                        }
+                    } else {
+                        // Pas de recette : décrémenter le stock du produit fini
+                        var pr = await db.collection('products').doc(it.id).get();
+                        if (pr.exists) {
+                            var pd = pr.data();
+                            await CacheDB.write('products', it.id, {
+                                stock: Math.max(0, (pd.stock || 0) - it.quantite),
+                                vendues: (pd.vendues || 0) + it.quantite,
+                                ca: (pd.ca || 0) + (it.prixUnitaire * it.quantite),
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }, 'update');
+                        }
+                    }
                 }
             } catch(e) {}
         }
@@ -620,4 +639,4 @@ async function posFinalizeSale() {
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS avec profit corrigé, recette, badges, fidélité et modale élargie');
+console.log('POS JS avec profit corrigé, déduction stock ingrédients, recette, badges, fidélité et modale élargie');
