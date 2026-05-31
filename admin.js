@@ -838,10 +838,14 @@ function loadCommandesPage(c) {
 
 async function loadCommandes() {
     try {
-        const snapshot = await db.collection('commandes').orderBy('createdAt','desc').limit(500).get();
+        const snapshot = await db.collection('commandes')
+            .where('source', '==', 'client')      // ✅ uniquement les commandes clients
+            .orderBy('createdAt', 'desc')
+            .limit(500)
+            .get();
         allCommandesData = [];
         snapshot.forEach(dc => { var d = dc.data(); d.id = dc.id; allCommandesData.push(d); });
-    } catch(e){ console.error(e); }
+    } catch(e) { console.error(e); }
     currentPages.commandes = 1;
     applyCommandesFilters();
 }
