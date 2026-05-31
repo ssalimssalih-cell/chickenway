@@ -418,37 +418,20 @@ function loadCategoriesPage(c) {
 c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>' + makeSortableHeader('categories', 'nom', 'Nom', 'loadCategories') + makeSortableHeader('categories', 'description', 'Description', 'loadCategories') + makeSortableHeader('categories', 'ca', 'CA', 'loadCategories') + makeSortableHeader('categories', 'profit', 'Profit', 'loadCategories') + '<th>Nb Produits</th><th>Recette</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="categoriesPagination"></div></div>';
 loadCategories();
 }
-
 async function loadCategories() {
     currentPages.categories = 1;
-    const cached = await CacheDB.getAll('categories');
-    if (cached.length) {
-        // Dédoublonnage par ID
-        const unique = [];
-        const seen = new Set();
-        for (const cat of cached) {
-            if (cat.id && !seen.has(cat.id)) {
-                seen.add(cat.id);
-                unique.push(cat);
-            }
-        }
-        allCategoriesData = unique;
-        renderCategoriesTable();
-    } else {
-        var tb = document.querySelector('#categoriesTable tbody');
-        if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Chargement...</td></tr>';
-    }
-
+    allCategoriesData = [];
     try {
         const snapshot = await db.collection('categories').get();
-        allCategoriesData = [];
         snapshot.forEach(d => allCategoriesData.push({ id: d.id, ...d.data() }));
+        // Mettre à jour le cache avec des données propres
         for (let doc of allCategoriesData) await CacheDB.set('categories', doc.id, doc);
-        renderCategoriesTable();
     } catch(e) {
         console.error(e);
     }
+    renderCategoriesTable();
 }
+
 
 async function renderCategoriesTable() {
 var tb = document.querySelector('#categoriesTable tbody');
