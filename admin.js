@@ -420,29 +420,34 @@ loadCategories();
 }
 
 async function loadCategories() {
-currentPages.categories = 1;
-const cached = await CacheDB.getAll('categories');
-if (cached.length) {
-allCategoriesData = cached;
-renderCategoriesTable();
-} else {
-var tb = document.querySelector('#categoriesTable tbody');
-if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Chargement...</td></tr>';
-}
+    currentPages.categories = 1;
+    const cached = await CacheDB.getAll('categories');
+    if (cached.length) {
+        // Dédoublonnage par ID
+        const unique = [];
+        const seen = new Set();
+        for (const cat of cached) {
+            if (cat.id && !seen.has(cat.id)) {
+                seen.add(cat.id);
+                unique.push(cat);
+            }
+        }
+        allCategoriesData = unique;
+        renderCategoriesTable();
+    } else {
+        var tb = document.querySelector('#categoriesTable tbody');
+        if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Chargement...</td></tr>';
+    }
 
-try {
-const snapshot = await db.collection('categories').get();
-allCategoriesData = [];
-snapshot.forEach(d => allCategoriesData.push({ id: d.id, ...d.data() }));
-for (let doc of allCategoriesData) await CacheDB.set('categories', doc.id, doc);
-renderCategoriesTable();
-} catch(e) {
-console.error(e);
-if (!cached.length) {
-allCategoriesData = [];
-renderCategoriesTable();
-}
-}
+    try {
+        const snapshot = await db.collection('categories').get();
+        allCategoriesData = [];
+        snapshot.forEach(d => allCategoriesData.push({ id: d.id, ...d.data() }));
+        for (let doc of allCategoriesData) await CacheDB.set('categories', doc.id, doc);
+        renderCategoriesTable();
+    } catch(e) {
+        console.error(e);
+    }
 }
 
 async function renderCategoriesTable() {
