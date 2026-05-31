@@ -754,14 +754,9 @@ function deleteClient(id) {
 // Elles fonctionnent bien avec refreshCurrentPage.
 
 console.log('Admin JS (catégories/produits sans doublon) prêt.');
-// ==================== FOURNISSEURS ====================
-// (inchangé)
-// ... tout le reste du code (fournisseurs, commandes, ventes, crédits, options) est identique à l'original que tu as posté.
-// Je te laisse conserver ces parties à partir de ton fichier actuel. L'important est que les sections CATÉGORIES et PRODUITS
-// ci-dessus utilisent la mise à jour locale sans déclencher refreshCurrentPage.
-// Tu peux copier/coller le reste depuis ton fichier d'origine.
 
-console.log('Admin JS (catégories/produits sans doublon) prêt.');
+
+
 // ==================== FOURNISSEURS ====================
 function loadFournisseursPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-truck"></i> Fournisseurs</h3><button class="btn-add" onclick="openFournisseurForm()"><i class="fas fa-plus"></i> Ajouter</button></div><div class="table-container"><table class="data-table" id="fournisseursTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('fournisseurs','id','ID','loadFournisseurs')+makeSortableHeader('fournisseurs','nom','Nom','loadFournisseurs')+makeSortableHeader('fournisseurs','prenom','Prénom','loadFournisseurs')+makeSortableHeader('fournisseurs','societe','Société','loadFournisseurs')+makeSortableHeader('fournisseurs','telephone','Tél','loadFournisseurs')+makeSortableHeader('fournisseurs','whatsapp','WhatsApp','loadFournisseurs')+makeSortableHeader('fournisseurs','email','Email','loadFournisseurs')+makeSortableHeader('fournisseurs','adresse','Adresse','loadFournisseurs')+makeSortableHeader('fournisseurs','description','Description','loadFournisseurs')+makeSortableHeader('fournisseurs','ca','CA','loadFournisseurs')+'<th>Catégories</th>'+makeSortableHeader('fournisseurs','createdAt','Date créé','loadFournisseurs')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="fournisseursPagination"></div></div>';
