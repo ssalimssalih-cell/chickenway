@@ -1,4 +1,4 @@
-// ==================== POS.JS AVEC GESTION RECETTE ====================
+// ==================== POS.JS COMPLET (PROFIT CORRECT, RECETTE, BADGES, FIDÉLITÉ) ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
@@ -11,6 +11,15 @@ var posCommandesTables = [];
 var posCommandesTablesCount = 0;
 var posCommandesEnLigneCount = 0;
 
+// ✅ Enrichit les items d'une commande avec le prix d'achat réel depuis la liste des produits chargée
+function posEnrichirItemsAvecPrixAchat(items) {
+    return items.map(function(item) {
+        var produit = posProductsList.find(function(p) { return p.id === item.id; });
+        var prixAchat = (produit && produit.prixAchat != null) ? produit.prixAchat : (item.prixAchat || 0);
+        return Object.assign({}, item, { prixAchat: prixAchat });
+    });
+}
+
 async function loadPosPage(c) {
     posResetCart(); posStep = 1;
 
@@ -19,10 +28,7 @@ async function loadPosPage(c) {
     let cachedProducts = await CacheDB.getAll('products');
     let cachedClients = await CacheDB.getAll('clients');
     if (cachedCategories.length) posCategoriesList = cachedCategories.map(cat => ({
-        id: cat.id,
-        nom: cat.nom,
-        imageBase64: cat.imageBase64,
-        recette: cat.recette || false   // ⬅️ ajout
+        id: cat.id, nom: cat.nom, imageBase64: cat.imageBase64, recette: cat.recette || false
     }));
     if (cachedProducts.length) posProductsList = cachedProducts.filter(p => p.disponible !== false);
     if (cachedClients.length) {
@@ -40,12 +46,7 @@ async function loadPosPage(c) {
         ]);
         posCategoriesList = [];
         cs.forEach(d => {
-            let cat = {
-                id: d.id,
-                nom: d.data().nom,
-                imageBase64: d.data().imageBase64,
-                recette: d.data().recette || false   // ⬅️ ajout
-            };
+            let cat = { id: d.id, nom: d.data().nom, imageBase64: d.data().imageBase64, recette: d.data().recette || false };
             posCategoriesList.push(cat);
             CacheDB.set('categories', d.id, cat);
         });
@@ -54,13 +55,8 @@ async function loadPosPage(c) {
             const dd = d.data();
             if (dd.disponible !== false) {
                 let prod = {
-                    id: d.id,
-                    nom: dd.nom,
-                    prixVente: dd.prixVente||0,
-                    prixPromo: dd.prixPromo||0,
-                    prixAchat: dd.prixAchat||0,
-                    stock: dd.stock,
-                    categorie: dd.categorie||'',
+                    id: d.id, nom: dd.nom, prixVente: dd.prixVente||0, prixPromo: dd.prixPromo||0,
+                    prixAchat: dd.prixAchat||0, stock: dd.stock, categorie: dd.categorie||'',
                     imageBase64: dd.imageBase64||''
                 };
                 posProductsList.push(prod);
@@ -77,6 +73,7 @@ async function loadPosPage(c) {
         renderPOS();
     } catch(e) { console.error('Erreur mise à jour POS', e); }
 
+    // Gestion des données externes (commande ou vente à payer)
     var commandeData = localStorage.getItem('posCommandeData');
     var payerVenteData = localStorage.getItem('posPayerVente');
     if (commandeData) {
@@ -84,27 +81,22 @@ async function loadPosPage(c) {
         localStorage.removeItem('posCommandeData');
         posCart = [];
         if (cmd.items) {
-            cmd.items.forEach(function(item) {
+            var enriched = posEnrichirItemsAvecPrixAchat(cmd.items);   // ✅ Prix d'achat réel
+            enriched.forEach(function(item) {
                 posCart.push({
-                    id: item.id,
-                    nom: item.nom,
+                    id: item.id, nom: item.nom,
                     prixUnitaire: item.prixVente || item.prixUnitaire || 0,
                     prixAchat: item.prixAchat || 0,
                     prixPromo: item.prixPromo || 0,
                     prixVente: item.prixVente || item.prixUnitaire || 0,
                     quantite: item.quantite || 1,
-                    categorie: item.categorie || '',
-                    imageBase64: item.imageBase64 || '',
-                    sauces: item.sauces || [],
-                    interdits: item.interdits || [],
-                    epice: item.epice || 'Normal',
-                    sel: item.sel || 'Normal'
+                    categorie: item.categorie || '', imageBase64: item.imageBase64 || '',
+                    sauces: item.sauces || [], interdits: item.interdits || [],
+                    epice: item.epice || 'Normal', sel: item.sel || 'Normal'
                 });
             });
         }
-        if (cmd.clientId && cmd.clientName) {
-            posCurrentClient = { id: cmd.clientId, name: cmd.clientName };
-        }
+        if (cmd.clientId && cmd.clientName) { posCurrentClient = {id: cmd.clientId, name: cmd.clientName}; }
         posCurrentTable = cmd.table || '';
         posStep = 2; posDiscountMAD = 0; posPaymentMethod = 'espece';
         window.posCommandeId = cmd.commandeId;
@@ -116,27 +108,22 @@ async function loadPosPage(c) {
         localStorage.removeItem('posPayerVente');
         posCart = [];
         if (v.items) {
-            v.items.forEach(function(item) {
+            var enriched = posEnrichirItemsAvecPrixAchat(v.items);      // ✅ Prix d'achat réel
+            enriched.forEach(function(item) {
                 posCart.push({
-                    id: item.id,
-                    nom: item.nom,
+                    id: item.id, nom: item.nom,
                     prixUnitaire: item.prixVente || 0,
                     prixAchat: item.prixAchat || 0,
                     prixPromo: item.prixPromo || 0,
                     prixVente: item.prixVente || 0,
                     quantite: item.quantite || 1,
-                    categorie: '',
-                    imageBase64: '',
-                    sauces: item.sauces || [],
-                    interdits: item.interdits || [],
-                    epice: item.epice || 'Normal',
-                    sel: item.sel || 'Normal'
+                    categorie: '', imageBase64: '',
+                    sauces: item.sauces || [], interdits: item.interdits || [],
+                    epice: item.epice || 'Normal', sel: item.sel || 'Normal'
                 });
             });
         }
-        if (v.clientId && v.clientName) {
-            posCurrentClient = { id: v.clientId, name: v.clientName };
-        }
+        if (v.clientId && v.clientName) { posCurrentClient = {id: v.clientId, name: v.clientName}; }
         posCurrentTable = v.table || '';
         posStep = 2; posDiscountMAD = 0; posPaymentMethod = 'espece';
         window.posVenteId = v.venteId;
@@ -148,6 +135,9 @@ async function loadPosPage(c) {
     await posChargerCommandesEnLigneCount();
     renderPOS();
 }
+
+// ... (les fonctions posChargerCommandesTables, posChargerCommandesEnLigneCount, posResetCart, etc. restent identiques)
+// Je les inclus ci-dessous pour la complétude, mais elles sont inchangées.
 
 async function posChargerCommandesTables() {
     try {
@@ -167,9 +157,7 @@ async function posChargerCommandesEnLigneCount() {
             .where('statut', '==', 'en_attente')
             .get();
         let count = 0;
-        snap.forEach(doc => {
-            if (doc.data().source === 'client') count++;
-        });
+        snap.forEach(doc => { if (doc.data().source === 'client') count++; });
         posCommandesEnLigneCount = count;
     } catch(e) { posCommandesEnLigneCount = 0; }
 }
@@ -194,7 +182,6 @@ function posSearchClient(query) {
         renderClientDropdown();
     }
 }
-
 function renderClientDropdown() {
     var d = document.getElementById('posClientDropdown');
     if(!d) return;
@@ -209,7 +196,6 @@ function renderClientDropdown() {
     d.innerHTML = h;
     d.style.display = 'block';
 }
-
 function posSelectClientFromDropdown(cid, cn) {
     posCurrentClient = {id: cid, name: cn};
     posCurrentTable = '';
@@ -221,13 +207,11 @@ function posSelectClientFromDropdown(cid, cn) {
     if(d) d.style.display = 'none';
     updatePaymentButtons();
 }
-
 document.addEventListener('click', function(e) {
     var d = document.getElementById('posClientDropdown'),
         s = document.getElementById('posClientSearchInput');
     if(d && s && !s.contains(e.target) && !d.contains(e.target)) d.style.display = 'none';
 });
-
 function updatePaymentButtons() {
     setTimeout(function() {
         var cb = document.getElementById('posCreditBtn'),
@@ -245,7 +229,6 @@ function updatePaymentButtons() {
         }
     }, 300);
 }
-
 function posSetTable(v) {
     posCurrentTable = v.trim();
     if(posCurrentTable) {
@@ -264,17 +247,13 @@ function posAddToCartOrOpenOptions(pid) {
         alert('Rupture de stock');
         return;
     }
-
-    // Vérifier si la catégorie du produit est marquée comme "recette"
     var cat = posCategoriesList.find(function(c) { return c.nom === p.categorie; });
     var isRecette = cat && cat.recette === true;
 
     if (isRecette) {
-        // Ouvrir le modal de personnalisation
         posCurrentProductId = pid;
         posOpenOptionsModal(pid);
     } else {
-        // Ajout direct sans options
         var existing = posCart.find(function(x) { return x.id === pid; });
         if (existing) {
             if (p.stock !== undefined && existing.quantite >= p.stock) {
@@ -285,19 +264,11 @@ function posAddToCartOrOpenOptions(pid) {
         } else {
             var pr = p.prixPromo && p.prixPromo > 0 ? p.prixPromo : p.prixVente;
             posCart.push({
-                id: p.id,
-                nom: p.nom,
-                prixUnitaire: pr,
-                prixAchat: p.prixAchat || 0,
-                prixPromo: p.prixPromo || 0,
-                prixVente: p.prixVente || 0,
-                quantite: 1,
-                categorie: p.categorie || '',
-                imageBase64: p.imageBase64 || '',
-                sauces: [],
-                interdits: [],
-                epice: 'Normal',
-                sel: 'Normal'
+                id: p.id, nom: p.nom, prixUnitaire: pr,
+                prixAchat: p.prixAchat || 0, prixPromo: p.prixPromo || 0,
+                prixVente: p.prixVente || 0, quantite: 1,
+                categorie: p.categorie || '', imageBase64: p.imageBase64 || '',
+                sauces: [], interdits: [], epice: 'Normal', sel: 'Normal'
             });
         }
         renderPOS();
@@ -307,10 +278,7 @@ function posAddToCartOrOpenOptions(pid) {
 function posOpenOptionsModal(pid) {
     var p = posProductsList.find(function(x) { return x.id === pid; });
     if (!p) return;
-    if (p.stock !== undefined && p.stock <= 0) {
-        alert('Rupture');
-        return;
-    }
+    if (p.stock !== undefined && p.stock <= 0) { alert('Rupture'); return; }
     posCurrentProductId = pid;
     var h = '<h4>' + p.nom + '</h4>';
     h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Sauces:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
@@ -338,51 +306,32 @@ function posOpenOptionsModal(pid) {
 }
 
 function posConfirmOptions() {
-    var sauces = [];
-    document.querySelectorAll('.pos-sauce-check:checked').forEach(function(cb) { sauces.push(cb.value); });
-    var interdits = [];
-    document.querySelectorAll('.pos-interdit-check:checked').forEach(function(cb) { interdits.push(cb.value); });
-    var epice = document.querySelector('input[name="pos-epice"]:checked');
-    epice = epice ? epice.value : 'Normal';
-    var sel = document.querySelector('input[name="pos-sel"]:checked');
-    sel = sel ? sel.value : 'Normal';
+    var sauces = []; document.querySelectorAll('.pos-sauce-check:checked').forEach(function(cb) { sauces.push(cb.value); });
+    var interdits = []; document.querySelectorAll('.pos-interdit-check:checked').forEach(function(cb) { interdits.push(cb.value); });
+    var epice = document.querySelector('input[name="pos-epice"]:checked'); epice = epice ? epice.value : 'Normal';
+    var sel = document.querySelector('input[name="pos-sel"]:checked'); sel = sel ? sel.value : 'Normal';
     var p = posProductsList.find(function(x) { return x.id === posCurrentProductId; });
     if (!p) { closeModal(); return; }
     var ex = posCart.find(function(x) { return x.id === posCurrentProductId; });
     if (ex) {
-        if (p.stock !== undefined && ex.quantite >= p.stock) {
-            alert('Stock insuffisant');
-            closeModal();
-            return;
-        }
+        if (p.stock !== undefined && ex.quantite >= p.stock) { alert('Stock insuffisant'); closeModal(); return; }
         ex.quantite += 1;
     } else {
         var pr = p.prixPromo && p.prixPromo > 0 ? p.prixPromo : p.prixVente;
         posCart.push({
-            id: p.id,
-            nom: p.nom,
-            prixUnitaire: pr,
-            prixAchat: p.prixAchat || 0,
-            prixPromo: p.prixPromo || 0,
-            prixVente: p.prixVente || 0,
-            quantite: 1,
-            categorie: p.categorie || '',
-            imageBase64: p.imageBase64 || '',
-            sauces: sauces,
-            interdits: interdits,
-            epice: epice,
-            sel: sel
+            id: p.id, nom: p.nom, prixUnitaire: pr,
+            prixAchat: p.prixAchat || 0, prixPromo: p.prixPromo || 0,
+            prixVente: p.prixVente || 0, quantite: 1,
+            categorie: p.categorie || '', imageBase64: p.imageBase64 || '',
+            sauces: sauces, interdits: interdits, epice: epice, sel: sel
         });
     }
-    closeModal();
-    renderPOS();
+    closeModal(); renderPOS();
 }
 
 function renderPOS() {
-    var c = document.getElementById('dynamicContent');
-    if (!c) return;
-    var st = posCalculateTotal();
-    var t = st - posDiscountMAD;
+    var c = document.getElementById('dynamicContent'); if (!c) return;
+    var st = posCalculateTotal(); var t = st - posDiscountMAD;
     var h = '<div class="pos-container"><div class="pos-products-panel">';
     h += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap;">';
     h += '<div class="pos-categories-bar" style="margin-bottom:0;">';
@@ -394,7 +343,6 @@ function renderPOS() {
         h += '<button class="pos-cat-btn ' + ac + '" onclick="posFilterCategory(\'' + ca.nom.replace(/'/g, "\\'") + '\')">' + ih + ' ' + ca.nom + '</button>';
     }
     h += '</div>';
-    // Boutons Tables et En ligne avec badges toujours visibles
     h += '<div style="display:flex; gap:8px; margin-left:10px;">';
     h += '<button onclick="posAfficherCommandesTables()" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
     h += '<i class="fas fa-utensils"></i> Tables';
@@ -408,21 +356,15 @@ function renderPOS() {
     h += '</div>';
     // Grille produits
     h += '<div class="pos-products-grid">';
-    var f = posProductsList;
-    if (posSelectedCategory !== 'all') f = posProductsList.filter(function(p) { return p.categorie === posSelectedCategory; });
-    if (f.length === 0) {
-        h += '<div style="grid-column:1/-1;text-align:center;padding:40px;">Aucun</div>';
-    } else {
+    var f = posProductsList; if (posSelectedCategory !== 'all') f = posProductsList.filter(function(p) { return p.categorie === posSelectedCategory; });
+    if (f.length === 0) { h += '<div style="grid-column:1/-1;text-align:center;padding:40px;">Aucun</div>'; }
+    else {
         for (var j = 0; j < f.length; j++) {
             var p = f[j];
             var pr = p.prixPromo && p.prixPromo > 0 ? p.prixPromo : p.prixVente;
             var hp = p.prixPromo && p.prixPromo > 0;
             var sc = '', stt = '';
-            if (p.stock !== undefined) {
-                if (p.stock <= 0) { sc = 'pos-out-of-stock'; stt = ' (Rupture)'; }
-                else if (p.stock <= 5) { stt = ' (' + p.stock + ' rest.)'; }
-            }
-            // ⬅️ Appel à la nouvelle fonction au lieu de posOpenOptionsModal
+            if (p.stock !== undefined) { if (p.stock <= 0) { sc = 'pos-out-of-stock'; stt = ' (Rupture)'; } else if (p.stock <= 5) { stt = ' (' + p.stock + ' rest.)'; } }
             h += '<div class="pos-product-card ' + sc + '" onclick="posAddToCartOrOpenOptions(\'' + p.id + '\')">';
             if (p.imageBase64) h += '<div class="pos-product-img"><img src="' + p.imageBase64 + '" alt=""></div>';
             else h += '<div class="pos-product-img pos-product-placeholder"><i class="fas fa-utensils"></i></div>';
@@ -437,9 +379,8 @@ function renderPOS() {
     h += '<div class="pos-cart-panel">';
     if (posStep === 1) {
         h += '<div class="pos-cart-header"><h3><i class="fas fa-shopping-cart"></i> Panier <span class="pos-cart-badge">' + posCart.length + '</span></h3><button class="pos-clear-btn" onclick="posResetCart()"><i class="fas fa-trash-alt"></i> Vider</button></div><div class="pos-cart-items">';
-        if (posCart.length === 0) {
-            h += '<div class="pos-cart-empty"><i class="fas fa-shopping-basket"></i><p>Vide</p></div>';
-        } else {
+        if (posCart.length === 0) { h += '<div class="pos-cart-empty"><i class="fas fa-shopping-basket"></i><p>Vide</p></div>'; }
+        else {
             for (var k = 0; k < posCart.length; k++) {
                 var it = posCart[k];
                 var opts = '';
@@ -461,9 +402,7 @@ function renderPOS() {
         h += '<div class="pos-payment-section"><label>Client</label><div style="position:relative;"><input type="text" id="posClientSearchInput" placeholder="🔍 Cliquez et tapez pour rechercher..." onkeyup="posSearchClient(this.value)" onfocus="if(this.value)posSearchClient(this.value)" autocomplete="off" value="' + (posCurrentClient ? posCurrentClient.name : '') + '" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"><div id="posClientDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #e2e8f0;border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,0.15);"></div></div></div>';
         h += '<div class="pos-or-divider">— OU —</div>';
         h += '<div class="pos-payment-section"><label>Table</label><input type="text" id="posTableNum" value="' + posCurrentTable + '" onchange="posSetTable(this.value)" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"></div>';
-        h += '<div class="pos-payment-section"><div class="pos-summary-box"><div class="pos-summary-row"><span>Articles</span><span>' + posCart.length + '</span></div>';
-        if (posDiscountMAD > 0) h += '<div class="pos-summary-row"><span>Remise</span><span style="color:#ef4444;">-' + posDiscountMAD.toFixed(2) + '</span></div>';
-        h += '<div class="pos-summary-total"><span>Total</span><span>' + t.toFixed(2) + ' MAD</span></div></div></div>';
+        h += '<div class="pos-payment-section"><div class="pos-summary-box"><div class="pos-summary-row"><span>Articles</span><span>' + posCart.length + '</span></div>'; if (posDiscountMAD > 0) h += '<div class="pos-summary-row"><span>Remise</span><span style="color:#ef4444;">-' + posDiscountMAD.toFixed(2) + '</span></div>'; h += '<div class="pos-summary-total"><span>Total</span><span>' + t.toFixed(2) + ' MAD</span></div></div></div>';
         h += '<div class="pos-payment-section"><label>Vendeur</label><input type="text" id="posVendeur" value="' + (window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : '') + '" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"></div>';
         h += '<div class="pos-payment-section"><label>Paiement</label><div class="pos-payment-methods"><button class="pos-payment-btn ' + (posPaymentMethod === 'espece' ? 'active' : '') + '" onclick="posSetPaymentMethod(\'espece\')"><i class="fas fa-money-bill-wave"></i> Espèces</button><button class="pos-payment-btn ' + (posPaymentMethod === 'credit' ? 'active' : '') + '" onclick="posSetPaymentMethod(\'credit\')" id="posCreditBtn" ' + (canCredit ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"') + '><i class="fas fa-credit-card"></i> Crédit</button><button class="pos-payment-btn ' + (posPaymentMethod === 'partiel' ? 'active' : '') + '" onclick="posSetPaymentMethod(\'partiel\')" id="posPartielBtn" ' + (canCredit ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"') + '><i class="fas fa-hand-holding-usd"></i> Partiel</button></div></div>';
         if (posPaymentMethod === 'espece' || posPaymentMethod === 'partiel') h += '<div class="pos-payment-section"><label>Montant donné</label><input type="number" id="posAmountGiven" placeholder="0.00" value="' + (posAmountGiven > 0 ? posAmountGiven : '') + '" onkeyup="posCalculateChange()"><div id="posChangeDisplay"></div></div>';
@@ -509,11 +448,13 @@ function posAfficherCommandesTables() {
     }, 50);
 }
 
+// ✅ Chargement d'une commande table avec prix d'achat enrichi
 function posChargerCommandeTable(commandeId) {
     var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
     if (!cmd) return;
     posCart = [];
-    cmd.items.forEach(function(item) {
+    var enrichedItems = posEnrichirItemsAvecPrixAchat(cmd.items);
+    enrichedItems.forEach(function(item) {
         posCart.push({
             id: item.id, nom: item.nom,
             prixUnitaire: item.prixUnitaire || item.prixVente || 0,
@@ -557,7 +498,7 @@ function posGoToStep1() { posStep = 1; delete window.posCommandeId; delete windo
 function posSetPaymentMethod(m) { if ((m === 'credit' || m === 'partiel') && (!posCurrentClient || !posCurrentClient.id)) { alert('Client requis pour crédit/partiel.'); return; } posPaymentMethod = m; posAmountGiven = 0; renderPOS(); }
 function posCalculateChange() { var ai = document.getElementById('posAmountGiven'), cd = document.getElementById('posChangeDisplay'); if (!ai || !cd) return; var st = posCalculateTotal(); var t = st - posDiscountMAD; posAmountGiven = parseFloat(ai.value) || 0; var c = posAmountGiven - t; if (posAmountGiven > 0) { cd.innerHTML = c >= 0 ? '<div class="pos-change-positive"><span>Rendu</span><span>' + c.toFixed(2) + ' MAD</span></div>' : '<div class="pos-change-negative"><span>Manquant</span><span>' + Math.abs(c).toFixed(2) + ' MAD</span></div>'; } else { cd.innerHTML = ''; } }
 
-// ==================== FINALISATION DE LA VENTE (FIDÉLITÉ PAR DÉFAUT ACTIVE) ====================
+// ==================== FINALISATION DE LA VENTE (PROFIT CORRECT GRÂCE AUX PRIX D'ACHAT RÉELS) ====================
 async function posFinalizeSale() {
     var st = posCalculateTotal(); var t = st - posDiscountMAD;
     if (!posCurrentClient && !posCurrentTable) { alert('Client ou table requis.'); return; }
@@ -627,7 +568,7 @@ async function posFinalizeSale() {
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     }, 'update');
                 }
-            } catch (e) {}
+            } catch(e) {}
         }
 
         // Gestion de la fidélité
@@ -655,7 +596,7 @@ async function posFinalizeSale() {
                             var storedPoints = localStorage.getItem('fidelite_points');
                             pointsParVente = storedPoints ? parseInt(storedPoints) || 1 : 1;
                         }
-                    } catch (e) {
+                    } catch(e) {
                         var storedActive = localStorage.getItem('fidelite_active');
                         fideliteActive = storedActive === null ? true : storedActive === 'true';
                         var storedPoints = localStorage.getItem('fidelite_points');
@@ -667,9 +608,7 @@ async function posFinalizeSale() {
                     }
                     await CacheDB.write('clients', posCurrentClient.id, updateData, 'update');
                 }
-            } catch (e) {
-                console.error('Erreur mise à jour client (fidélité) :', e);
-            }
+            } catch(e) { console.error('Erreur mise à jour client (fidélité) :', e); }
         }
 
         var msg = '✅ Vente: ' + fn + '\n💰 Total: ' + t.toFixed(2) + ' MAD';
@@ -677,11 +616,8 @@ async function posFinalizeSale() {
         if (statutPaiement === 'crédit') msg += '\n📋 Crédit enregistré.';
         if (statutPaiement === 'partiel') msg += '\n📋 Reste: ' + remaining.toFixed(2) + ' MAD';
         if (statutPaiement === 'en_attente') msg += '\n⏳ En attente de paiement.';
-        alert(msg);
-        posResetCart();
-        renderPOS();
-        CacheDB.sync();
-    } catch (e) { alert('Erreur: ' + e.message); }
+        alert(msg); posResetCart(); renderPOS(); CacheDB.sync();
+    } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS avec gestion recette, badges, fidélité et modale élargie');
+console.log('POS JS avec profit corrigé, recette, badges, fidélité et modale élargie');
