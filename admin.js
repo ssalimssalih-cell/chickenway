@@ -480,6 +480,9 @@ function openCategoryForm(data) {
 }
 
 // ✅ Correction : mise à jour locale sans rechargement
+// ==================== CATÉGORIES (CORRECTION FINALE) ====================
+
+// ✅ Mise à jour locale après ajout/modification (comme pour les produits)
 function saveCategory() {
     var n = document.getElementById('catNom').value;
     if (!n) { alert('Nom obligatoire'); return; }
@@ -500,11 +503,13 @@ function saveCategory() {
         saveDocument('categories', d, function(newId) {
             closeModal();
             if (editingId) {
+                // Modification : retrouver l'élément et le mettre à jour
                 var idx = allCategoriesData.findIndex(function(x) { return x.id === editingId; });
                 if (idx !== -1) {
                     allCategoriesData[idx] = Object.assign({}, allCategoriesData[idx], d, { id: editingId });
                 }
             } else {
+                // Ajout : insérer le nouvel élément
                 d.id = newId;
                 allCategoriesData.push(d);
             }
@@ -513,6 +518,29 @@ function saveCategory() {
         });
     };
     if (f) fileToBase64(f, sf); else sf(null);
+}
+
+// ✅ Suppression locale immédiate (comportement identique aux produits et clients)
+async function deleteDocument(cn, id) {
+    if (confirm('Confirmer la suppression ?')) {
+        await CacheDB.write(cn, id, null, 'delete');
+        // Suppression locale selon la collection
+        if (cn === 'categories') {
+            allCategoriesData = allCategoriesData.filter(function(x) { return x.id !== id; });
+            renderCategoriesTable();
+        } else if (cn === 'products') {
+            allProductsData = allProductsData.filter(function(x) { return x.id !== id; });
+            renderProductsTable();
+        } else if (cn === 'clients') {
+            allClientsData = allClientsData.filter(function(x) { return x.id !== id; });
+            renderClientsTable();
+        } else {
+            // Pour les autres collections, on recharge la page
+            refreshCurrentPage();
+        }
+        alert('Supprimé');
+        CacheDB.sync();
+    }
 }
 
 // ==================== PRODUITS (MISE À JOUR LOCALE) ====================
