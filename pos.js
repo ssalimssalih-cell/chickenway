@@ -1,9 +1,9 @@
-// ==================== POS.JS COMPLET (INTERDITS N'AFFECTENT PAS LE STOCK) ====================
+// ==================== POS.JS COMPLET (INGRÉDIENTS À EXCLURE, DÉDUCTION CORRECTE) ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
-var posSaucesList = ['Ketchup','Sauce Hot','Cheezy','Sauce Burger','Algérienne','Barbecue','Mayonnaise','Harissa','Samouraï','Andalouse'];
-var posInterditsList = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade']; // fallback si pas d'ingrédients
+var posSaucesList = ['Ketchup','Sauce Hot','Cheezy','Sauce Burger','Algérienne','Barbecue','Mayonnaise','Harissa','Samouraï','Andalouse']; // inutilisée mais conservée
+var posInterditsList = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade']; // fallback
 var posEpicesList = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var posSelList = ['Normal','Moins de sel','Sans sel'];
 
@@ -11,7 +11,7 @@ var posCommandesTables = [];
 var posCommandesTablesCount = 0;
 var posCommandesEnLigneCount = 0;
 
-// Stocke les ingrédients du produit en cours de personnalisation
+// Ingrédients du produit en cours de personnalisation
 var posCurrentProductIngredients = [];
 
 // Enrichit les items avec le prix d'achat réel
@@ -275,7 +275,7 @@ function posAddToCartOrOpenOptions(pid) {
     }
 }
 
-// ✅ Charge les ingrédients réels du produit pour les interdits
+// ✅ MODAL DE PERSONNALISATION : AFFICHE LES INGRÉDIENTS DE LA RECETTE (EXCLURE = DÉCOCHÉ)
 async function posOpenOptionsModal(pid) {
     var p = posProductsList.find(function(x) { return x.id === pid; });
     if (!p) return;
@@ -297,23 +297,16 @@ async function posOpenOptionsModal(pid) {
     posCurrentProductId = pid;
     var h = '<h4>' + p.nom + '</h4>';
 
-    // Sauces (inchangé)
-    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Sauces:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
-    posSaucesList.forEach(function(s) {
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-sauce-check" value="' + s + '"> ' + s + '</label>';
-    });
-    h += '</div></div>';
-
-    // Interdits = ingrédients réels du produit (ou fallback)
-    var interditsArray = posCurrentProductIngredients.length > 0 ?
-        posCurrentProductIngredients.map(function(ing) { return ing.nom; }) :
-        posInterditsList;
-
-    h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🚫 Interdits (ingrédients à exclure) :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
-    interditsArray.forEach(function(ingredient) {
-        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-interdit-check" value="' + ingredient + '"> ' + ingredient + '</label>';
-    });
-    h += '</div></div>';
+    // Ingrédients à exclure (coché = ne pas utiliser)
+    if (posCurrentProductIngredients.length > 0) {
+        h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Ingrédients à exclure :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
+        posCurrentProductIngredients.forEach(function(ing) {
+            h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-interdit-check" value="' + ing.nom + '"> ' + ing.nom + '</label>';
+        });
+        h += '</div></div>';
+    } else {
+        h += '<div style="margin-bottom:12px;color:#94a3b8;font-size:0.85rem;">Aucun ingrédient à exclure</div>';
+    }
 
     // Épices et Sel (inchangés)
     h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
@@ -332,7 +325,6 @@ async function posOpenOptionsModal(pid) {
 }
 
 function posConfirmOptions() {
-    var sauces = []; document.querySelectorAll('.pos-sauce-check:checked').forEach(function(cb) { sauces.push(cb.value); });
     var interdits = []; document.querySelectorAll('.pos-interdit-check:checked').forEach(function(cb) { interdits.push(cb.value); });
     var epice = document.querySelector('input[name="pos-epice"]:checked'); epice = epice ? epice.value : 'Normal';
     var sel = document.querySelector('input[name="pos-sel"]:checked'); sel = sel ? sel.value : 'Normal';
@@ -349,7 +341,9 @@ function posConfirmOptions() {
             prixAchat: p.prixAchat || 0, prixPromo: p.prixPromo || 0,
             prixVente: p.prixVente || 0, quantite: 1,
             categorie: p.categorie || '', imageBase64: p.imageBase64 || '',
-            sauces: sauces, interdits: interdits, epice: epice, sel: sel
+            sauces: [],                // plus utilisé
+            interdits: interdits,      // ingrédients exclus
+            epice: epice, sel: sel
         });
     }
     closeModal(); renderPOS();
@@ -410,7 +404,6 @@ function renderPOS() {
             for (var k = 0; k < posCart.length; k++) {
                 var it = posCart[k];
                 var opts = '';
-                if (it.sauces && it.sauces.length > 0) opts += ' <span style="color:#f39c12;font-size:0.6rem;">🥫' + it.sauces.join(',') + '</span>';
                 if (it.interdits && it.interdits.length > 0) opts += ' <span style="color:#ef4444;font-size:0.6rem;">🚫' + it.interdits.join(',') + '</span>';
                 if (it.epice && it.epice !== 'Normal') opts += ' <span style="color:#d97706;font-size:0.6rem;">🌶️' + it.epice + '</span>';
                 if (it.sel && it.sel !== 'Normal') opts += ' <span style="color:#4f46e5;font-size:0.6rem;">🧂' + it.sel + '</span>';
@@ -450,7 +443,6 @@ function posAfficherCommandesTables() {
         var produits = cmd.items ? cmd.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '-';
         var options = cmd.items ? cmd.items.map(function(it) {
             var opts = [];
-            if (it.sauces && it.sauces.length > 0) opts.push('<span style="color:#f39c12;">🥫 ' + it.sauces.join(', ') + '</span>');
             if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
             if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
             if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
@@ -487,7 +479,7 @@ function posChargerCommandeTable(commandeId) {
             prixVente: item.prixVente || item.prixUnitaire || 0,
             quantite: item.quantite || 1,
             categorie: item.categorie || '', imageBase64: item.imageBase64 || '',
-            sauces: item.sauces || [], interdits: item.interdits || [],
+            sauces: [], interdits: item.interdits || [],
             epice: item.epice || 'Normal', sel: item.sel || 'Normal'
         });
     });
@@ -523,7 +515,7 @@ function posGoToStep1() { posStep = 1; delete window.posCommandeId; delete windo
 function posSetPaymentMethod(m) { if ((m === 'credit' || m === 'partiel') && (!posCurrentClient || !posCurrentClient.id)) { alert('Client requis pour crédit/partiel.'); return; } posPaymentMethod = m; posAmountGiven = 0; renderPOS(); }
 function posCalculateChange() { var ai = document.getElementById('posAmountGiven'), cd = document.getElementById('posChangeDisplay'); if (!ai || !cd) return; var st = posCalculateTotal(); var t = st - posDiscountMAD; posAmountGiven = parseFloat(ai.value) || 0; var c = posAmountGiven - t; if (posAmountGiven > 0) { cd.innerHTML = c >= 0 ? '<div class="pos-change-positive"><span>Rendu</span><span>' + c.toFixed(2) + ' MAD</span></div>' : '<div class="pos-change-negative"><span>Manquant</span><span>' + Math.abs(c).toFixed(2) + ' MAD</span></div>'; } else { cd.innerHTML = ''; } }
 
-// ==================== FINALISATION AVEC EXCLUSION DES INTERDITS DU STOCK ====================
+// ==================== FINALISATION (EXCLUT LES INGRÉDIENTS COCHÉS DE LA DÉDUCTION) ====================
 async function posFinalizeSale() {
     var st = posCalculateTotal(); var t = st - posDiscountMAD;
     if (!posCurrentClient && !posCurrentTable) { alert('Client ou table requis.'); return; }
@@ -545,7 +537,7 @@ async function posFinalizeSale() {
             profitTotal += prof;
             return {
                 id: it.id, nom: it.nom, quantite: it.quantite, prixVente: pvr, prixAchat: pa, prixPromo: pp,
-                profit: prof, sauces: it.sauces || [], interdits: it.interdits || [],
+                profit: prof, sauces: [], interdits: it.interdits || [],
                 epice: it.epice || 'Normal', sel: it.sel || 'Normal'
             };
         });
@@ -580,7 +572,7 @@ async function posFinalizeSale() {
             delete window.posVenteId;
         }
 
-        // ✅ Mise à jour du stock (ingrédients ou produit fini) EN IGNORANT LES INTERDITS
+        // ✅ Mise à jour du stock (ingrédients non exclus)
         for (var i = 0; i < posCart.length; i++) {
             var it = posCart[i];
             try {
@@ -588,14 +580,11 @@ async function posFinalizeSale() {
                 if (productDoc.exists) {
                     var productData = productDoc.data();
                     if (productData.ingredients && productData.ingredients.length > 0) {
-                        // Récupère la liste des ingrédients exclus pour cet item
                         var interditsItem = it.interdits || [];
                         for (var j = 0; j < productData.ingredients.length; j++) {
                             var ing = productData.ingredients[j];
                             // Si l'ingrédient est dans les interdits, on ne le déduit pas
-                            if (interditsItem.indexOf(ing.nom) !== -1) {
-                                continue;
-                            }
+                            if (interditsItem.indexOf(ing.nom) !== -1) continue;
                             var stockDoc = await db.collection('stock').doc(ing.idStock).get();
                             if (stockDoc.exists) {
                                 var stockData = stockDoc.data();
@@ -673,4 +662,4 @@ async function posFinalizeSale() {
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS avec profit corrigé, interdits exclus du stock, ingrédients réels');
+console.log('POS JS avec interdits basés sur les ingrédients réels, exclusion du stock OK');
