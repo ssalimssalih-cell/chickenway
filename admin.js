@@ -1,4 +1,4 @@
-// ==================== ADMIN.JS COMPLET (AVEC CHAMP RECETTE + CORRECTIFS) ====================
+// ==================== ADMIN.JS COMPLET (AVEC CHAMP RECETTE + CORRECTIFS IMAGES & DOUBLONS) ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
@@ -17,7 +17,7 @@ var allVentesData = [];
 var allCreditsData = [];
 var allUsersData = [];
 
-// ✅ Variable pour conserver l'image lors d'une édition
+// Variable pour conserver l'image lors d'une édition
 var editCategoryData = null;
 
 // Pagination
@@ -183,14 +183,44 @@ function closeModal() {
     document.getElementById('modalOverlay').classList.add('hidden');
     editingId = null;
     currentCollection = '';
-    editCategoryData = null;  // ✅ nettoyage
+    editCategoryData = null;
 }
 
-function fileToBase64(f, cb) {
-    if (!f) { cb(null); return; }
-    var r = new FileReader();
-    r.onload = function(e) { cb(e.target.result); };
-    r.readAsDataURL(f);
+// ✅ NOUVELLE FONCTION avec compression automatique
+function fileToBase64(file, callback, maxWidth, maxHeight, quality) {
+    if (!file) { callback(null); return; }
+    maxWidth = maxWidth || 800;
+    maxHeight = maxHeight || 800;
+    quality = quality || 0.7;
+
+    if (!file.type.startsWith('image/')) {
+        var reader = new FileReader();
+        reader.onload = function(e) { callback(e.target.result); };
+        reader.readAsDataURL(file);
+        return;
+    }
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var width = img.width, height = img.height;
+            if (width > maxWidth || height > maxHeight) {
+                var ratio = Math.min(maxWidth / width, maxHeight / height);
+                width = Math.floor(width * ratio);
+                height = Math.floor(height * ratio);
+            }
+            var canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            var compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+            callback(compressedBase64);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
 }
 
 function previewImage(inp, pid) {
@@ -383,39 +413,41 @@ function filterBySearch(data, query, fields) {
     });
 }
 
-// ==================== CATÉGORIES (CORRIGÉE) ====================
+// ==================== CATÉGORIES (CORRIGÉE DÉFINITIVEMENT) ====================
 function loadCategoriesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>' + makeSortableHeader('categories', 'nom', 'Nom', 'loadCategories') + makeSortableHeader('categories', 'description', 'Description', 'loadCategories') + makeSortableHeader('categories', 'ca', 'CA', 'loadCategories') + makeSortableHeader('categories', 'profit', 'Profit', 'loadCategories') + '<th>Nb Produits</th><th>Recette</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="categoriesPagination"></div></div>';
     loadCategories();
 }
 
-// ✅ Correction du doublon : on ne précharge plus le cache avant Firestore
+// ✅ Chargement fiable : cache puis Firestore (comme produits et clients)
 async function loadCategories() {
-    allCategoriesData = [];
     currentPages.categories = 1;
+    // 1. Afficher d'abord le cache pour une réponse instantanée
+    const cached = await CacheDB.getAll('categories');
+    if (cached.length) {
+        allCategoriesData = cached;
+        renderCategoriesTable();
+    } else {
+        var tb = document.querySelector('#categoriesTable tbody');
+        if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Chargement...</td></tr>';
+    }
 
-    var tb = document.querySelector('#categoriesTable tbody');
-    if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Chargement...</td></tr>';
-
+    // 2. Mettre à jour depuis Firestore (source de vérité)
     try {
         const snapshot = await db.collection('categories').get();
         allCategoriesData = [];
-        snapshot.forEach(d => {
-            allCategoriesData.push({ id: d.id, ...d.data() });
-        });
-
-        // Mise à jour du cache avec les données fraîches
-        for (let doc of allCategoriesData) {
-            await CacheDB.set('categories', doc.id, doc);
-        }
+        snapshot.forEach(d => allCategoriesData.push({ id: d.id, ...d.data() }));
+        // Mise à jour du cache
+        for (let doc of allCategoriesData) await CacheDB.set('categories', doc.id, doc);
+        renderCategoriesTable();
     } catch(e) {
         console.error(e);
-        // En cas d'échec, on utilise le cache
-        const cached = await CacheDB.getAll('categories');
-        allCategoriesData = cached || [];
+        // Si échec, on garde le cache déjà affiché
+        if (!cached.length) {
+            allCategoriesData = [];
+            renderCategoriesTable();
+        }
     }
-
-    renderCategoriesTable();
 }
 
 async function renderCategoriesTable() {
@@ -441,7 +473,6 @@ async function renderCategoriesTable() {
     document.getElementById('categoriesPagination').innerHTML = getPaginationHTML('categories', data.length);
 }
 
-// ✅ Correction image édition : conservation de l'image si aucune nouvelle choisie
 function openCategoryForm(data) {
     data = data || {};
     editCategoryData = data;   // stocke les données originales
@@ -473,6 +504,7 @@ function saveCategory() {
         d.imageBase64 = img || existingImage;
         saveDocument('categories', d, function() { closeModal(); refreshCurrentPage(); });
     };
+    // Utilise la nouvelle fonction fileToBase64 compressée
     if (f) fileToBase64(f, sf); else sf(null);
 }
 
@@ -564,8 +596,7 @@ function saveProduct() {
         if (img) d.imageBase64 = img;
         saveDocument('products', d, function() { closeModal(); refreshCurrentPage(); });
     };
-    if (f) fileToBase64(f, sf);
-    else sf(null);
+    if (f) fileToBase64(f, sf); else sf(null);
 }
 
 // ==================== CLIENTS ====================
@@ -1368,4 +1399,4 @@ async function saveFideliteSettings() {
     alert('✅ Paramètres de fidélité enregistrés');
 }
 
-console.log('Admin JS (avec champ Recette + correctifs) prêt.');
+console.log('Admin JS (avec champ Recette + correctifs images et doublons) prêt.');
