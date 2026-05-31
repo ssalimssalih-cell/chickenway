@@ -1,4 +1,4 @@
-// ==================== ADMIN.JS COMPLET (AJOUT SANS DOUBLON) ====================
+// ==================== ADMIN.JS COMPLET (CORRECTION DOUBLONS) ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
@@ -172,7 +172,7 @@ async function rejectUser(uid) {
     }
 }
 
-// ==================== MODAL & CRUD (saveDocument retourne l'id) ====================
+// ==================== MODAL & CRUD (saveDocument sans refresh) ====================
 function openModal(t, b) {
     document.getElementById('modalTitle').textContent = t;
     document.getElementById('modalBody').innerHTML = b;
@@ -186,7 +186,7 @@ function closeModal() {
     editCategoryData = null;
 }
 
-// Compression des images (max 800x800, qualité 70%)
+// Compression des images
 function fileToBase64(file, callback, maxWidth, maxHeight, quality) {
     if (!file) { callback(null); return; }
     maxWidth = maxWidth || 800;
@@ -233,7 +233,7 @@ function previewImage(inp, pid) {
     }
 }
 
-// ✅ saveDocument retourne l'id et ne rafraîchit plus automatiquement (laisser le callback gérer)
+// ✅ Modification : plus de refreshCurrentPage automatique
 async function saveDocument(cn, data, cb) {
     try {
         let resultId;
@@ -413,7 +413,7 @@ function filterBySearch(data, query, fields) {
     });
 }
 
-// ==================== CATÉGORIES (MISE À JOUR LOCALE SANS DOUBLON) ====================
+// ==================== CATÉGORIES (MISE À JOUR LOCALE) ====================
 function loadCategoriesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>' + makeSortableHeader('categories', 'nom', 'Nom', 'loadCategories') + makeSortableHeader('categories', 'description', 'Description', 'loadCategories') + makeSortableHeader('categories', 'ca', 'CA', 'loadCategories') + makeSortableHeader('categories', 'profit', 'Profit', 'loadCategories') + '<th>Nb Produits</th><th>Recette</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="categoriesPagination"></div></div>';
     loadCategories();
@@ -479,7 +479,7 @@ function openCategoryForm(data) {
     openModal(editingId?'Modifier Catégorie':'Nouvelle Catégorie', h);
 }
 
-// ✅ saveCategory : mise à jour locale sans refresh
+// ✅ Correction : mise à jour locale sans rechargement
 function saveCategory() {
     var n = document.getElementById('catNom').value;
     if (!n) { alert('Nom obligatoire'); return; }
@@ -500,13 +500,11 @@ function saveCategory() {
         saveDocument('categories', d, function(newId) {
             closeModal();
             if (editingId) {
-                // Mise à jour dans le tableau
                 var idx = allCategoriesData.findIndex(function(x) { return x.id === editingId; });
                 if (idx !== -1) {
                     allCategoriesData[idx] = Object.assign({}, allCategoriesData[idx], d, { id: editingId });
                 }
             } else {
-                // Ajout d'une nouvelle catégorie
                 d.id = newId;
                 allCategoriesData.push(d);
             }
@@ -596,7 +594,7 @@ async function openProductForm(data) {
     openModal(editingId ? 'Modifier Produit' : 'Nouveau Produit', h);
 }
 
-// ✅ saveProduct mise à jour locale
+// ✅ Mise à jour locale pour les produits
 function saveProduct() {
     var n = document.getElementById('prodNom').value;
     if (!n) { alert('Nom obligatoire'); return; }
@@ -635,7 +633,7 @@ function saveProduct() {
     if (f) fileToBase64(f, sf); else sf(null);
 }
 
-// ==================== CLIENTS (inchangé, utilise refreshCurrentPage) ====================
+// ==================== CLIENTS (rechargement après sauvegarde) ====================
 function loadClientsPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+makeSortableHeader('clients','createdAt','Date créé','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="clientsPagination"></div></div>';
     loadClients();
@@ -751,6 +749,11 @@ function deleteClient(id) {
     }
 }
 
+// ==================== FOURNISSEURS ====================
+// ... (le reste du fichier est inchangé ; conserve les sections Fournisseurs, Commandes, Ventes, Crédits, Options de ton code actuel)
+// Elles fonctionnent bien avec refreshCurrentPage.
+
+console.log('Admin JS (catégories/produits sans doublon) prêt.');
 // ==================== FOURNISSEURS ====================
 // (inchangé)
 // ... tout le reste du code (fournisseurs, commandes, ventes, crédits, options) est identique à l'original que tu as posté.
