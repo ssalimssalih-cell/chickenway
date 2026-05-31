@@ -8,7 +8,7 @@ var depensesCategoryFilter = '';
 // ----- Stock : catégories (réutilisées pour le stock) -----
 var stockCategories = [
     "Viande", "Poulet", "Poisson", "Légumes", "Fruits",
-    "Produits laitiers", "Épices", "Huile", "Farine", "Sucre",
+    "Produits laitiers", "Épices", "Les Sauces", "Farine","Huile", "Sucre",
     "Emballages", "Sacs", "Boîtes", "Gobelets", "Serviettes",
     "Autre"
 ];
