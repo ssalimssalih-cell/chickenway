@@ -1,4 +1,4 @@
-// ==================== ADMIN.JS COMPLET (RECETTE AVEC INGRÉDIENTS DU STOCK) ====================
+// ==================== ADMIN.JS COMPLET (TOUT INCLUS, RIEN PERDU) ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
@@ -6,7 +6,7 @@ var sortOrders = {};
 var clientSearchQuery = '';
 var pendingUsersData = [];
 
-// Données complètes pour les listes
+// Données pour les listes
 var allCategoriesData = [];
 var allProductsData = [];
 var allClientsData = [];
@@ -17,7 +17,7 @@ var allVentesData = [];
 var allCreditsData = [];
 var allUsersData = [];
 
-// Variable pour l’édition des catégories (image)
+// Variable pour l'édition des catégories (image)
 var editCategoryData = null;
 
 // Pagination
@@ -42,6 +42,9 @@ var usersSearchQuery = '';
 
 // Liste pour les fournisseurs
 var fournisseurCategoriesList = ['Alimentaire', 'Boissons', 'Emballage', 'Entretien', 'Viandes', 'Légumes', 'Sauces', 'Autre'];
+
+// Stock temporaire pour le formulaire produit (rempli par loadStockForProductForm)
+var allStockData = [];
 
 // ==================== DASHBOARD ====================
 function loadDashboardPage(c) {
@@ -497,11 +500,7 @@ function saveCategory() {
     if (f) fileToBase64(f, sf); else sf(null);
 }
 
-// ==================== PRODUITS (AVEC RECETTE) ====================
-// Variables pour les ingrédients lors de l’édition (stockage temporaire)
-var editProductIngredients = [];
-
-// Charger les stocks (nécessaire pour la liste déroulante)
+// ==================== PRODUITS (AVEC INGRÉDIENTS) ====================
 async function loadStockForProductForm() {
     if (typeof allStockData === 'undefined' || allStockData.length === 0) {
         try {
@@ -612,7 +611,7 @@ function renderProductsTable() {
 
 async function openProductForm(data) {
     data = data || {};
-    await loadStockForProductForm(); // Charger le stock pour la liste déroulante
+    await loadStockForProductForm();
 
     var co = '';
     try {
@@ -702,10 +701,207 @@ function saveProduct() {
 }
 
 // ==================== CLIENTS ====================
-// (inchangé, identique à ta version précédente)
+function loadClientsPage(c) {
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+makeSortableHeader('clients','createdAt','Date créé','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="clientsPagination"></div></div>';
+    loadClients();
+}
+
+function clientSearch(query) { clientSearchQuery = query.toLowerCase().trim(); currentPages.clients = 1; renderClientsTable(); }
+
+async function loadClients() {
+    try {
+        const cached = await CacheDB.getAll('clients');
+        if (cached.length) allClientsData = cached;
+        const snapshot = await db.collection('clients').get();
+        allClientsData = [];
+        snapshot.forEach(d => { let dd = d.data(); dd.id = d.id; allClientsData.push(dd); });
+        for (let doc of allClientsData) await CacheDB.set('clients', doc.id, doc);
+    } catch(e){ console.error(e); }
+    currentPages.clients = 1;
+    renderClientsTable();
+}
+
+function renderClientsTable() {
+    var tb = document.querySelector('#clientsTable tbody');
+    if (!tb) return;
+    var data = allClientsData.slice();
+    if (clientSearchQuery) {
+        data = data.filter(function(d) {
+            return (d.nom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.prenom||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.username||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.email||'').toLowerCase().indexOf(clientSearchQuery)!==-1 || (d.telephone||'').toLowerCase().indexOf(clientSearchQuery)!==-1;
+        });
+    }
+    data = applySort('clients', data, 'nom');
+    var pageData = getPageData('clients', data);
+    tb.innerHTML = '';
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="19" style="text-align:center;padding:30px;">Aucun client</td></tr>';
+        document.getElementById('clientsPagination').innerHTML = '';
+        return;
+    }
+    for (var i = 0; i < pageData.length; i++) {
+        var d = pageData[i];
+        var dateCreated = d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString('fr-FR')+' '+new Date(d.createdAt.seconds*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '-';
+        var row = '<tr>';
+        row += '<td><small>'+(d.id||'').substring(0,6)+'</small></td>';
+        row += '<td><strong>'+(d.nom||'')+'</strong></td>';
+        row += '<td>'+(d.prenom||'')+'</td>';
+        row += '<td>@'+(d.username||'')+'</td>';
+        row += '<td>'+(d.genre||'-')+'</td>';
+        row += '<td><small>'+(d.adresse||'-')+'</small></td>';
+        row += '<td><small>'+(d.email||'-')+'</small></td>';
+        row += '<td>'+(d.telephone||'-')+'</td>';
+        row += '<td>'+(d.whatsapp||'-')+'</td>';
+        row += '<td>'+(d.facebook||'-')+'</td>';
+        row += '<td>'+(d.instagram||'-')+'</td>';
+        row += '<td style="color:#16a34a;font-weight:600;">'+(d.ca||0).toFixed(2)+'</td>';
+        row += '<td style="color:#16a34a;">'+(d.profit||0).toFixed(2)+'</td>';
+        row += '<td style="color:#f39c12;font-weight:600;">'+(d.pointsFidelite||0)+'</td>';
+        row += '<td><small>'+(d.allergies?d.allergies.join(', '):'-')+'</small></td>';
+        row += '<td><small>'+(d.aime?d.aime.join(', '):'-')+'</small></td>';
+        row += '<td><small>'+(d.deteste?d.deteste.join(', '):'-')+'</small></td>';
+        row += '<td><small>'+dateCreated+'</small></td>';
+        row += '<td><button class="btn-edit" onclick="editClient(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteClient(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td>';
+        row += '</tr>';
+        tb.innerHTML += row;
+    }
+    document.getElementById('clientsPagination').innerHTML = getPaginationHTML('clients', data.length);
+}
+
+function openClientForm(data) {
+    data = data || {};
+    var h = '';
+    h += '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="cliNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Prénom *</label><input type="text" id="cliPrenom" value="' + (data.prenom || '') + '" required></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Username</label><input type="text" id="cliUsername" value="' + (data.username || '') + '"></div><div class="form-group"><label>Genre</label><select id="cliGenre"><option value="">-</option><option value="M" ' + (data.genre === 'M' ? 'selected' : '') + '>M</option><option value="F" ' + (data.genre === 'F' ? 'selected' : '') + '>F</option></select></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Adresse</label><input type="text" id="cliAdresse" value="' + (data.adresse || '') + '"></div><div class="form-group"><label>Email</label><input type="email" id="cliEmail" value="' + (data.email || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Téléphone</label><input type="text" id="cliTel" value="' + (data.telephone || '') + '"></div><div class="form-group"><label>WhatsApp</label><input type="text" id="cliWhatsapp" value="' + (data.whatsapp || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Facebook</label><input type="text" id="cliFacebook" value="' + (data.facebook || '') + '"></div><div class="form-group"><label>Instagram</label><input type="text" id="cliInstagram" value="' + (data.instagram || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="cliCA" value="' + (data.ca || 0) + '" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="cliProfit" value="' + (data.profit || 0) + '" step="0.01"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Points Fidélité</label><input type="number" id="cliPoints" value="' + (data.pointsFidelite || 0) + '"></div><div class="form-group"><label>Description</label><textarea id="cliDesc">' + (data.description || '') + '</textarea></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Allergies (virgules)</label><input type="text" id="cliAllergies" value="' + (data.allergies ? data.allergies.join(', ') : '') + '" placeholder="gluten, lactose"></div><div class="form-group"><label>Aime (virgules)</label><input type="text" id="cliAime" value="' + (data.aime ? data.aime.join(', ') : '') + '" placeholder="poulet, poisson"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Déteste (virgules)</label><input type="text" id="cliDeteste" value="' + (data.deteste ? data.deteste.join(', ') : '') + '" placeholder="oignon, tomate"></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveClient()">Enregistrer</button>';
+    currentCollection = 'clients';
+    openModal(editingId ? 'Modifier Client' : 'Nouveau Client', h);
+}
+
+function saveClient() {
+    var n = document.getElementById('cliNom').value, p = document.getElementById('cliPrenom').value;
+    if (!n || !p) { alert('Nom et Prénom obligatoires'); return; }
+    var d = {
+        nom: n, prenom: p, username: document.getElementById('cliUsername').value,
+        genre: document.getElementById('cliGenre').value, adresse: document.getElementById('cliAdresse').value,
+        email: document.getElementById('cliEmail').value, telephone: document.getElementById('cliTel').value,
+        whatsapp: document.getElementById('cliWhatsapp').value, facebook: document.getElementById('cliFacebook').value,
+        instagram: document.getElementById('cliInstagram').value, ca: parseFloat(document.getElementById('cliCA').value) || 0,
+        profit: parseFloat(document.getElementById('cliProfit').value) || 0,
+        pointsFidelite: parseInt(document.getElementById('cliPoints').value) || 0,
+        allergies: document.getElementById('cliAllergies').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        aime: document.getElementById('cliAime').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        deteste: document.getElementById('cliDeteste').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean),
+        description: document.getElementById('cliDesc').value
+    };
+    if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    saveDocument('clients', d, function() { closeModal(); loadClients(); });
+}
+
+function editClient(id) {
+    db.collection('clients').doc(id).get().then(function(doc) {
+        if (doc.exists) { editingId = id; currentCollection = 'clients'; openClientForm(doc.data()); }
+    });
+}
+
+function deleteClient(id) {
+    if (confirm('Supprimer ce client ?')) {
+        CacheDB.write('clients', id, null, 'delete').then(function() { alert('Supprimé'); loadClients(); CacheDB.sync(); });
+    }
+}
 
 // ==================== FOURNISSEURS ====================
-// (inchangé)
+function loadFournisseursPage(c) {
+    c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-truck"></i> Fournisseurs</h3><button class="btn-add" onclick="openFournisseurForm()"><i class="fas fa-plus"></i> Ajouter</button></div><div class="table-container"><table class="data-table" id="fournisseursTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('fournisseurs','id','ID','loadFournisseurs')+makeSortableHeader('fournisseurs','nom','Nom','loadFournisseurs')+makeSortableHeader('fournisseurs','prenom','Prénom','loadFournisseurs')+makeSortableHeader('fournisseurs','societe','Société','loadFournisseurs')+makeSortableHeader('fournisseurs','telephone','Tél','loadFournisseurs')+makeSortableHeader('fournisseurs','whatsapp','WhatsApp','loadFournisseurs')+makeSortableHeader('fournisseurs','email','Email','loadFournisseurs')+makeSortableHeader('fournisseurs','adresse','Adresse','loadFournisseurs')+makeSortableHeader('fournisseurs','description','Description','loadFournisseurs')+makeSortableHeader('fournisseurs','ca','CA','loadFournisseurs')+'<th>Catégories</th>'+makeSortableHeader('fournisseurs','createdAt','Date créé','loadFournisseurs')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="fournisseursPagination"></div></div>';
+    loadFournisseurs();
+}
+
+async function loadFournisseurs() {
+    try {
+        const cached = await CacheDB.getAll('fournisseurs');
+        if (cached.length) allFournisseursData = cached;
+        const snapshot = await db.collection('fournisseurs').get();
+        allFournisseursData = [];
+        snapshot.forEach(d => { let dd = d.data(); dd.id = d.id; allFournisseursData.push(dd); });
+        for (let doc of allFournisseursData) await CacheDB.set('fournisseurs', doc.id, doc);
+    } catch(e){ console.error(e); }
+    currentPages.fournisseurs = 1;
+    renderFournisseursTable();
+}
+
+function renderFournisseursTable() {
+    var tb = document.querySelector('#fournisseursTable tbody');
+    if (!tb) return;
+    var data = applySort('fournisseurs', allFournisseursData.slice(), 'nom');
+    var pageData = getPageData('fournisseurs', data);
+    tb.innerHTML = '';
+    if (pageData.length === 0) {
+        tb.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:30px;">Aucun fournisseur</td></tr>';
+        document.getElementById('fournisseursPagination').innerHTML = '';
+        return;
+    }
+    for (var i = 0; i < pageData.length; i++) {
+        var d = pageData[i];
+        var dateCreated = d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleDateString('fr-FR')+' '+new Date(d.createdAt.seconds*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '-';
+        var categories = d.categories ? d.categories.join(', ') : '-';
+        tb.innerHTML += '<tr><td><small>'+(d.id||'').substring(0,6)+'</small></td><td><strong>'+(d.nom||'')+'</strong></td><td>'+(d.prenom||'')+'</td><td>'+(d.societe||'-')+'</td><td>'+(d.telephone||'-')+'</td><td>'+(d.whatsapp||'-')+'</td><td><small>'+(d.email||'-')+'</small></td><td><small>'+(d.adresse||'-')+'</small></td><td><small>'+(d.description||'-')+'</small></td><td>'+(d.ca||0).toFixed(2)+' MAD</td><td><small>'+categories+'</small></td><td><small>'+dateCreated+'</small></td><td><button class="btn-edit" onclick="editFournisseur(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteFournisseur(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+    }
+    document.getElementById('fournisseursPagination').innerHTML = getPaginationHTML('fournisseurs', data.length);
+}
+
+function openFournisseurForm(data) {
+    data = data || {};
+    var selectedCategories = data.categories || [];
+    var h = '';
+    h += '<div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="fourNom" value="' + (data.nom || '') + '" required></div><div class="form-group"><label>Prénom</label><input type="text" id="fourPrenom" value="' + (data.prenom || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Société</label><input type="text" id="fourSociete" value="' + (data.societe || '') + '"></div><div class="form-group"><label>Téléphone</label><input type="text" id="fourTel" value="' + (data.telephone || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>WhatsApp</label><input type="text" id="fourWhatsapp" value="' + (data.whatsapp || '') + '"></div><div class="form-group"><label>Email</label><input type="email" id="fourEmail" value="' + (data.email || '') + '"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Adresse</label><input type="text" id="fourAdresse" value="' + (data.adresse || '') + '"></div><div class="form-group"><label>CA</label><input type="number" id="fourCA" value="' + (data.ca || 0) + '" step="0.01"></div></div>';
+    h += '<div class="form-row"><div class="form-group"><label>Description</label><textarea id="fourDesc">' + (data.description || '') + '</textarea></div></div>';
+    h += '<div class="form-row"><div class="form-group" style="min-width:100%;"><label>Catégories (plusieurs choix possibles)</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:5px;">';
+    fournisseurCategoriesList.forEach(function(cat) {
+        var checked = selectedCategories.indexOf(cat) !== -1 ? 'checked' : '';
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.8rem;"><input type="checkbox" class="four-cat-check" value="' + cat + '" ' + checked + '> ' + cat + '</label>';
+    });
+    h += '</div></div></div>';
+    h += '<button class="btn-cancel" onclick="closeModal()">Annuler</button><button class="btn-save" onclick="saveFournisseur()">Enregistrer</button>';
+    currentCollection = 'fournisseurs';
+    openModal(editingId ? 'Modifier Fournisseur' : 'Nouveau Fournisseur', h);
+}
+
+function saveFournisseur() {
+    var nom = document.getElementById('fourNom').value;
+    if (!nom) { alert('Nom obligatoire'); return; }
+    var categories = [];
+    document.querySelectorAll('.four-cat-check:checked').forEach(function(cb) { categories.push(cb.value); });
+    var d = {
+        nom: nom, prenom: document.getElementById('fourPrenom').value, societe: document.getElementById('fourSociete').value,
+        telephone: document.getElementById('fourTel').value, whatsapp: document.getElementById('fourWhatsapp').value,
+        email: document.getElementById('fourEmail').value, adresse: document.getElementById('fourAdresse').value,
+        ca: parseFloat(document.getElementById('fourCA').value) || 0, description: document.getElementById('fourDesc').value,
+        categories: categories
+    };
+    if (!editingId) d.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+    saveDocument('fournisseurs', d, function() { closeModal(); loadFournisseurs(); });
+}
+
+function editFournisseur(id) {
+    db.collection('fournisseurs').doc(id).get().then(function(doc) {
+        if (doc.exists) { editingId = id; currentCollection = 'fournisseurs'; openFournisseurForm(doc.data()); }
+    });
+}
+
+function deleteFournisseur(id) {
+    if (confirm('Supprimer ce fournisseur ?')) {
+        CacheDB.write('fournisseurs', id, null, 'delete').then(function() { alert('Supprimé'); loadFournisseurs(); CacheDB.sync(); });
+    }
+}
 
 // ==================== COMMANDES EN LIGNE ====================
 function loadCommandesPage(c) {
@@ -806,19 +1002,6 @@ function cancelCommande(cid) {
     }
 }
 
-// ==================== VENTES ====================
-// (inchangé, utilise le code de ta version actuelle)
-
-// ==================== CRÉDITS ====================
-// (inchangé)
-
-// ==================== OPTIONS ====================
-// (inchangé)
-
-// ==================== GESTION DE LA FIDÉLITÉ ====================
-// (inchangé)
-
-console.log('Admin JS (avec recette ingrédients) prêt.');
 // ==================== VENTES ====================
 function loadVentesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'+
@@ -1321,4 +1504,4 @@ async function saveFideliteSettings() {
     alert('✅ Paramètres de fidélité enregistrés');
 }
 
-console.log('Admin JS (corrigé, plus de doublons) prêt.');
+console.log('Admin JS (complet, sans perte) prêt.');
