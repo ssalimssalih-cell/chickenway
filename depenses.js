@@ -1,5 +1,10 @@
 // ==================== GESTION DU STOCK & DES DÉPENSES ====================
 
+// Variables pour les filtres dépenses (nécessaires)
+var depensesPeriod = 'all';
+var depensesSearch = '';
+var depensesCategoryFilter = '';
+
 // ----- Stock : catégories (réutilisées pour le stock) -----
 var stockCategories = [
     "Viande", "Poulet", "Poisson", "Légumes", "Fruits",
