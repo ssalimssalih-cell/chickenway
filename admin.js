@@ -1,4 +1,4 @@
-// ==================== ADMIN.JS COMPLET (AVEC CHAMP RECETTE + CORRECTIFS IMAGES & DOUBLONS) ====================
+// ==================== ADMIN.JS COMPLET (AJOUT SANS DOUBLON) ====================
 var editingId = null;
 var currentCollection = '';
 var selectedCategoryFilter = '';
@@ -172,7 +172,7 @@ async function rejectUser(uid) {
     }
 }
 
-// ==================== MODAL & CRUD ====================
+// ==================== MODAL & CRUD (saveDocument retourne l'id) ====================
 function openModal(t, b) {
     document.getElementById('modalTitle').textContent = t;
     document.getElementById('modalBody').innerHTML = b;
@@ -186,7 +186,7 @@ function closeModal() {
     editCategoryData = null;
 }
 
-// ✅ NOUVELLE FONCTION avec compression automatique
+// Compression des images (max 800x800, qualité 70%)
 function fileToBase64(file, callback, maxWidth, maxHeight, quality) {
     if (!file) { callback(null); return; }
     maxWidth = maxWidth || 800;
@@ -233,6 +233,7 @@ function previewImage(inp, pid) {
     }
 }
 
+// ✅ saveDocument retourne l'id et ne rafraîchit plus automatiquement (laisser le callback gérer)
 async function saveDocument(cn, data, cb) {
     try {
         let resultId;
@@ -243,8 +244,7 @@ async function saveDocument(cn, data, cb) {
             data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
             resultId = await CacheDB.write(cn, null, data, 'add');
         }
-        if (cb) cb();
-        refreshCurrentPage();
+        if (cb) cb(resultId);
         CacheDB.sync();
     } catch (err) { alert('Erreur: ' + err.message); }
 }
@@ -413,16 +413,14 @@ function filterBySearch(data, query, fields) {
     });
 }
 
-// ==================== CATÉGORIES (CORRIGÉE DÉFINITIVEMENT) ====================
+// ==================== CATÉGORIES (MISE À JOUR LOCALE SANS DOUBLON) ====================
 function loadCategoriesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-layer-group"></i> Catégories</h3><button class="btn-add" onclick="openCategoryForm()"><i class="fas fa-plus"></i> Nouvelle</button></div><div class="table-container"><table class="data-table" id="categoriesTable"><thead><tr><th>Image</th>' + makeSortableHeader('categories', 'nom', 'Nom', 'loadCategories') + makeSortableHeader('categories', 'description', 'Description', 'loadCategories') + makeSortableHeader('categories', 'ca', 'CA', 'loadCategories') + makeSortableHeader('categories', 'profit', 'Profit', 'loadCategories') + '<th>Nb Produits</th><th>Recette</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="categoriesPagination"></div></div>';
     loadCategories();
 }
 
-// ✅ Chargement fiable : cache puis Firestore (comme produits et clients)
 async function loadCategories() {
     currentPages.categories = 1;
-    // 1. Afficher d'abord le cache pour une réponse instantanée
     const cached = await CacheDB.getAll('categories');
     if (cached.length) {
         allCategoriesData = cached;
@@ -432,17 +430,14 @@ async function loadCategories() {
         if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Chargement...</td></tr>';
     }
 
-    // 2. Mettre à jour depuis Firestore (source de vérité)
     try {
         const snapshot = await db.collection('categories').get();
         allCategoriesData = [];
         snapshot.forEach(d => allCategoriesData.push({ id: d.id, ...d.data() }));
-        // Mise à jour du cache
         for (let doc of allCategoriesData) await CacheDB.set('categories', doc.id, doc);
         renderCategoriesTable();
     } catch(e) {
         console.error(e);
-        // Si échec, on garde le cache déjà affiché
         if (!cached.length) {
             allCategoriesData = [];
             renderCategoriesTable();
@@ -475,7 +470,7 @@ async function renderCategoriesTable() {
 
 function openCategoryForm(data) {
     data = data || {};
-    editCategoryData = data;   // stocke les données originales
+    editCategoryData = data;
     var recetteChecked = data.recette ? 'checked' : '';
     var h = '<div class="form-row"><div class="form-group"><label>Image</label><input type="file" id="catImage" onchange="previewImage(this,\'catPreview\')"><div id="catPreview">'+(data.imageBase64?'<img src="'+data.imageBase64+'" style="max-width:100px;">':'')+'</div></div></div><div class="form-row"><div class="form-group"><label>Nom *</label><input type="text" id="catNom" value="'+(data.nom||'')+'" required></div><div class="form-group"><label>Description</label><textarea id="catDesc">'+(data.description||'')+'</textarea></div></div><div class="form-row"><div class="form-group"><label>CA</label><input type="number" id="catCA" value="'+(data.ca||0)+'" step="0.01"></div><div class="form-group"><label>Profit</label><input type="number" id="catProfit" value="'+(data.profit||0)+'" step="0.01"></div></div>';
     h += '<div class="form-row"><div class="form-group"><label>Recette</label><div style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="catRecette" ' + recetteChecked + ' style="width:20px; height:20px;"><span>Activer la personnalisation (sauces, interdits, épices…)</span></div></div></div>';
@@ -484,13 +479,12 @@ function openCategoryForm(data) {
     openModal(editingId?'Modifier Catégorie':'Nouvelle Catégorie', h);
 }
 
+// ✅ saveCategory : mise à jour locale sans refresh
 function saveCategory() {
     var n = document.getElementById('catNom').value;
     if (!n) { alert('Nom obligatoire'); return; }
     var f = document.getElementById('catImage').files[0];
     var recette = document.getElementById('catRecette').checked;
-
-    // Si édition et pas de nouveau fichier, on garde l'image existante
     var existingImage = (editingId && editCategoryData) ? editCategoryData.imageBase64 : null;
 
     var sf = function(img) {
@@ -502,13 +496,28 @@ function saveCategory() {
             recette: recette
         };
         d.imageBase64 = img || existingImage;
-        saveDocument('categories', d, function() { closeModal(); refreshCurrentPage(); });
+
+        saveDocument('categories', d, function(newId) {
+            closeModal();
+            if (editingId) {
+                // Mise à jour dans le tableau
+                var idx = allCategoriesData.findIndex(function(x) { return x.id === editingId; });
+                if (idx !== -1) {
+                    allCategoriesData[idx] = Object.assign({}, allCategoriesData[idx], d, { id: editingId });
+                }
+            } else {
+                // Ajout d'une nouvelle catégorie
+                d.id = newId;
+                allCategoriesData.push(d);
+            }
+            renderCategoriesTable();
+            editingId = null;
+        });
     };
-    // Utilise la nouvelle fonction fileToBase64 compressée
     if (f) fileToBase64(f, sf); else sf(null);
 }
 
-// ==================== PRODUITS ====================
+// ==================== PRODUITS (MISE À JOUR LOCALE) ====================
 function loadProductsPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-utensils"></i> Produits</h3><div style="display:flex;gap:10px;flex-wrap:wrap;"><select id="categoryFilter" onchange="filterProducts()"><option value="">Toutes catégories</option></select><button class="btn-add" onclick="openProductForm()"><i class="fas fa-plus"></i> Nouveau</button></div></div><div class="table-container"><table class="data-table" id="productsTable" style="font-size:0.7rem;"><thead><tr><th>Img</th>'+makeSortableHeader('products','nom','Nom','loadProducts')+makeSortableHeader('products','categorie','Catégorie','loadProducts')+makeSortableHeader('products','prixAchat','Achat','loadProducts')+makeSortableHeader('products','prixVente','Vente','loadProducts')+makeSortableHeader('products','prixPromo','Promo','loadProducts')+makeSortableHeader('products','profit','Profit','loadProducts')+makeSortableHeader('products','stock','Stock','loadProducts')+makeSortableHeader('products','vendues','Vendues','loadProducts')+makeSortableHeader('products','ca','CA','loadProducts')+makeSortableHeader('products','disponible','Dispo','loadProducts')+'<th>Temps</th><th>Desc</th><th>Actions</th></tr></thead><tbody></tbody></table></div><div id="productsPagination"></div></div>';
     loadCategoriesInFilter(); loadProducts();
@@ -587,19 +596,46 @@ async function openProductForm(data) {
     openModal(editingId ? 'Modifier Produit' : 'Nouveau Produit', h);
 }
 
+// ✅ saveProduct mise à jour locale
 function saveProduct() {
     var n = document.getElementById('prodNom').value;
     if (!n) { alert('Nom obligatoire'); return; }
     var f = document.getElementById('prodImage').files[0];
     var sf = function(img) {
-        var d = { nom: n, categorie: document.getElementById('prodCat').value, prixAchat: parseFloat(document.getElementById('prodPA').value) || 0, prixVente: parseFloat(document.getElementById('prodPV').value) || 0, prixPromo: parseFloat(document.getElementById('prodPromo').value) || 0, stock: parseInt(document.getElementById('prodStock').value) || 0, vendues: 0, ca: 0, tempsPrep: document.getElementById('prodTemps').value, disponible: document.getElementById('prodDispo').value === '1', description: document.getElementById('prodDesc').value };
+        var d = {
+            nom: n,
+            categorie: document.getElementById('prodCat').value,
+            prixAchat: parseFloat(document.getElementById('prodPA').value) || 0,
+            prixVente: parseFloat(document.getElementById('prodPV').value) || 0,
+            prixPromo: parseFloat(document.getElementById('prodPromo').value) || 0,
+            stock: parseInt(document.getElementById('prodStock').value) || 0,
+            vendues: 0,
+            ca: 0,
+            tempsPrep: document.getElementById('prodTemps').value,
+            disponible: document.getElementById('prodDispo').value === '1',
+            description: document.getElementById('prodDesc').value
+        };
         if (img) d.imageBase64 = img;
-        saveDocument('products', d, function() { closeModal(); refreshCurrentPage(); });
+
+        saveDocument('products', d, function(newId) {
+            closeModal();
+            if (editingId) {
+                var idx = allProductsData.findIndex(function(x) { return x.id === editingId; });
+                if (idx !== -1) {
+                    allProductsData[idx] = Object.assign({}, allProductsData[idx], d, { id: editingId });
+                }
+            } else {
+                d.id = newId;
+                allProductsData.push(d);
+            }
+            renderProductsTable();
+            editingId = null;
+        });
     };
     if (f) fileToBase64(f, sf); else sf(null);
 }
 
-// ==================== CLIENTS ====================
+// ==================== CLIENTS (inchangé, utilise refreshCurrentPage) ====================
 function loadClientsPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-users"></i> Clients</h3><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><div class="input-group" style="width:300px;min-width:200px;margin-bottom:0;background:#fff;border:2px solid var(--border);border-radius:12px;"><i class="fas fa-search" style="color:#94a3b8;"></i><input type="text" id="clientSearchInput" placeholder="Rechercher..." onkeyup="clientSearch(this.value)" style="border:none;padding:12px;"></div><button class="btn-add" onclick="openClientForm()"><i class="fas fa-plus"></i> Ajouter</button></div></div><div class="table-container"><table class="data-table" id="clientsTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('clients','id','ID','loadClients')+makeSortableHeader('clients','nom','Nom','loadClients')+makeSortableHeader('clients','prenom','Prénom','loadClients')+makeSortableHeader('clients','username','Username','loadClients')+makeSortableHeader('clients','genre','Genre','loadClients')+makeSortableHeader('clients','adresse','Adresse','loadClients')+makeSortableHeader('clients','email','Email','loadClients')+makeSortableHeader('clients','telephone','Tél','loadClients')+makeSortableHeader('clients','whatsapp','WhatsApp','loadClients')+makeSortableHeader('clients','facebook','Facebook','loadClients')+makeSortableHeader('clients','instagram','Instagram','loadClients')+makeSortableHeader('clients','ca','CA','loadClients')+makeSortableHeader('clients','profit','Profit','loadClients')+makeSortableHeader('clients','pointsFidelite','Points Fid','loadClients')+makeSortableHeader('clients','allergies','Allergies','loadClients')+makeSortableHeader('clients','aime','Aime','loadClients')+makeSortableHeader('clients','deteste','Déteste','loadClients')+makeSortableHeader('clients','createdAt','Date créé','loadClients')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="clientsPagination"></div></div>';
     loadClients();
@@ -715,6 +751,14 @@ function deleteClient(id) {
     }
 }
 
+// ==================== FOURNISSEURS ====================
+// (inchangé)
+// ... tout le reste du code (fournisseurs, commandes, ventes, crédits, options) est identique à l'original que tu as posté.
+// Je te laisse conserver ces parties à partir de ton fichier actuel. L'important est que les sections CATÉGORIES et PRODUITS
+// ci-dessus utilisent la mise à jour locale sans déclencher refreshCurrentPage.
+// Tu peux copier/coller le reste depuis ton fichier d'origine.
+
+console.log('Admin JS (catégories/produits sans doublon) prêt.');
 // ==================== FOURNISSEURS ====================
 function loadFournisseursPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-truck"></i> Fournisseurs</h3><button class="btn-add" onclick="openFournisseurForm()"><i class="fas fa-plus"></i> Ajouter</button></div><div class="table-container"><table class="data-table" id="fournisseursTable" style="font-size:0.6rem;"><thead><tr>'+makeSortableHeader('fournisseurs','id','ID','loadFournisseurs')+makeSortableHeader('fournisseurs','nom','Nom','loadFournisseurs')+makeSortableHeader('fournisseurs','prenom','Prénom','loadFournisseurs')+makeSortableHeader('fournisseurs','societe','Société','loadFournisseurs')+makeSortableHeader('fournisseurs','telephone','Tél','loadFournisseurs')+makeSortableHeader('fournisseurs','whatsapp','WhatsApp','loadFournisseurs')+makeSortableHeader('fournisseurs','email','Email','loadFournisseurs')+makeSortableHeader('fournisseurs','adresse','Adresse','loadFournisseurs')+makeSortableHeader('fournisseurs','description','Description','loadFournisseurs')+makeSortableHeader('fournisseurs','ca','CA','loadFournisseurs')+'<th>Catégories</th>'+makeSortableHeader('fournisseurs','createdAt','Date créé','loadFournisseurs')+'<th>Actions</th></tr></thead><tbody></tbody></table></div><div id="fournisseursPagination"></div></div>';
