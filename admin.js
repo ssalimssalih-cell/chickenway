@@ -904,7 +904,7 @@ function deleteFournisseur(id) {
 }
 
 // ==================== COMMANDES EN LIGNE ====================
-// ==================== COMMANDES EN LIGNE ====================
+// ==================== COMMANDES EN LIGNE (sans index, filtre côté client) ====================
 function loadCommandesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'+
         '<input type="text" id="commandesSearchInput" placeholder="🔍 Rechercher (client, email, tél, produit)..." style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px; width:250px;" onkeyup="commandesSearch = this.value; currentPages.commandes=1; applyCommandesFilters();">'+
@@ -916,13 +916,20 @@ function loadCommandesPage(c) {
 
 async function loadCommandes() {
     try {
+        // Charger toutes les commandes (toutes sources confondues) puis filtrer côté client
         const snapshot = await db.collection('commandes')
-            .where('source', '==', 'client')   // ✅ uniquement les commandes clients
             .orderBy('createdAt', 'desc')
             .limit(500)
             .get();
         allCommandesData = [];
-        snapshot.forEach(dc => { var d = dc.data(); d.id = dc.id; allCommandesData.push(d); });
+        snapshot.forEach(dc => {
+            var d = dc.data();
+            d.id = dc.id;
+            // Garder uniquement les commandes des clients
+            if (d.source === 'client') {
+                allCommandesData.push(d);
+            }
+        });
     } catch(e) {
         console.error('Erreur chargement commandes en ligne :', e);
     }
