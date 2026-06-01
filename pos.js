@@ -1,8 +1,8 @@
-// ==================== POS.JS COMPLET (INGRÉDIENTS À EXCLURE, DÉDUCTION CORRECTE) ====================
+// ==================== POS.JS COMPLET (INTERDITS = INGRÉDIENTS RÉELS, REGROUPÉS PAR CATÉGORIE) ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
-var posSaucesList = ['Ketchup','Sauce Hot','Cheezy','Sauce Burger','Algérienne','Barbecue','Mayonnaise','Harissa','Samouraï','Andalouse']; // inutilisée mais conservée
+var posSaucesList = ['Ketchup','Sauce Hot','Cheezy','Sauce Burger','Algérienne','Barbecue','Mayonnaise','Harissa','Samouraï','Andalouse']; // conservée mais plus utilisée
 var posInterditsList = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade']; // fallback
 var posEpicesList = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var posSelList = ['Normal','Moins de sel','Sans sel'];
@@ -275,11 +275,20 @@ function posAddToCartOrOpenOptions(pid) {
     }
 }
 
-// ✅ MODAL DE PERSONNALISATION : AFFICHE LES INGRÉDIENTS DE LA RECETTE (EXCLURE = DÉCOCHÉ)
+// ✅ MODAL DE PERSONNALISATION : affiche les ingrédients réels, groupés par catégorie
 async function posOpenOptionsModal(pid) {
     var p = posProductsList.find(function(x) { return x.id === pid; });
     if (!p) return;
     if (p.stock !== undefined && p.stock <= 0) { alert('Rupture'); return; }
+
+    // Charger les stocks si ce n'est pas déjà fait (nécessaire pour avoir les catégories)
+    if (typeof allStockData === 'undefined' || allStockData.length === 0) {
+        try {
+            const snap = await db.collection('stock').orderBy('nom').get();
+            allStockData = [];
+            snap.forEach(d => { let dd = d.data(); dd.id = d.id; allStockData.push(dd); });
+        } catch(e) { console.error(e); }
+    }
 
     // Récupérer les ingrédients du produit depuis Firestore
     try {
@@ -294,18 +303,42 @@ async function posOpenOptionsModal(pid) {
         posCurrentProductIngredients = [];
     }
 
+    // Regrouper les ingrédients par catégorie (déterminée depuis le stock)
+    var grouped = {};
+    posCurrentProductIngredients.forEach(function(ing) {
+        var stockItem = allStockData.find(function(s) { return s.id === ing.idStock; });
+        var cat = stockItem ? stockItem.categorie : 'Autre';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(ing.nom);
+    });
+
+    // Ordre d'affichage souhaité
+    var order = ['Sauces', 'Légumes', 'Fruits', 'Viande', 'Poulet', 'Poisson'];
+    var sortedCats = Object.keys(grouped).sort(function(a, b) {
+        var idxA = order.indexOf(a), idxB = order.indexOf(b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b);
+    });
+
     posCurrentProductId = pid;
     var h = '<h4>' + p.nom + '</h4>';
 
-    // Ingrédients à exclure (coché = ne pas utiliser)
-    if (posCurrentProductIngredients.length > 0) {
-        h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 Ingrédients à exclure :</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
-        posCurrentProductIngredients.forEach(function(ing) {
-            h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="pos-interdit-check" value="' + ing.nom + '"> ' + ing.nom + '</label>';
-        });
-        h += '</div></div>';
-    } else {
+    if (sortedCats.length === 0) {
         h += '<div style="margin-bottom:12px;color:#94a3b8;font-size:0.85rem;">Aucun ingrédient à exclure</div>';
+    } else {
+        sortedCats.forEach(function(cat) {
+            h += '<div style="margin-bottom:12px;">';
+            h += '<label style="font-weight:600;">🥫 ' + cat + '</label>';
+            h += '<div style="display:flex;flex-wrap:wrap;gap:5px;">';
+            grouped[cat].forEach(function(ingredient) {
+                h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;">';
+                h += '<input type="checkbox" class="pos-interdit-check" value="' + ingredient + '"> ' + ingredient;
+                h += '</label>';
+            });
+            h += '</div></div>';
+        });
     }
 
     // Épices et Sel (inchangés)
@@ -341,8 +374,8 @@ function posConfirmOptions() {
             prixAchat: p.prixAchat || 0, prixPromo: p.prixPromo || 0,
             prixVente: p.prixVente || 0, quantite: 1,
             categorie: p.categorie || '', imageBase64: p.imageBase64 || '',
-            sauces: [],                // plus utilisé
-            interdits: interdits,      // ingrédients exclus
+            sauces: [],
+            interdits: interdits,
             epice: epice, sel: sel
         });
     }
@@ -515,7 +548,7 @@ function posGoToStep1() { posStep = 1; delete window.posCommandeId; delete windo
 function posSetPaymentMethod(m) { if ((m === 'credit' || m === 'partiel') && (!posCurrentClient || !posCurrentClient.id)) { alert('Client requis pour crédit/partiel.'); return; } posPaymentMethod = m; posAmountGiven = 0; renderPOS(); }
 function posCalculateChange() { var ai = document.getElementById('posAmountGiven'), cd = document.getElementById('posChangeDisplay'); if (!ai || !cd) return; var st = posCalculateTotal(); var t = st - posDiscountMAD; posAmountGiven = parseFloat(ai.value) || 0; var c = posAmountGiven - t; if (posAmountGiven > 0) { cd.innerHTML = c >= 0 ? '<div class="pos-change-positive"><span>Rendu</span><span>' + c.toFixed(2) + ' MAD</span></div>' : '<div class="pos-change-negative"><span>Manquant</span><span>' + Math.abs(c).toFixed(2) + ' MAD</span></div>'; } else { cd.innerHTML = ''; } }
 
-// ==================== FINALISATION (EXCLUT LES INGRÉDIENTS COCHÉS DE LA DÉDUCTION) ====================
+// ==================== FINALISATION (EXCLUT LES INTERDITS DE LA DÉDUCTION) ====================
 async function posFinalizeSale() {
     var st = posCalculateTotal(); var t = st - posDiscountMAD;
     if (!posCurrentClient && !posCurrentTable) { alert('Client ou table requis.'); return; }
@@ -572,7 +605,7 @@ async function posFinalizeSale() {
             delete window.posVenteId;
         }
 
-        // ✅ Mise à jour du stock (ingrédients non exclus)
+        // ✅ Mise à jour du stock (ingrédients NON EXCLUS)
         for (var i = 0; i < posCart.length; i++) {
             var it = posCart[i];
             try {
@@ -662,4 +695,4 @@ async function posFinalizeSale() {
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS avec interdits basés sur les ingrédients réels, exclusion du stock OK');
+console.log('POS JS avec ingrédients catégorisés et exclusion OK');
