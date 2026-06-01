@@ -904,6 +904,7 @@ function deleteFournisseur(id) {
 }
 
 // ==================== COMMANDES EN LIGNE ====================
+// ==================== COMMANDES EN LIGNE ====================
 function loadCommandesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-basket"></i> Commandes en ligne</h3><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'+
         '<input type="text" id="commandesSearchInput" placeholder="🔍 Rechercher (client, email, tél, produit)..." style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px; width:250px;" onkeyup="commandesSearch = this.value; currentPages.commandes=1; applyCommandesFilters();">'+
@@ -916,13 +917,15 @@ function loadCommandesPage(c) {
 async function loadCommandes() {
     try {
         const snapshot = await db.collection('commandes')
-            .where('source', '==', 'client')
+            .where('source', '==', 'client')   // ✅ uniquement les commandes clients
             .orderBy('createdAt', 'desc')
             .limit(500)
             .get();
         allCommandesData = [];
         snapshot.forEach(dc => { var d = dc.data(); d.id = dc.id; allCommandesData.push(d); });
-    } catch(e){ console.error(e); }
+    } catch(e) {
+        console.error('Erreur chargement commandes en ligne :', e);
+    }
     currentPages.commandes = 1;
     applyCommandesFilters();
 }
@@ -1001,7 +1004,6 @@ function cancelCommande(cid) {
         CacheDB.write('commandes', cid, { statut: 'annule' }, 'update').then(function() { alert('❌ Annulée'); loadCommandes(); CacheDB.sync(); });
     }
 }
-
 // ==================== VENTES ====================
 function loadVentesPage(c) {
     c.innerHTML = '<div class="content-card"><div class="card-header"><h3><i class="fas fa-shopping-cart"></i> Ventes</h3><div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">'+
