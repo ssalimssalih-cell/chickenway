@@ -1,4 +1,4 @@
-// ==================== MENU TACTILE AVEC PERSONNALISATION (INGRÉDIENTS RÉELS) ====================
+// ==================== MENU TACTILE AVEC PERSONNALISATION (INGRÉDIENTS RÉELS, CATÉGORISÉS) ====================
 var menuTableNum = null;
 var menuCart = [];
 var menuCategories = [];
@@ -9,12 +9,9 @@ var menuCurrentProductId = null;
 var menuEpices = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var menuSel = ['Normal','Moins de sel','Sans sel'];
 
-var allStockData = []; // sera chargé si nécessaire
+var allStockData = []; // sera chargé depuis Firestore si nécessaire
 
-function closeMenuTactile() {
-    window.location.href = window.location.pathname;
-}
-
+function closeMenuTactile() { window.location.href = window.location.pathname; }
 function requestFullscreen() {
     const elem = document.documentElement;
     const method = elem.requestFullscreen || elem.webkitRequestFullscreen || elem.msRequestFullscreen;
@@ -37,20 +34,44 @@ async function loadMenuData() {
     try {
         var content = document.getElementById('menuTactileContent');
         if (content) content.innerHTML = '<div style="text-align:center;padding:60px;"><i class="fas fa-spinner fa-spin" style="font-size:3rem;color:#f39c12;"></i><p>Chargement...</p></div>';
+
+        // Charger les catégories et produits
         var catSnap = await db.collection('categories').get();
         menuCategories = [];
         catSnap.forEach(d => menuCategories.push({ id: d.id, nom: d.data().nom || 'Sans nom', imageBase64: d.data().imageBase64 || '', recette: d.data().recette || false }));
+
         var prodSnap = await db.collection('products').get();
         menuProducts = [];
-        prodSnap.forEach(d => { var dd = d.data(); if (dd.disponible !== false) menuProducts.push({ id: d.id, nom: dd.nom || 'Sans nom', prixVente: dd.prixVente||0, prixPromo: dd.prixPromo||0, stock: dd.stock, categorie: dd.categorie || '', imageBase64: dd.imageBase64 || '' }); });
+        prodSnap.forEach(d => {
+            var dd = d.data();
+            if (dd.disponible !== false) {
+                menuProducts.push({
+                    id: d.id, nom: dd.nom || 'Sans nom', prixVente: dd.prixVente||0, prixPromo: dd.prixPromo||0,
+                    stock: dd.stock, categorie: dd.categorie || '', imageBase64: dd.imageBase64 || ''
+                });
+            }
+        });
+
+        // Précharger le stock pour la personnalisation (nécessaire pour les catégories)
+        try {
+            const stockSnap = await db.collection('stock').orderBy('nom').get();
+            allStockData = [];
+            stockSnap.forEach(d => { let dd = d.data(); dd.id = d.id; allStockData.push(dd); });
+        } catch(e) { console.error('Erreur chargement stock menu tactile', e); }
+
         renderMenuTactile();
-    } catch(e) { console.error(e); var content = document.getElementById('menuTactileContent'); if (content) content.innerHTML = '<div style="text-align:center;padding:50px;"><i class="fas fa-exclamation-circle" style="font-size:3rem;color:#ef4444;"></i><p>Erreur</p><button onclick="loadMenuData()">Réessayer</button></div>'; }
+    } catch(e) {
+        console.error(e);
+        var content = document.getElementById('menuTactileContent');
+        if (content) content.innerHTML = '<div style="text-align:center;padding:50px;"><i class="fas fa-exclamation-circle" style="font-size:3rem;color:#ef4444;"></i><p>Erreur</p><button onclick="loadMenuData()">Réessayer</button></div>';
+    }
 }
 
 function renderMenuTactile() {
     var content = document.getElementById('menuTactileContent'); if (!content) return;
     var total = menuCalcTotal();
     var html = '';
+
     // En-tête
     html += '<div style="position:sticky; top:0; z-index:20; background:linear-gradient(135deg,#f39c12,#e67e22); color:#fff; border-radius:0 0 24px 24px; margin-bottom:15px; text-align:center; padding:20px 15px;">';
     html += '<button onclick="closeMenuTactile()" style="position:absolute; top:10px; right:15px; background:rgba(0,0,0,0.3); border:none; color:white; font-size:1.8rem; width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;">&times;</button>';
@@ -110,7 +131,9 @@ function renderMenuTactile() {
     html += '<button onclick="menuValiderCommande()" '+(menuCart.length===0?'disabled':'')+' style="width:100%;padding:12px;border:none;border-radius:12px;background:'+(menuCart.length===0?'#cbd5e1':'linear-gradient(135deg,#f39c12,#e67e22)')+';color:#fff;font-weight:700;">✅ Commander</button>';
     if (menuCart.length>0) html += '<button onclick="menuClearCart()" style="width:100%;margin-top:8px;padding:6px;border:1px solid #ccc;background:#fff;border-radius:12px;">🗑️ Vider</button>';
     html += '</div>';
+
     html += '<button onclick="requestFullscreen()" style="position:fixed;bottom:20px;right:20px;background:#f39c12;color:white;border:none;border-radius:50%;width:45px;height:45px;font-size:20px;box-shadow:0 2px 8px rgba(0,0,0,0.2);cursor:pointer;z-index:1000;">⛶</button>';
+
     content.innerHTML = html;
 }
 
@@ -126,6 +149,7 @@ function menuAddToCartOrOpenOptions(pid) {
     if (p.stock !== undefined && p.stock <= 0) { alert('⚠️ Rupture de stock.'); return; }
     var cat = menuCategories.find(c => c.nom === p.categorie);
     var isRecette = cat && cat.recette === true;
+
     if (isRecette) {
         menuCurrentProductId = pid;
         menuOpenOptions(pid);
@@ -137,33 +161,43 @@ function menuAddToCartOrOpenOptions(pid) {
     }
 }
 
-// ✅ Modal de personnalisation avec ingrédients réels (regroupés par catégorie)
+// ✅ Modal de personnalisation avec ingrédients réels, groupés par catégorie
 async function menuOpenOptions(pid) {
     var p = menuProducts.find(x => x.id === pid);
     if (!p) return;
     if (p.stock !== undefined && p.stock <= 0) { alert('⚠️ Rupture'); return; }
 
-    // Charger le stock si pas encore fait
-    if (typeof allStockData === 'undefined' || allStockData.length === 0) {
-        try { const snap = await db.collection('stock').orderBy('nom').get(); allStockData = []; snap.forEach(d => { let dd = d.data(); dd.id = d.id; allStockData.push(dd); }); } catch(e){}
+    // Si le stock n'est pas encore chargé, on le fait maintenant
+    if (allStockData.length === 0) {
+        try {
+            const snap = await db.collection('stock').orderBy('nom').get();
+            allStockData = [];
+            snap.forEach(d => { let dd = d.data(); dd.id = d.id; allStockData.push(dd); });
+        } catch(e) { console.error(e); }
     }
 
     // Récupérer les ingrédients du produit
+    var productIngredients = [];
     try {
         const doc = await db.collection('products').doc(pid).get();
-        var productIngredients = doc.exists ? (doc.data().ingredients || []) : [];
-    } catch(e) { var productIngredients = []; }
+        if (doc.exists) {
+            var productData = doc.data();
+            productIngredients = productData.ingredients || [];
+        }
+    } catch(e) { console.error(e); }
 
     // Regrouper par catégorie
     var grouped = {};
-    productIngredients.forEach(ing => {
-        var stockItem = allStockData.find(s => s.id === ing.idStock);
+    productIngredients.forEach(function(ing) {
+        var stockItem = allStockData.find(function(s) { return s.id === ing.idStock; });
         var cat = stockItem ? stockItem.categorie : 'Autre';
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(ing.nom);
     });
-    var order = ['Sauces','Légumes','Fruits','Viande','Poulet','Poisson'];
-    var sortedCats = Object.keys(grouped).sort((a,b) => {
+
+    // Ordre d'affichage préféré
+    var order = ['Sauces', 'Légumes', 'Fruits', 'Viande', 'Poulet', 'Poisson'];
+    var sortedCats = Object.keys(grouped).sort(function(a, b) {
         var idxA = order.indexOf(a), idxB = order.indexOf(b);
         if (idxA !== -1 && idxB !== -1) return idxA - idxB;
         if (idxA !== -1) return -1;
@@ -172,14 +206,19 @@ async function menuOpenOptions(pid) {
     });
 
     menuCurrentProductId = pid;
-    var h = '<h4>'+p.nom+'</h4>';
+    var h = '<h4>' + p.nom + '</h4>';
+
     if (sortedCats.length === 0) {
         h += '<div style="margin-bottom:12px;color:#94a3b8;">Aucun ingrédient à exclure</div>';
     } else {
-        sortedCats.forEach(cat => {
-            h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🥫 '+cat+'</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
-            grouped[cat].forEach(ing => {
-                h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="checkbox" class="menu-interdit-check" value="'+ing+'"> '+ing+'</label>';
+        sortedCats.forEach(function(cat) {
+            h += '<div style="margin-bottom:12px;">';
+            h += '<label style="font-weight:600;">🥫 ' + cat + '</label>';
+            h += '<div style="display:flex;flex-wrap:wrap;gap:5px;">';
+            grouped[cat].forEach(function(ing) {
+                h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;">';
+                h += '<input type="checkbox" class="menu-interdit-check" value="' + ing + '"> ' + ing;
+                h += '</label>';
             });
             h += '</div></div>';
         });
@@ -187,14 +226,18 @@ async function menuOpenOptions(pid) {
 
     // Épices et Sel
     h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
-    menuEpices.forEach((s,idx) => h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="menu-epice" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>');
+    menuEpices.forEach(function(s, idx) {
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="menu-epice" value="' + s + '" ' + (idx === 0 ? 'checked' : '') + '> ' + s + '</label>';
+    });
     h += '</div></div>';
     h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🧂 Sel:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
-    menuSel.forEach((s,idx) => h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="menu-sel" value="'+s+'" '+(idx===0?'checked':'')+'> '+s+'</label>');
+    menuSel.forEach(function(s, idx) {
+        h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="menu-sel" value="' + s + '" ' + (idx === 0 ? 'checked' : '') + '> ' + s + '</label>';
+    });
     h += '</div></div>';
 
     h += '<div style="text-align:right;margin-top:15px;"><button class="btn-cancel" onclick="closeModal()">Annuler</button> <button class="btn-save" onclick="menuConfirmOptions()">Ajouter</button></div>';
-    openModal('Personnaliser - '+p.nom, h);
+    openModal('Personnaliser - ' + p.nom, h);
 }
 
 function menuConfirmOptions() {
@@ -204,28 +247,36 @@ function menuConfirmOptions() {
     var p = menuProducts.find(x => x.id === menuCurrentProductId);
     if (!p) { closeModal(); return; }
     var existing = menuCart.find(x => x.id === p.id);
-    if (existing) { if (p.stock !== undefined && existing.quantite >= p.stock) { alert('Stock insuffisant'); closeModal(); return; } existing.quantite++; }
-    else { var price = (p.prixPromo && p.prixPromo > 0) ? p.prixPromo : p.prixVente; menuCart.push({ id: p.id, nom: p.nom, prixUnitaire: price, quantite: 1, sauces: [], interdits: interdits, epice: epice, sel: sel }); }
-    closeModal(); renderMenuTactile();
+    if (existing) {
+        if (p.stock !== undefined && existing.quantite >= p.stock) { alert('Stock insuffisant'); closeModal(); return; }
+        existing.quantite++;
+    } else {
+        var price = (p.prixPromo && p.prixPromo > 0) ? p.prixPromo : p.prixVente;
+        menuCart.push({ id: p.id, nom: p.nom, prixUnitaire: price, quantite: 1, sauces: [], interdits: interdits, epice: epice, sel: sel });
+    }
+    closeModal();
+    renderMenuTactile();
 }
 
 async function menuValiderCommande() {
     if (menuCart.length === 0) { alert('⚠️ Panier vide.'); return; }
     var total = menuCalcTotal();
-    if (!confirm('📋 Confirmer la commande ?\nTable '+menuTableNum+'\nTotal: '+total.toFixed(2)+' MAD')) return;
+    if (!confirm('📋 Confirmer la commande ?\nTable ' + menuTableNum + '\nTotal: ' + total.toFixed(2) + ' MAD')) return;
     try {
         await db.collection('commandes').add({
             items: JSON.parse(JSON.stringify(menuCart)),
             total: total,
             table: menuTableNum,
-            clientName: 'Table '+menuTableNum,
+            clientName: 'Table ' + menuTableNum,
             statut: 'en_attente',
             source: 'menu_tactile',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         alert('✅ Commande envoyée !');
-        menuCart = []; renderMenuTactile(); window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch(e) { alert('❌ Erreur: '+e.message); }
+        menuCart = [];
+        renderMenuTactile();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch(e) { alert('❌ Erreur: ' + e.message); }
 }
 
-console.log('🍽️ Menu tactile avec ingrédients réels OK');
+console.log('🍽️ Menu tactile avec ingrédients réels catégorisés prêt');
