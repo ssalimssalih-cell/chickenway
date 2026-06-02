@@ -33,7 +33,7 @@ function loadDepensesPage(c) {
     // ---------- SECTION STOCK ----------
     html += '<div class="content-card" style="margin-bottom:30px;">';
     html += '<div class="card-header">';
-    html += '<h3><i class="fas fa-boxes"></i> Stock (matières premières, emballages…)</h3>';
+    html += '<h3><i class="fas fa-boxes"></i> Stock (matières premières, emballages…) <span id="stockTotalDisplay" style="font-size:0.9rem;color:#16a34a;"></span></h3>';
     html += '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">';
     html += '<input type="text" id="stockSearchInput" placeholder="🔍 Rechercher un produit..." style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px; width:200px;" onkeyup="stockSearchQuery = this.value.trim().toLowerCase(); stockCurrentPage=1; renderStockTable();">';
     html += '<button class="btn-add" onclick="openStockForm()"><i class="fas fa-plus"></i> Ajouter</button>';
@@ -73,7 +73,7 @@ function loadDepensesPage(c) {
     // ---------- SECTION PERSONNEL ----------
     html += '<div class="content-card">';
     html += '<div class="card-header">';
-    html += '<h3><i class="fas fa-users"></i> Personnel</h3>';
+    html += '<h3><i class="fas fa-users"></i> Personnel <span id="personnelTotalDisplay" style="font-size:0.9rem;color:#16a34a;"></span></h3>';
     html += '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">';
     html += '<input type="text" id="personnelSearchInput" placeholder="🔍 Rechercher..." style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px; width:200px;" onkeyup="personnelSearchQuery = this.value.trim().toLowerCase(); personnelCurrentPage=1; renderPersonnelTable();">';
     html += '<button class="btn-add" onclick="openPersonnelForm()"><i class="fas fa-plus"></i> Ajouter</button>';
@@ -95,7 +95,7 @@ function loadDepensesPage(c) {
     loadPersonnel();
 }
 
-// ==================== STOCK (inchangé) ====================
+// ==================== STOCK (avec total) ====================
 async function loadStock() {
     try {
         const snapshot = await db.collection('stock').orderBy('nom').get();
@@ -118,6 +118,9 @@ function renderStockTable() {
                    (d.categorie||'').toLowerCase().indexOf(stockSearchQuery) !== -1;
         });
     }
+
+    var totalValue = data.reduce(function(sum, d) { return sum + ((d.prixAchat||0) * (d.quantite||0)); }, 0);
+    document.getElementById('stockTotalDisplay').textContent = '(Valeur totale : ' + totalValue.toFixed(2) + ' MAD)';
 
     var totalPages = Math.ceil(data.length / stockItemsPerPage);
     var start = (stockCurrentPage - 1) * stockItemsPerPage;
@@ -156,6 +159,7 @@ function renderStockTable() {
     document.getElementById('stockPagination').innerHTML = pagHTML;
 }
 
+// (Le reste des fonctions stock : openStockForm, saveStock, editStock, deleteStock, convertirQuantiteBase – inchangé)
 function openStockForm(data) {
     data = data || {};
     var selectedCategorie = data.categorie || '';
@@ -237,10 +241,10 @@ function convertirQuantiteBase(quantite, unite) {
     }
 }
 
-// ==================== DÉPENSES (sans Achats matières premières ni Emballages) ====================
+// ==================== DÉPENSES (avec total) ====================
 var depenseCategories = {
     "Boissons": ["Eau", "Sodas", "Jus", "Café", "Thé"],
-    "Personnel": ["Salaires", "Avances", "Primes", "CNSS"],   // Cette catégorie "Personnel" dans les dépenses peut être conservée pour les charges liées au personnel, mais la section Personnel dédiée gère les employés.
+    "Personnel": ["Salaires", "Avances", "Primes", "CNSS"],
     "Charges du local": ["Loyer", "Eau", "Électricité", "Gaz", "Internet", "Téléphone"],
     "Maintenance": ["Réparation cuisine", "Climatisation", "Plomberie", "Matériel"],
     "Marketing": ["Publicité Facebook", "Publicité Instagram", "Flyers", "Promotions"],
@@ -273,6 +277,7 @@ function renderDepensesTable() {
     if (!tb) return;
     var data = (window.filteredDepenses || allDepensesData).slice();
     var total = data.reduce(function(sum, d){ return sum + (d.montant||0); }, 0);
+    document.getElementById('depensesTotalDisplay').textContent = '(Total : ' + total.toFixed(2) + ' MAD)';
 
     var totalPages = Math.ceil(data.length / itemsPerPage);
     var start = (currentPages.depenses - 1) * itemsPerPage;
@@ -282,7 +287,6 @@ function renderDepensesTable() {
     if (pageData.length === 0) {
         tb.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Aucune dépense</td></tr>';
         document.getElementById('depensesPagination').innerHTML = '';
-        document.getElementById('depensesTotalDisplay').textContent = '';
         return;
     }
 
@@ -292,8 +296,6 @@ function renderDepensesTable() {
         var sousCategories = d.sousCategories ? d.sousCategories.join(', ') : '-';
         tb.innerHTML += '<tr><td><small>'+(d.id||'').substring(0,6)+'</small></td><td><strong>'+(d.titre||d.description||'-')+'</strong></td><td><small>'+(d.categorie||'-')+'</small></td><td><small>'+sousCategories+'</small></td><td style="color:#ef4444;font-weight:700;">'+(d.montant||0).toFixed(2)+' MAD</td><td><small>'+(d.description||'-')+'</small></td><td><small>'+dateCreated+'</small></td><td><button class="btn-edit" onclick="editDepense(\''+d.id+'\')"><i class="fas fa-edit"></i></button> <button class="btn-delete" onclick="deleteDepense(\''+d.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
     }
-
-    document.getElementById('depensesTotalDisplay').textContent = '(Total : ' + total.toFixed(2) + ' MAD)';
 
     var pagHTML = '';
     if (totalPages > 1) {
@@ -404,7 +406,7 @@ function deleteDepense(id) {
     }
 }
 
-// ==================== PERSONNEL (NOUVELLE SECTION) ====================
+// ==================== PERSONNEL (avec total des salaires) ====================
 async function loadPersonnel() {
     try {
         const snapshot = await db.collection('personnel').orderBy('nom').get();
@@ -427,6 +429,9 @@ function renderPersonnelTable() {
                    (d.role||'').toLowerCase().indexOf(personnelSearchQuery) !== -1;
         });
     }
+
+    var totalSalaires = data.reduce(function(sum, d) { return sum + (d.salaire||0); }, 0);
+    document.getElementById('personnelTotalDisplay').textContent = '(Total salaires : ' + totalSalaires.toFixed(2) + ' MAD)';
 
     var totalPages = Math.ceil(data.length / personnelItemsPerPage);
     var start = (personnelCurrentPage - 1) * personnelItemsPerPage;
@@ -530,4 +535,4 @@ async function deletePersonnel(id) {
     }
 }
 
-console.log('Dépenses + Stock + Personnel prêt');
+console.log('Dépenses + Stock + Personnel avec totaux OK');
