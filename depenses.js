@@ -1,7 +1,9 @@
 // ==================== GESTION DU STOCK, DES DÉPENSES ET DU PERSONNEL ====================
 
+// Période globale (commune aux dépenses et au personnel)
+var globalPeriod = 'all';
+
 // Variables pour les filtres dépenses
-var depensesPeriod = 'all';
 var depensesSearch = '';
 var depensesCategoryFilter = '';
 
@@ -14,21 +16,29 @@ var stockCategories = [
     "Autre"
 ];
 
-// ----- Variables globales pour le stock -----
 var allStockData = [];
 var stockSearchQuery = '';
 var stockCurrentPage = 1;
 var stockItemsPerPage = 15;
 
-// ----- Variables globales pour le personnel -----
 var allPersonnelData = [];
 var personnelSearchQuery = '';
 var personnelCurrentPage = 1;
 var personnelItemsPerPage = 15;
 
-// ==================== PAGE PRINCIPALE (TROIS SECTIONS) ====================
+// ==================== PAGE PRINCIPALE ====================
 function loadDepensesPage(c) {
     var html = '';
+
+    // ---------- FILTRE DE DATE GLOBAL ----------
+    html += '<div class="content-card" style="margin-bottom:20px; padding:15px;">';
+    html += '<div style="display:flex; align-items:center; gap:15px;">';
+    html += '<strong><i class="fas fa-calendar-alt"></i> Période :</strong>';
+    html += '<select id="globalPeriodSelect" style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px;" onchange="globalPeriod = this.value; loadDepenses(); loadPersonnel();">';
+    html += getPeriodOptions('all');
+    html += '</select>';
+    html += '</div>';
+    html += '</div>';
 
     // ---------- SECTION STOCK ----------
     html += '<div class="content-card" style="margin-bottom:30px;">';
@@ -47,7 +57,7 @@ function loadDepensesPage(c) {
     html += '<div id="stockPagination"></div>';
     html += '</div>';
 
-    // ---------- SECTION DÉPENSES (sans Achats matières premières ni Emballages) ----------
+    // ---------- SECTION DÉPENSES ----------
     var catOptions = '<option value="">Toutes les catégories</option>';
     Object.keys(depenseCategories).forEach(function(cat) {
         catOptions += '<option value="' + cat + '">' + cat + '</option>';
@@ -58,7 +68,6 @@ function loadDepensesPage(c) {
     html += '<h3><i class="fas fa-money-bill-wave"></i> Dépenses <span id="depensesTotalDisplay" style="font-size:0.9rem;color:#16a34a;"></span></h3>';
     html += '<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">';
     html += '<input type="text" id="depensesSearchInput" placeholder="🔍 Rechercher..." style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px; width:200px;" onkeyup="depensesSearch = this.value; currentPages.depenses=1; applyDepensesFilters();">';
-    html += '<select id="depensesPeriodSelect" style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px;" onchange="depensesPeriod = this.value; currentPages.depenses=1; applyDepensesFilters();">' + getPeriodOptions('all') + '</select>';
     html += '<select id="depensesCategorySelect" style="padding:8px 12px; border:2px solid #e2e8f0; border-radius:8px;" onchange="depensesCategoryFilter = this.value; currentPages.depenses=1; applyDepensesFilters();">' + catOptions + '</select>';
     html += '<button class="btn-add" onclick="openDepenseForm()"><i class="fas fa-plus"></i> Nouvelle</button>';
     html += '<button class="btn-add" onclick="loadDepenses()"><i class="fas fa-sync"></i> Actualiser</button>';
@@ -95,7 +104,7 @@ function loadDepensesPage(c) {
     loadPersonnel();
 }
 
-// ==================== STOCK (avec total) ====================
+// ==================== STOCK ====================
 async function loadStock() {
     try {
         const snapshot = await db.collection('stock').orderBy('nom').get();
@@ -159,7 +168,7 @@ function renderStockTable() {
     document.getElementById('stockPagination').innerHTML = pagHTML;
 }
 
-// (Le reste des fonctions stock : openStockForm, saveStock, editStock, deleteStock, convertirQuantiteBase – inchangé)
+// (Fonctions stock : openStockForm, saveStock, editStock, deleteStock, convertirQuantiteBase – inchangées)
 function openStockForm(data) {
     data = data || {};
     var selectedCategorie = data.categorie || '';
@@ -241,7 +250,7 @@ function convertirQuantiteBase(quantite, unite) {
     }
 }
 
-// ==================== DÉPENSES (avec total) ====================
+// ==================== DÉPENSES (sans son propre filtre période) ====================
 var depenseCategories = {
     "Boissons": ["Eau", "Sodas", "Jus", "Café", "Thé"],
     "Personnel": ["Salaires", "Avances", "Primes", "CNSS"],
@@ -265,7 +274,7 @@ async function loadDepenses() {
 }
 
 function applyDepensesFilters() {
-    var filtered = filterByPeriod(allDepensesData, depensesPeriod);
+    var filtered = filterByPeriod(allDepensesData, globalPeriod);   // Utilise la période globale
     if (depensesSearch) filtered = filterBySearch(filtered, depensesSearch, ['titre','description','categorie','sousCategories']);
     if (depensesCategoryFilter) filtered = filtered.filter(function(d){ return d.categorie === depensesCategoryFilter; });
     window.filteredDepenses = filtered;
@@ -308,6 +317,7 @@ function renderDepensesTable() {
     document.getElementById('depensesPagination').innerHTML = pagHTML;
 }
 
+// (Les fonctions openDepenseForm, saveDepense, editDepense, deleteDepense restent identiques)
 function openDepenseForm(data) {
     data = data || {};
     var selectedCategorie = data.categorie || '';
@@ -406,7 +416,7 @@ function deleteDepense(id) {
     }
 }
 
-// ==================== PERSONNEL (avec total des salaires) ====================
+// ==================== PERSONNEL (avec filtre par période globale) ====================
 async function loadPersonnel() {
     try {
         const snapshot = await db.collection('personnel').orderBy('nom').get();
@@ -418,11 +428,29 @@ async function loadPersonnel() {
     renderPersonnelTable();
 }
 
+// Fonction de filtrage par période pour le personnel (basée sur dateEmbauche)
+function filterPersonnelByPeriod(data, period) {
+    if (!period || period === 'all') return data;
+    var now = Date.now();
+    var days = parseInt(period);
+    if (isNaN(days)) return data;
+    var cutoff = now - days * 86400000;
+    return data.filter(function(d) {
+        if (!d.dateEmbauche) return false;
+        var parts = d.dateEmbauche.split('-');
+        var embaucheDate = new Date(parts[0], parts[1]-1, parts[2]);
+        return embaucheDate.getTime() >= cutoff;
+    });
+}
+
 function renderPersonnelTable() {
     var tb = document.querySelector('#personnelTable tbody');
     if (!tb) return;
 
     var data = allPersonnelData.slice();
+    // Appliquer filtre période globale
+    data = filterPersonnelByPeriod(data, globalPeriod);
+    // Recherche
     if (personnelSearchQuery) {
         data = data.filter(function(d) {
             return (d.nom||'').toLowerCase().indexOf(personnelSearchQuery) !== -1 ||
@@ -470,6 +498,7 @@ function renderPersonnelTable() {
     document.getElementById('personnelPagination').innerHTML = pagHTML;
 }
 
+// (Fonctions personnel : openPersonnelForm, savePersonnel, editPersonnel, deletePersonnel – inchangées)
 function openPersonnelForm(data) {
     data = data || {};
     var h = '';
@@ -535,4 +564,4 @@ async function deletePersonnel(id) {
     }
 }
 
-console.log('Dépenses + Stock + Personnel avec totaux OK');
+console.log('Dépenses + Stock + Personnel avec filtre date global OK');
