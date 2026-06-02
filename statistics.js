@@ -59,34 +59,29 @@ async function loadStatistiques() {
     if (!statsContent) return;
 
     try {
-        const [ventesSnap, creditsSnap, depensesSnap, commandesSnap, produitsSnap, categoriesSnap, clientsSnap] = await Promise.all([
-            db.collection('ventes').orderBy('createdAt', 'desc').limit(5000).get(),
-            db.collection('credits').orderBy('createdAt', 'desc').limit(2000).get(),
-            db.collection('depenses').orderBy('createdAt', 'desc').limit(2000).get(),
-            db.collection('commandes').orderBy('createdAt', 'desc').limit(2000).get(),
+        // Charger toutes les collections nécessaires en parallèle
+        const [
+            ventesSnap, commandesSnap, depensesSnap, clientsSnap, produitsSnap, categoriesSnap,
+            stockSnap, personnelSnap, creditsSnap, settingsSnap
+        ] = await Promise.all([
+            db.collection('ventes').orderBy('createdAt','desc').get(),
+            db.collection('commandes').orderBy('createdAt','desc').get(),
+            db.collection('depenses').orderBy('createdAt','desc').get(),
+            db.collection('clients').get(),
             db.collection('products').get(),
             db.collection('categories').get(),
-            db.collection('clients').get()
+            db.collection('stock').get(),
+            db.collection('personnel').get(),
+            db.collection('credits').orderBy('createdAt','desc').get(),
+            db.collection('settings').doc('fidelite').get()
         ]);
 
-        // Filtrer par période
+        // Filtrer par période (si nécessaire)
         var ventes = [];
         ventesSnap.forEach(d => {
             var dd = d.data(); dd.id = d.id;
             var docDate = toDate(dd.createdAt);
             if (!startDate || (docDate && docDate >= startDate)) ventes.push(dd);
-        });
-        var credits = [];
-        creditsSnap.forEach(d => {
-            var dd = d.data(); dd.id = d.id;
-            var docDate = toDate(dd.createdAt);
-            if (!startDate || (docDate && docDate >= startDate)) credits.push(dd);
-        });
-        var depenses = [];
-        depensesSnap.forEach(d => {
-            var dd = d.data(); dd.id = d.id;
-            var docDate = toDate(dd.createdAt);
-            if (!startDate || (docDate && docDate >= startDate)) depenses.push(dd);
         });
         var commandes = [];
         commandesSnap.forEach(d => {
@@ -94,15 +89,27 @@ async function loadStatistiques() {
             var docDate = toDate(dd.createdAt);
             if (!startDate || (docDate && docDate >= startDate)) commandes.push(dd);
         });
+        var depenses = [];
+        depensesSnap.forEach(d => {
+            var dd = d.data(); dd.id = d.id;
+            var docDate = toDate(dd.createdAt);
+            if (!startDate || (docDate && docDate >= startDate)) depenses.push(dd);
+        });
+        var credits = [];
+        creditsSnap.forEach(d => {
+            var dd = d.data(); dd.id = d.id;
+            var docDate = toDate(dd.createdAt);
+            if (!startDate || (docDate && docDate >= startDate)) credits.push(dd);
+        });
 
-        var produits = [];
-        produitsSnap.forEach(d => { produits.push({ id: d.id, ...d.data() }); });
-        var categories = [];
-        categoriesSnap.forEach(d => { categories.push({ id: d.id, ...d.data() }); });
-        var clients = [];
-        clientsSnap.forEach(d => { clients.push({ id: d.id, ...d.data() }); });
+        var clients = []; clientsSnap.forEach(d => clients.push({ id: d.id, ...d.data() }));
+        var produits = []; produitsSnap.forEach(d => produits.push({ id: d.id, ...d.data() }));
+        var categories = []; categoriesSnap.forEach(d => categories.push({ id: d.id, ...d.data() }));
+        var stockItems = []; stockSnap.forEach(d => stockItems.push({ id: d.id, ...d.data() }));
+        var personnel = []; personnelSnap.forEach(d => personnel.push({ id: d.id, ...d.data() }));
+        var fideliteSettings = settingsSnap.exists ? settingsSnap.data() : { active: true, pointsParVente: 1 };
 
-        // KPI
+        // ---------- KPI PRINCIPAUX ----------
         var totalVentes = ventes.reduce((sum, v) => sum + (v.total || 0), 0);
         var totalProfit = ventes.reduce((sum, v) => {
             var profit = 0;
@@ -122,8 +129,11 @@ async function loadStatistiques() {
         var nbProduits = produits.length;
         var nbCommandes = commandes.length;
         var tauxConversion = nbCommandes > 0 ? (nbVentes / nbCommandes * 100) : 0;
+        var valeurStock = stockItems.reduce((sum, s) => sum + ((s.prixAchat || 0) * (s.quantite || 0)), 0);
+        var totalSalaires = personnel.reduce((sum, p) => sum + (p.salaire || 0), 0);
+        var pointsTotal = fideliteSettings.active ? clients.reduce((sum, c) => sum + (c.pointsFidelite || 0), 0) : 0;
 
-        // Top 5 produits
+        // ---------- TOP 5 PRODUITS ----------
         var productSales = {};
         ventes.forEach(v => {
             if (v.items) {
@@ -136,7 +146,7 @@ async function loadStatistiques() {
         });
         var topProduits = Object.entries(productSales).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-        // Top 5 catégories
+        // ---------- TOP 5 CATÉGORIES ----------
         var categoryCA = {};
         ventes.forEach(v => {
             if (v.items) {
@@ -149,7 +159,7 @@ async function loadStatistiques() {
         });
         var topCategories = Object.entries(categoryCA).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-        // Méthodes de paiement
+        // ---------- MÉTHODES DE PAIEMENT ----------
         var paymentMethods = {};
         ventes.forEach(v => {
             var method = v.paymentMethod || 'espece';
@@ -157,12 +167,11 @@ async function loadStatistiques() {
             paymentMethods[method] += 1;
         });
 
-        // Ventes par jour
+        // ---------- VENTES PAR JOUR (COURBE) ----------
         var dailySales = {};
         var daysToShow = period === 'all' ? 30 : parseInt(period);
-        var today = new Date();
         for (var i = daysToShow - 1; i >= 0; i--) {
-            var d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+            var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
             var key = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
             dailySales[key] = 0;
         }
@@ -176,18 +185,27 @@ async function loadStatistiques() {
             }
         });
 
-        // Dépenses par catégorie
+        // ---------- DÉPENSES PAR CATÉGORIE ----------
         var depensesByCat = {};
         depenses.forEach(d => {
-            var cats = d.categories || ['Autre'];
-            cats.forEach(cat => {
-                if (!depensesByCat[cat]) depensesByCat[cat] = 0;
-                depensesByCat[cat] += d.montant || 0;
-            });
+            var cat = d.categorie || 'Autre';
+            if (!depensesByCat[cat]) depensesByCat[cat] = 0;
+            depensesByCat[cat] += d.montant || 0;
         });
 
-        // Construction HTML responsive
-        var statsHTML = '<div class="stats-grid" style="margin-bottom:20px;">';
+        // ---------- CRÉDITS IMPAYÉS PAR CLIENT ----------
+        var creditsImpayesParClient = {};
+        credits.filter(c => !c.paid).forEach(c => {
+            var client = c.clientName || 'Inconnu';
+            if (!creditsImpayesParClient[client]) creditsImpayesParClient[client] = 0;
+            creditsImpayesParClient[client] += (c.remainingAmount || c.total || 0);
+        });
+
+        // ---------- CONSTRUCTION HTML ----------
+        var statsHTML = '';
+
+        // Cartes KPI
+        statsHTML += '<div class="stats-grid" style="margin-bottom:20px;">';
         statsHTML += buildStatCard('Chiffre d\'affaires', totalVentes.toFixed(2) + ' MAD', 'fa-money-bill-wave', '#dcfce7', '#16a34a');
         statsHTML += buildStatCard('Ventes', nbVentes.toString(), 'fa-shopping-cart', '#e0e7ff', '#4f46e5');
         statsHTML += buildStatCard('Profit brut', totalProfit.toFixed(2) + ' MAD', 'fa-chart-line', '#fef3c7', '#f39c12');
@@ -198,30 +216,67 @@ async function loadStatistiques() {
         statsHTML += buildStatCard('Clients', nbClients.toString(), 'fa-users', '#dcfce7', '#16a34a');
         statsHTML += buildStatCard('Produits', nbProduits.toString(), 'fa-utensils', '#f0fdf4', '#16a34a');
         statsHTML += buildStatCard('Taux conversion', tauxConversion.toFixed(1) + '%', 'fa-chart-pie', '#fef3c7', '#f39c12');
+        statsHTML += buildStatCard('Valeur stock', valeurStock.toFixed(2) + ' MAD', 'fa-boxes', '#e0e7ff', '#4f46e5');
+        statsHTML += buildStatCard('Salaires', totalSalaires.toFixed(2) + ' MAD', 'fa-user-tie', '#fee2e2', '#ef4444');
+        if (fideliteSettings.active) statsHTML += buildStatCard('Points fidélité', pointsTotal.toString(), 'fa-star', '#fef3c7', '#f39c12');
         statsHTML += '</div>';
 
-        // Graphiques
+        // Graphiques (ligne 1)
         statsHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">';
         statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📈 Évolution du CA</h4><canvas id="salesChart" style="max-height:250px;"></canvas></div>';
         statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">💳 Méthodes de paiement</h4><canvas id="paymentChart" style="max-height:250px;"></canvas></div>';
         statsHTML += '</div>';
 
+        // Graphiques (ligne 2)
         statsHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">';
-        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">🏆 Top 5 Produits</h4><table class="data-table"><thead><tr><th>Produit</th><th>Qté vendue</th></tr></thead><tbody>';
-        topProduits.forEach(p => { statsHTML += `<tr><td>${p[0]}</td><td>${p[1]}</td></tr>`; });
+        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📊 Top 5 Catégories (CA)</h4><canvas id="categoryChart" style="max-height:250px;"></canvas></div>';
+        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">💸 Dépenses par catégorie</h4><canvas id="depensesChart" style="max-height:250px;"></canvas></div>';
+        statsHTML += '</div>';
+
+        // Tableaux et autres graphiques
+        statsHTML += '<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">';
+        // Top 5 produits
+        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">🏆 Top 5 Produits (quantité vendue)</h4><table class="data-table"><thead><tr><th>Produit</th><th>Qté vendue</th></tr></thead><tbody>';
+        if (topProduits.length > 0) {
+            topProduits.forEach(p => { statsHTML += `<tr><td>${p[0]}</td><td>${p[1]}</td></tr>`; });
+        } else {
+            statsHTML += '<tr><td colspan="2">Aucune vente</td></tr>';
+        }
         statsHTML += '</tbody></table></div>';
-        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📊 Top 5 Catégories</h4><table class="data-table"><thead><tr><th>Catégorie</th><th>CA (MAD)</th></tr></thead><tbody>';
-        topCategories.forEach(cat => { statsHTML += `<tr><td>${cat[0]}</td><td>${cat[1].toFixed(2)}</td></tr>`; });
+
+        // Crédits impayés par client
+        statsHTML += '<div class="content-card"><h4 style="margin-bottom:10px;">📋 Crédits impayés par client</h4><table class="data-table"><thead><tr><th>Client</th><th>Montant (MAD)</th></tr></thead><tbody>';
+        var creditsArray = Object.entries(creditsImpayesParClient).sort((a,b) => b[1] - a[1]);
+        if (creditsArray.length > 0) {
+            creditsArray.slice(0, 10).forEach(c => { statsHTML += `<tr><td>${c[0]}</td><td style="color:#ef4444;font-weight:600;">${c[1].toFixed(2)}</td></tr>`; });
+        } else {
+            statsHTML += '<tr><td colspan="2">Aucun crédit impayé</td></tr>';
+        }
         statsHTML += '</tbody></table></div>';
         statsHTML += '</div>';
 
-        statsHTML += '<div class="content-card" style="margin-bottom:20px;"><h4 style="margin-bottom:10px;">💸 Dépenses par catégorie</h4><canvas id="depensesChart" style="max-height:250px;"></canvas></div>';
+        // Section personnel (si existant)
+        if (personnel.length > 0) {
+            statsHTML += '<div class="content-card" style="margin-bottom:20px;"><h4 style="margin-bottom:10px;">👥 Effectif</h4><table class="data-table"><thead><tr><th>Rôle</th><th>Effectif</th><th>Total salaires</th></tr></thead><tbody>';
+            var effectifParRole = {};
+            var salaireParRole = {};
+            personnel.forEach(p => {
+                var role = p.role || 'Non défini';
+                effectifParRole[role] = (effectifParRole[role] || 0) + 1;
+                salaireParRole[role] = (salaireParRole[role] || 0) + (p.salaire || 0);
+            });
+            Object.keys(effectifParRole).forEach(role => {
+                statsHTML += `<tr><td>${role}</td><td>${effectifParRole[role]}</td><td>${salaireParRole[role].toFixed(2)} MAD</td></tr>`;
+            });
+            statsHTML += '</tbody></table></div>';
+        }
 
         statsContent.innerHTML = statsHTML;
 
         // Tracer les graphiques (Chart.js)
         setTimeout(() => {
             try {
+                // Courbe CA
                 var ctx1 = document.getElementById('salesChart')?.getContext('2d');
                 if (ctx1) {
                     statsCharts.sales = new Chart(ctx1, {
@@ -248,6 +303,7 @@ async function loadStatistiques() {
                     });
                 }
 
+                // Méthodes de paiement
                 var ctx2 = document.getElementById('paymentChart')?.getContext('2d');
                 if (ctx2) {
                     statsCharts.payment = new Chart(ctx2, {
@@ -267,11 +323,35 @@ async function loadStatistiques() {
                     });
                 }
 
-                var ctx3 = document.getElementById('depensesChart')?.getContext('2d');
+                // Top catégories (barres)
+                var ctx3 = document.getElementById('categoryChart')?.getContext('2d');
                 if (ctx3) {
+                    statsCharts.category = new Chart(ctx3, {
+                        type: 'bar',
+                        data: {
+                            labels: topCategories.map(c => c[0]),
+                            datasets: [{
+                                label: 'CA (MAD)',
+                                data: topCategories.map(c => c[1]),
+                                backgroundColor: '#f39c12',
+                                borderRadius: 5
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true, ticks: { callback: v => v + ' MAD' } } }
+                        }
+                    });
+                }
+
+                // Dépenses par catégorie
+                var ctx4 = document.getElementById('depensesChart')?.getContext('2d');
+                if (ctx4) {
                     var depCatLabels = Object.keys(depensesByCat);
                     var depCatData = Object.values(depensesByCat);
-                    statsCharts.depenses = new Chart(ctx3, {
+                    statsCharts.depenses = new Chart(ctx4, {
                         type: 'bar',
                         data: {
                             labels: depCatLabels,
@@ -306,7 +386,6 @@ async function loadStatistiques() {
     }
 }
 
-// Fonction utilitaire pour construire les cartes statistiques responsives
 function buildStatCard(label, value, icon, bgColor, iconColor) {
     return `
     <div class="stat-card">
@@ -315,7 +394,7 @@ function buildStatCard(label, value, icon, bgColor, iconColor) {
         </div>
         <div class="stat-info">
             <span class="stat-label">${label}</span>
-            <span class="stat-value" style="color:${value.includes('-') ? '#ef4444' : '#1e293b'}; white-space: normal; word-break: break-word; hyphens: auto;">${value}</span>
+            <span class="stat-value" style="color:${value.includes('-') ? '#ef4444' : '#1e293b'}; white-space: normal; word-break: break-word;">${value}</span>
         </div>
     </div>`;
 }
