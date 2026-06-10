@@ -1,4 +1,4 @@
-// ==================== POS.JS COMPLET (avec filtre commandes tables et tri date desc) ====================
+// ==================== POS.JS COMPLET AVEC TRI ASC/DESC SUR COMMANDES TABLES ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
@@ -6,7 +6,9 @@ var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
 // Commandes tables
 var posCommandesTables = [];
 var posCommandesTablesCount = 0;
-var posCommandesFilterText = '';   // filtre pour la liste des commandes tables
+var posCommandesFilterText = '';           // texte du filtre
+var posCommandesSortField = 'createdAt';   // champ de tri actuel
+var posCommandesSortOrder = 'desc';        // 'asc' ou 'desc'
 
 var posEpicesList = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var posSelList = ['Normal','Moins de sel','Sans sel'];
@@ -39,7 +41,9 @@ function posEnrichirItemsAvecPrixAchat(items) {
 
 async function loadPosPage(c) {
     posResetCart(); posStep = 1;
-    posCommandesFilterText = ''; // réinitialiser filtre
+    posCommandesFilterText = '';
+    posCommandesSortField = 'createdAt';
+    posCommandesSortOrder = 'desc';
 
     // Chargement depuis le cache
     let cachedCategories = await CacheDB.getAll('categories');
@@ -91,7 +95,7 @@ async function loadPosPage(c) {
         renderPOS();
     } catch(e) { console.error('Erreur mise à jour POS', e); }
 
-    // Charger commandes tables
+    // Charger commandes tables avec tri Firestore par date desc par défaut
     await posChargerCommandesTables();
 
     // Gestion des données externes (commande ou vente à payer)
@@ -175,13 +179,29 @@ async function posChargerCommandesTables() {
     }
 }
 
+// ========== AFFICHAGE DES COMMANDES TABLES AVEC TRI ET FILTRE ==========
+function posTriCommandesTables(field) {
+    if (posCommandesSortField === field) {
+        posCommandesSortOrder = posCommandesSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+        posCommandesSortField = field;
+        posCommandesSortOrder = 'asc';
+    }
+    posAfficherCommandesTables();
+}
+
+function posApplyCommandesFilter(value) {
+    posCommandesFilterText = value;
+    posAfficherCommandesTables();
+}
+
 function posAfficherCommandesTables() {
     if (posCommandesTables.length === 0) {
         alert('Aucune commande table en attente.');
         return;
     }
 
-    // Appliquer filtre
+    // 1. Filtrage texte
     let filteredData = posCommandesTables.slice();
     if (posCommandesFilterText.trim() !== '') {
         const q = posCommandesFilterText.toLowerCase().trim();
@@ -199,6 +219,40 @@ function posAfficherCommandesTables() {
         });
     }
 
+    // 2. Tri
+    filteredData.sort((a, b) => {
+        let valA, valB;
+        switch (posCommandesSortField) {
+            case 'table':
+                valA = (a.table || '').toLowerCase();
+                valB = (b.table || '').toLowerCase();
+                break;
+            case 'total':
+                valA = a.total || 0;
+                valB = b.total || 0;
+                break;
+            case 'createdAt':
+                valA = a.createdAt?.seconds || 0;
+                valB = b.createdAt?.seconds || 0;
+                break;
+            default:
+                valA = 0;
+                valB = 0;
+        }
+        if (valA < valB) return posCommandesSortOrder === 'asc' ? -1 : 1;
+        if (valA > valB) return posCommandesSortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // 3. Construction HTML des en-têtes cliquables
+    function renderSortableHeader(label, field) {
+        let icon = '';
+        if (posCommandesSortField === field) {
+            icon = posCommandesSortOrder === 'asc' ? ' ▲' : ' ▼';
+        }
+        return `<th style="cursor:pointer;" onclick="posTriCommandesTables('${field}')">${label}${icon}</th>`;
+    }
+
     var html = `
     <div style="margin-bottom:15px; display:flex; gap:10px; align-items:center;">
         <input type="text" id="posCmdFilterInput" placeholder="🔍 Filtrer (table, produit, option)..." 
@@ -210,11 +264,11 @@ function posAfficherCommandesTables() {
     <div style="max-height:65vh; overflow-y:auto;">
     <table class="data-table" style="width:100%; font-size:0.75rem;">
         <thead><tr>
-            <th>Table</th>
+            ${renderSortableHeader('Table', 'table')}
             <th>Produits</th>
             <th>Options</th>
-            <th>Total</th>
-            <th>Date/Heure</th>
+            ${renderSortableHeader('Total', 'total')}
+            ${renderSortableHeader('Date/Heure', 'createdAt')}
             <th>Actions</th>
         </tr></thead>
         <tbody>`;
@@ -250,17 +304,12 @@ function posAfficherCommandesTables() {
         });
     }
 
-    html += '</tbody>\\n<table></div>';
+    html += '</tbody>\\n</table></div>';
     openModal('🛎️ Commandes tables en attente (' + filteredData.length + ')', html);
     setTimeout(function() {
         var modal = document.getElementById('modalOverlay');
         if (modal) modal.classList.add('modal-wide');
     }, 50);
-}
-
-function posApplyCommandesFilter(value) {
-    posCommandesFilterText = value;
-    posAfficherCommandesTables();
 }
 
 function posChargerCommandeTable(commandeId) {
@@ -379,7 +428,7 @@ function posSetTable(v) {
     }
 }
 
-// ==================== AJOUT AU PANIER OU OUVERTURE OPTIONS (RECETTE) ====================
+// ==================== AJOUT AU PANIER / OPTIONS ====================
 function posAddToCartOrOpenOptions(pid) {
     var p = posProductsList.find(function(x) { return x.id === pid; });
     if (!p) return;
@@ -415,13 +464,12 @@ function posAddToCartOrOpenOptions(pid) {
     }
 }
 
-// ✅ MODAL DE PERSONNALISATION : affiche les ingrédients réels, groupés par catégorie
 async function posOpenOptionsModal(pid) {
     var p = posProductsList.find(function(x) { return x.id === pid; });
     if (!p) return;
     if (p.stock !== undefined && p.stock <= 0) { alert('Rupture'); return; }
 
-    // Charger les stocks si ce n'est pas déjà fait
+    // Charger les stocks
     if (typeof allStockData === 'undefined' || allStockData.length === 0) {
         try {
             const snap = await db.collection('stock').orderBy('nom').get();
@@ -430,7 +478,7 @@ async function posOpenOptionsModal(pid) {
         } catch(e) { console.error(e); }
     }
 
-    // Récupérer les ingrédients du produit depuis Firestore
+    // Récupérer ingrédients du produit
     try {
         const doc = await db.collection('products').doc(pid).get();
         if (doc.exists) {
@@ -443,7 +491,7 @@ async function posOpenOptionsModal(pid) {
         posCurrentProductIngredients = [];
     }
 
-    // Regrouper les ingrédients par catégorie
+    // Regroupement par catégorie
     var grouped = {};
     posCurrentProductIngredients.forEach(function(ing) {
         var stockItem = allStockData.find(function(s) { return s.id === ing.idStock; });
@@ -613,7 +661,7 @@ function posGoToStep1() { posStep = 1; delete window.posCommandeId; delete windo
 function posSetPaymentMethod(m) { if ((m === 'credit' || m === 'partiel') && (!posCurrentClient || !posCurrentClient.id)) { alert('Client requis pour crédit/partiel.'); return; } posPaymentMethod = m; posAmountGiven = 0; renderPOS(); }
 function posCalculateChange() { var ai = document.getElementById('posAmountGiven'), cd = document.getElementById('posChangeDisplay'); if (!ai || !cd) return; var st = posCalculateTotal(); var t = st - posDiscountMAD; posAmountGiven = parseFloat(ai.value) || 0; var c = posAmountGiven - t; if (posAmountGiven > 0) { cd.innerHTML = c >= 0 ? '<div class="pos-change-positive"><span>Rendu</span><span>' + c.toFixed(2) + ' MAD</span></div>' : '<div class="pos-change-negative"><span>Manquant</span><span>' + Math.abs(c).toFixed(2) + ' MAD</span></div>'; } else { cd.innerHTML = ''; } }
 
-// ==================== FINALISATION (EXCLUT LES INTERDITS DE LA DÉDUCTION) ====================
+// ==================== FINALISATION ====================
 async function posFinalizeSale() {
     var st = posCalculateTotal(); var t = st - posDiscountMAD;
     if (!posCurrentClient && !posCurrentTable) { alert('Client ou table requis.'); return; }
@@ -622,7 +670,6 @@ async function posFinalizeSale() {
     if (posPaymentMethod === 'espece') { posAmountGiven = parseFloat(document.getElementById('posAmountGiven').value) || 0; if (posAmountGiven < t) { alert('Montant insuffisant.'); return; } }
     var vendeur = document.getElementById('posVendeur').value.trim() || (window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : '');
     try {
-        // Compteur atomique pour facture (à implémenter si besoin)
         var fcs = await db.collection('ventes').get(); var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0');
         var remaining = 0, paid = true, statutPaiement = 'payé', change = 0;
         if (posPaymentMethod === 'credit') { paid = false; remaining = t; statutPaiement = 'crédit'; }
@@ -671,7 +718,7 @@ async function posFinalizeSale() {
             delete window.posVenteId;
         }
 
-        // Mise à jour du stock (ingrédients NON EXCLUS)
+        // Mise à jour du stock
         for (var i = 0; i < posCart.length; i++) {
             var it = posCart[i];
             try {
@@ -710,7 +757,7 @@ async function posFinalizeSale() {
             } catch(e) {}
         }
 
-        // Gestion de la fidélité
+        // Fidélité
         if (posCurrentClient && posCurrentClient.id && paid) {
             try {
                 var cr = await db.collection('clients').doc(posCurrentClient.id).get();
@@ -745,7 +792,7 @@ async function posFinalizeSale() {
                     }
                     await CacheDB.write('clients', posCurrentClient.id, updateData, 'update');
                 }
-            } catch(e) { console.error('Erreur mise à jour client (fidélité) :', e); }
+            } catch(e) { console.error('Erreur fidélité :', e); }
         }
 
         var msg = '✅ Vente: ' + fn + '\n💰 Total: ' + t.toFixed(2) + ' MAD';
@@ -757,4 +804,4 @@ async function posFinalizeSale() {
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS avec ingrédients catégorisés, filtre commandes tables et tri date desc OK');
+console.log('POS JS complet – avec tri cliquable sur commandes tables');
