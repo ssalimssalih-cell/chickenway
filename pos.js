@@ -1,18 +1,32 @@
-// ==================== POS.JS COMPLET (INTERDITS = INGRÉDIENTS RÉELS, REGROUPÉS PAR CATÉGORIE) ====================
+// ==================== POS.JS COMPLET (avec filtre commandes tables et tri date desc) ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
-var posSaucesList = ['Ketchup','Sauce Hot','Cheezy','Sauce Burger','Algérienne','Barbecue','Mayonnaise','Harissa','Samouraï','Andalouse']; // conservée mais plus utilisée
-var posInterditsList = ['Oignon','Tomate','Cornichon','Olive','Fromage','Salade']; // fallback
+
+// Commandes tables
+var posCommandesTables = [];
+var posCommandesTablesCount = 0;
+var posCommandesFilterText = '';   // filtre pour la liste des commandes tables
+
 var posEpicesList = ['Normal','Moins épicé','Très épicé','Sans épice'];
 var posSelList = ['Normal','Moins de sel','Sans sel'];
 
-var posCommandesTables = [];
-var posCommandesTablesCount = 0;
-var posCommandesEnLigneCount = 0;
-
 // Ingrédients du produit en cours de personnalisation
 var posCurrentProductIngredients = [];
+
+// Variable globale pour stock (nécessaire pour les catégories d'ingrédients)
+var allStockData = [];
+
+// ==================== UTILITAIRE ÉCHAPPEMENT HTML ====================
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
 
 // Enrichit les items avec le prix d'achat réel
 function posEnrichirItemsAvecPrixAchat(items) {
@@ -25,6 +39,7 @@ function posEnrichirItemsAvecPrixAchat(items) {
 
 async function loadPosPage(c) {
     posResetCart(); posStep = 1;
+    posCommandesFilterText = ''; // réinitialiser filtre
 
     // Chargement depuis le cache
     let cachedCategories = await CacheDB.getAll('categories');
@@ -75,6 +90,9 @@ async function loadPosPage(c) {
         posFilteredClients = [...posAllClients];
         renderPOS();
     } catch(e) { console.error('Erreur mise à jour POS', e); }
+
+    // Charger commandes tables
+    await posChargerCommandesTables();
 
     // Gestion des données externes (commande ou vente à payer)
     var commandeData = localStorage.getItem('posCommandeData');
@@ -134,8 +152,6 @@ async function loadPosPage(c) {
         return;
     }
 
-    await posChargerCommandesTables();
-    await posChargerCommandesEnLigneCount();
     renderPOS();
 }
 
@@ -144,22 +160,146 @@ async function posChargerCommandesTables() {
         var snap = await db.collection('commandes')
             .where('statut', '==', 'en_attente')
             .where('source', '==', 'menu_tactile')
+            .orderBy('createdAt', 'desc')
             .get();
         posCommandesTables = [];
-        snap.forEach(function(doc) { var data = doc.data(); data.id = doc.id; posCommandesTables.push(data); });
+        snap.forEach(function(doc) {
+            var data = doc.data();
+            data.id = doc.id;
+            posCommandesTables.push(data);
+        });
         posCommandesTablesCount = posCommandesTables.length;
-    } catch(e) { console.error('Erreur chargement commandes tables', e); posCommandesTablesCount = 0; }
+    } catch(e) {
+        console.error('Erreur chargement commandes tables', e);
+        posCommandesTablesCount = 0;
+    }
 }
 
-async function posChargerCommandesEnLigneCount() {
+function posAfficherCommandesTables() {
+    if (posCommandesTables.length === 0) {
+        alert('Aucune commande table en attente.');
+        return;
+    }
+
+    // Appliquer filtre
+    let filteredData = posCommandesTables.slice();
+    if (posCommandesFilterText.trim() !== '') {
+        const q = posCommandesFilterText.toLowerCase().trim();
+        filteredData = filteredData.filter(cmd => {
+            if ((cmd.table || '').toLowerCase().includes(q)) return true;
+            if (cmd.items && cmd.items.some(item => (item.nom || '').toLowerCase().includes(q))) return true;
+            if (cmd.items && cmd.items.some(item => {
+                const opts = [];
+                if (item.interdits) opts.push(...item.interdits);
+                if (item.epice && item.epice !== 'Normal') opts.push(item.epice);
+                if (item.sel && item.sel !== 'Normal') opts.push(item.sel);
+                return opts.some(opt => opt.toLowerCase().includes(q));
+            })) return true;
+            return false;
+        });
+    }
+
+    var html = `
+    <div style="margin-bottom:15px; display:flex; gap:10px; align-items:center;">
+        <input type="text" id="posCmdFilterInput" placeholder="🔍 Filtrer (table, produit, option)..." 
+               style="flex:1; padding:10px 14px; border:2px solid #e2e8f0; border-radius:40px; font-size:0.9rem;"
+               value="${escapeHtml(posCommandesFilterText)}"
+               onkeyup="posApplyCommandesFilter(this.value)">
+        <button class="btn-add" onclick="posApplyCommandesFilter('')" style="padding:8px 20px;">❌ Réinitialiser</button>
+    </div>
+    <div style="max-height:65vh; overflow-y:auto;">
+    <table class="data-table" style="width:100%; font-size:0.75rem;">
+        <thead><tr>
+            <th>Table</th>
+            <th>Produits</th>
+            <th>Options</th>
+            <th>Total</th>
+            <th>Date/Heure</th>
+            <th>Actions</th>
+        </tr></thead>
+        <tbody>`;
+
+    if (filteredData.length === 0) {
+        html += '<tr><td colspan="6" style="text-align:center; padding:30px;">Aucune commande correspondante</td></tr>';
+    } else {
+        filteredData.forEach(function(cmd) {
+            var table = cmd.table || '?';
+            var dateHeure = cmd.createdAt ? new Date(cmd.createdAt.seconds * 1000).toLocaleString('fr-FR') : 'N/A';
+            var produits = cmd.items ? cmd.items.map(function(it) {
+                return '<strong>' + it.quantite + 'x</strong> ' + escapeHtml(it.nom);
+            }).join('<br>') : '-';
+            var options = cmd.items ? cmd.items.map(function(it) {
+                var opts = [];
+                if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + escapeHtml(it.interdits.join(', ')) + '</span>');
+                if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + escapeHtml(it.epice) + '</span>');
+                if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + escapeHtml(it.sel) + '</span>');
+                return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
+            }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
+
+            html += '<tr>';
+            html += '<td><strong>🍽️ ' + escapeHtml(table) + '</strong></td>';
+            html += '<td>' + produits + '</td>';
+            html += '<td><small>' + options + '</small></td>';
+            html += '<td><strong style="color:#e67e22;">' + cmd.total.toFixed(2) + ' MAD</strong></td>';
+            html += '<td><small>' + dateHeure + '</small></td>';
+            html += '<td style="white-space:nowrap;">' +
+                '<button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:4px;" onclick="posChargerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-check"></i> Accepter</button>' +
+                '<button class="btn-save" style="padding:4px 8px;font-size:0.7rem;" onclick="posPayerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-money-bill-wave"></i> Payé</button>' +
+                '</td>';
+            html += '</tr>';
+        });
+    }
+
+    html += '</tbody>\\n<table></div>';
+    openModal('🛎️ Commandes tables en attente (' + filteredData.length + ')', html);
+    setTimeout(function() {
+        var modal = document.getElementById('modalOverlay');
+        if (modal) modal.classList.add('modal-wide');
+    }, 50);
+}
+
+function posApplyCommandesFilter(value) {
+    posCommandesFilterText = value;
+    posAfficherCommandesTables();
+}
+
+function posChargerCommandeTable(commandeId) {
+    var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
+    if (!cmd) return;
+    posCart = [];
+    var enrichedItems = posEnrichirItemsAvecPrixAchat(cmd.items);
+    enrichedItems.forEach(function(item) {
+        posCart.push({
+            id: item.id, nom: item.nom,
+            prixUnitaire: item.prixUnitaire || item.prixVente || 0,
+            prixAchat: item.prixAchat || 0, prixPromo: item.prixPromo || 0,
+            prixVente: item.prixVente || item.prixUnitaire || 0,
+            quantite: item.quantite || 1,
+            categorie: item.categorie || '', imageBase64: item.imageBase64 || '',
+            sauces: [], interdits: item.interdits || [],
+            epice: item.epice || 'Normal', sel: item.sel || 'Normal'
+        });
+    });
+    posCurrentTable = 'Table ' + (cmd.table || '?');
+    posCurrentClient = null;
+    posPaymentMethod = 'espece';
+    posDiscountMAD = 0;
+    window.posCommandeId = commandeId;
+    closeModal();
+    posStep = 2;
+    renderPOS();
+}
+
+async function posPayerCommandeTable(commandeId) {
+    if (!confirm('Marquer cette commande comme payée ?')) return;
     try {
-        var snap = await db.collection('commandes')
-            .where('statut', '==', 'en_attente')
-            .get();
-        let count = 0;
-        snap.forEach(doc => { if (doc.data().source === 'client') count++; });
-        posCommandesEnLigneCount = count;
-    } catch(e) { posCommandesEnLigneCount = 0; }
+        await CacheDB.write('commandes', commandeId, { statut: 'payé', paidAt: firebase.firestore.FieldValue.serverTimestamp() }, 'update');
+        alert('✅ Commande table marquée comme payée !');
+        await posChargerCommandesTables();
+        closeModal();
+        renderPOS();
+        CacheDB.sync();
+    } catch(e) { alert('❌ Erreur: ' + e.message); }
 }
 
 function posResetCart() {
@@ -190,7 +330,7 @@ function renderClientDropdown() {
         h = '<div style="padding:10px;color:#94a3b8;text-align:center;">Aucun</div>';
     } else {
         posFilteredClients.forEach(function(c) {
-            h += '<div onclick="posSelectClientFromDropdown(\'' + c.id + '\',\'' + c.nom.replace(/'/g,"\\'") + ' ' + c.prenom.replace(/'/g,"\\'") + '\')" style="padding:10px;cursor:pointer;border-bottom:1px solid #f1f5f9;">' + c.nom + ' ' + c.prenom + ' <span style="color:#94a3b8;font-size:0.7rem;">(' + (c.telephone||'') + ')</span></div>';
+            h += '<div onclick="posSelectClientFromDropdown(\'' + c.id + '\',\'' + escapeHtml(c.nom) + ' ' + escapeHtml(c.prenom) + '\')" style="padding:10px;cursor:pointer;border-bottom:1px solid #f1f5f9;">' + escapeHtml(c.nom) + ' ' + escapeHtml(c.prenom) + ' <span style="color:#94a3b8;font-size:0.7rem;">(' + (c.telephone||'') + ')</span></div>';
         });
     }
     d.innerHTML = h;
@@ -281,7 +421,7 @@ async function posOpenOptionsModal(pid) {
     if (!p) return;
     if (p.stock !== undefined && p.stock <= 0) { alert('Rupture'); return; }
 
-    // Charger les stocks si ce n'est pas déjà fait (nécessaire pour avoir les catégories)
+    // Charger les stocks si ce n'est pas déjà fait
     if (typeof allStockData === 'undefined' || allStockData.length === 0) {
         try {
             const snap = await db.collection('stock').orderBy('nom').get();
@@ -303,7 +443,7 @@ async function posOpenOptionsModal(pid) {
         posCurrentProductIngredients = [];
     }
 
-    // Regrouper les ingrédients par catégorie (déterminée depuis le stock)
+    // Regrouper les ingrédients par catégorie
     var grouped = {};
     posCurrentProductIngredients.forEach(function(ing) {
         var stockItem = allStockData.find(function(s) { return s.id === ing.idStock; });
@@ -312,7 +452,6 @@ async function posOpenOptionsModal(pid) {
         grouped[cat].push(ing.nom);
     });
 
-    // Ordre d'affichage souhaité
     var order = ['Sauces', 'Légumes', 'Fruits', 'Viande', 'Poulet', 'Poisson'];
     var sortedCats = Object.keys(grouped).sort(function(a, b) {
         var idxA = order.indexOf(a), idxB = order.indexOf(b);
@@ -323,25 +462,24 @@ async function posOpenOptionsModal(pid) {
     });
 
     posCurrentProductId = pid;
-    var h = '<h4>' + p.nom + '</h4>';
+    var h = '<h4>' + escapeHtml(p.nom) + '</h4>';
 
     if (sortedCats.length === 0) {
         h += '<div style="margin-bottom:12px;color:#94a3b8;font-size:0.85rem;">Aucun ingrédient à exclure</div>';
     } else {
         sortedCats.forEach(function(cat) {
             h += '<div style="margin-bottom:12px;">';
-            h += '<label style="font-weight:600;">🥫 ' + cat + '</label>';
+            h += '<label style="font-weight:600;">🥫 ' + escapeHtml(cat) + '</label>';
             h += '<div style="display:flex;flex-wrap:wrap;gap:5px;">';
             grouped[cat].forEach(function(ingredient) {
                 h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;">';
-                h += '<input type="checkbox" class="pos-interdit-check" value="' + ingredient + '"> ' + ingredient;
+                h += '<input type="checkbox" class="pos-interdit-check" value="' + escapeHtml(ingredient) + '"> ' + escapeHtml(ingredient);
                 h += '</label>';
             });
             h += '</div></div>';
         });
     }
 
-    // Épices et Sel (inchangés)
     h += '<div style="margin-bottom:12px;"><label style="font-weight:600;">🌶️ Épices:</label><div style="display:flex;flex-wrap:wrap;gap:5px;">';
     posEpicesList.forEach(function(s, idx) {
         h += '<label style="display:flex;align-items:center;gap:4px;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:0.75rem;"><input type="radio" name="pos-epice" value="' + s + '" ' + (idx === 0 ? 'checked' : '') + '> ' + s + '</label>';
@@ -392,8 +530,8 @@ function renderPOS() {
     for (var i = 0; i < posCategoriesList.length; i++) {
         var ca = posCategoriesList[i];
         var ac = posSelectedCategory === ca.nom ? 'active' : '';
-        var ih = ca.imageBase64 ? '<img src="' + ca.imageBase64 + '" alt="">' : '<i class="fas fa-folder"></i>';
-        h += '<button class="pos-cat-btn ' + ac + '" onclick="posFilterCategory(\'' + ca.nom.replace(/'/g, "\\'") + '\')">' + ih + ' ' + ca.nom + '</button>';
+        var ih = ca.imageBase64 ? '<img src="' + escapeHtml(ca.imageBase64) + '" alt="">' : '<i class="fas fa-folder"></i>';
+        h += '<button class="pos-cat-btn ' + ac + '" onclick="posFilterCategory(\'' + escapeHtml(ca.nom).replace(/'/g, "\\'") + '\')">' + ih + ' ' + escapeHtml(ca.nom) + '</button>';
     }
     h += '</div>';
     h += '<div style="display:flex; gap:8px; margin-left:10px;">';
@@ -403,7 +541,7 @@ function renderPOS() {
     h += '</button>';
     h += '<button onclick="navigateTo(\'commandes\')" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
     h += '<i class="fas fa-globe"></i> En ligne';
-    h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesEnLigneCount + '</span>';
+    h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">0</span>';
     h += '</button>';
     h += '</div>';
     h += '</div>';
@@ -419,9 +557,9 @@ function renderPOS() {
             var sc = '', stt = '';
             if (p.stock !== undefined) { if (p.stock <= 0) { sc = 'pos-out-of-stock'; stt = ' (Rupture)'; } else if (p.stock <= 5) { stt = ' (' + p.stock + ' rest.)'; } }
             h += '<div class="pos-product-card ' + sc + '" onclick="posAddToCartOrOpenOptions(\'' + p.id + '\')">';
-            if (p.imageBase64) h += '<div class="pos-product-img"><img src="' + p.imageBase64 + '" alt=""></div>';
+            if (p.imageBase64) h += '<div class="pos-product-img"><img src="' + escapeHtml(p.imageBase64) + '" alt=""></div>';
             else h += '<div class="pos-product-img pos-product-placeholder"><i class="fas fa-utensils"></i></div>';
-            h += '<div class="pos-product-info"><span class="pos-product-name">' + p.nom + stt + '</span><span class="pos-product-price">';
+            h += '<div class="pos-product-info"><span class="pos-product-name">' + escapeHtml(p.nom) + stt + '</span><span class="pos-product-price">';
             if (hp) h += '<span class="pos-old-price">' + p.prixVente.toFixed(2) + '</span> <span class="pos-promo-price">' + pr.toFixed(2) + ' MAD</span>';
             else h += pr.toFixed(2) + ' MAD';
             h += '</span></div></div>';
@@ -437,10 +575,10 @@ function renderPOS() {
             for (var k = 0; k < posCart.length; k++) {
                 var it = posCart[k];
                 var opts = '';
-                if (it.interdits && it.interdits.length > 0) opts += ' <span style="color:#ef4444;font-size:0.6rem;">🚫' + it.interdits.join(',') + '</span>';
-                if (it.epice && it.epice !== 'Normal') opts += ' <span style="color:#d97706;font-size:0.6rem;">🌶️' + it.epice + '</span>';
-                if (it.sel && it.sel !== 'Normal') opts += ' <span style="color:#4f46e5;font-size:0.6rem;">🧂' + it.sel + '</span>';
-                h += '<div class="pos-cart-item"><div class="pos-cart-item-info"><span class="pos-cart-item-name">' + it.nom + opts + '</span><span class="pos-cart-item-price">' + it.prixUnitaire.toFixed(2) + ' MAD/u</span></div><div class="pos-cart-item-actions"><button class="pos-qty-btn" onclick="posUpdateQty(' + k + ',-1)"><i class="fas fa-minus"></i></button><span class="pos-qty-value">' + it.quantite + '</span><button class="pos-qty-btn" onclick="posUpdateQty(' + k + ',1)"><i class="fas fa-plus"></i></button><button class="pos-remove-btn" onclick="posRemoveItem(' + k + ')"><i class="fas fa-times"></i></button></div><span class="pos-cart-item-total">' + (it.prixUnitaire * it.quantite).toFixed(2) + ' MAD</span></div>';
+                if (it.interdits && it.interdits.length > 0) opts += ' <span style="color:#ef4444;font-size:0.6rem;">🚫' + escapeHtml(it.interdits.join(',')) + '</span>';
+                if (it.epice && it.epice !== 'Normal') opts += ' <span style="color:#d97706;font-size:0.6rem;">🌶️' + escapeHtml(it.epice) + '</span>';
+                if (it.sel && it.sel !== 'Normal') opts += ' <span style="color:#4f46e5;font-size:0.6rem;">🧂' + escapeHtml(it.sel) + '</span>';
+                h += '<div class="pos-cart-item"><div class="pos-cart-item-info"><span class="pos-cart-item-name">' + escapeHtml(it.nom) + opts + '</span><span class="pos-cart-item-price">' + it.prixUnitaire.toFixed(2) + ' MAD/u</span></div><div class="pos-cart-item-actions"><button class="pos-qty-btn" onclick="posUpdateQty(' + k + ',-1)"><i class="fas fa-minus"></i></button><span class="pos-qty-value">' + it.quantite + '</span><button class="pos-qty-btn" onclick="posUpdateQty(' + k + ',1)"><i class="fas fa-plus"></i></button><button class="pos-remove-btn" onclick="posRemoveItem(' + k + ')"><i class="fas fa-times"></i></button></div><span class="pos-cart-item-total">' + (it.prixUnitaire * it.quantite).toFixed(2) + ' MAD</span></div>';
             }
         }
         h += '</div>';
@@ -451,11 +589,11 @@ function renderPOS() {
     } else if (posStep === 2) {
         var canCredit = posCurrentClient && posCurrentClient.id;
         h += '<div class="pos-cart-header"><h3><i class="fas fa-credit-card"></i> Paiement</h3><button class="pos-back-btn" onclick="posGoToStep1()"><i class="fas fa-arrow-left"></i> Retour</button></div><div class="pos-payment-form">';
-        h += '<div class="pos-payment-section"><label>Client</label><div style="position:relative;"><input type="text" id="posClientSearchInput" placeholder="🔍 Cliquez et tapez pour rechercher..." onkeyup="posSearchClient(this.value)" onfocus="if(this.value)posSearchClient(this.value)" autocomplete="off" value="' + (posCurrentClient ? posCurrentClient.name : '') + '" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"><div id="posClientDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #e2e8f0;border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,0.15);"></div></div></div>';
+        h += '<div class="pos-payment-section"><label>Client</label><div style="position:relative;"><input type="text" id="posClientSearchInput" placeholder="🔍 Cliquez et tapez pour rechercher..." onkeyup="posSearchClient(this.value)" onfocus="if(this.value)posSearchClient(this.value)" autocomplete="off" value="' + (posCurrentClient ? escapeHtml(posCurrentClient.name) : '') + '" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"><div id="posClientDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid #e2e8f0;border-radius:0 0 12px 12px;max-height:200px;overflow-y:auto;z-index:50;box-shadow:0 10px 30px rgba(0,0,0,0.15);"></div></div></div>';
         h += '<div class="pos-or-divider">— OU —</div>';
-        h += '<div class="pos-payment-section"><label>Table</label><input type="text" id="posTableNum" value="' + posCurrentTable + '" onchange="posSetTable(this.value)" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"></div>';
+        h += '<div class="pos-payment-section"><label>Table</label><input type="text" id="posTableNum" value="' + escapeHtml(posCurrentTable) + '" onchange="posSetTable(this.value)" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"></div>';
         h += '<div class="pos-payment-section"><div class="pos-summary-box"><div class="pos-summary-row"><span>Articles</span><span>' + posCart.length + '</span></div>'; if (posDiscountMAD > 0) h += '<div class="pos-summary-row"><span>Remise</span><span style="color:#ef4444;">-' + posDiscountMAD.toFixed(2) + '</span></div>'; h += '<div class="pos-summary-total"><span>Total</span><span>' + t.toFixed(2) + ' MAD</span></div></div></div>';
-        h += '<div class="pos-payment-section"><label>Vendeur</label><input type="text" id="posVendeur" value="' + (window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : '') + '" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"></div>';
+        h += '<div class="pos-payment-section"><label>Vendeur</label><input type="text" id="posVendeur" value="' + (window.currentUserData ? escapeHtml(window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom) : '') + '" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:12px;"></div>';
         h += '<div class="pos-payment-section"><label>Paiement</label><div class="pos-payment-methods"><button class="pos-payment-btn ' + (posPaymentMethod === 'espece' ? 'active' : '') + '" onclick="posSetPaymentMethod(\'espece\')"><i class="fas fa-money-bill-wave"></i> Espèces</button><button class="pos-payment-btn ' + (posPaymentMethod === 'credit' ? 'active' : '') + '" onclick="posSetPaymentMethod(\'credit\')" id="posCreditBtn" ' + (canCredit ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"') + '><i class="fas fa-credit-card"></i> Crédit</button><button class="pos-payment-btn ' + (posPaymentMethod === 'partiel' ? 'active' : '') + '" onclick="posSetPaymentMethod(\'partiel\')" id="posPartielBtn" ' + (canCredit ? '' : 'disabled style="opacity:0.4;cursor:not-allowed;"') + '><i class="fas fa-hand-holding-usd"></i> Partiel</button></div></div>';
         if (posPaymentMethod === 'espece' || posPaymentMethod === 'partiel') h += '<div class="pos-payment-section"><label>Montant donné</label><input type="number" id="posAmountGiven" placeholder="0.00" value="' + (posAmountGiven > 0 ? posAmountGiven : '') + '" onkeyup="posCalculateChange()"><div id="posChangeDisplay"></div></div>';
         h += '<button class="pos-finalize-btn" onclick="posFinalizeSale()"><i class="fas fa-check-circle"></i> Finaliser</button></div>';
@@ -463,79 +601,6 @@ function renderPOS() {
     h += '</div></div>';
     c.innerHTML = h;
     if (posStep === 2) setTimeout(posCalculateChange, 200);
-}
-
-// Commandes tables (modale élargie)
-function posAfficherCommandesTables() {
-    if (posCommandesTables.length === 0) { alert('Aucune commande table en attente.'); return; }
-    var html = '<div style="max-height:70vh;overflow-y:auto;"><table class="data-table" style="width:100%;font-size:0.75rem;"><thead><tr><th>ID Commande</th><th>N° Table</th><th>Produits</th><th>Options</th><th>Total</th><th>Date/Heure</th><th>Actions</th></tr></thead><tbody>';
-    posCommandesTables.forEach(function(cmd) {
-        var table = cmd.table || '?';
-        var dateHeure = cmd.createdAt ? new Date(cmd.createdAt.seconds * 1000).toLocaleString('fr-FR') : 'N/A';
-        var commandeId = cmd.id ? cmd.id.substring(0, 8) : 'N/A';
-        var produits = cmd.items ? cmd.items.map(function(it) { return '<strong>' + it.quantite + 'x</strong> ' + it.nom; }).join('<br>') : '-';
-        var options = cmd.items ? cmd.items.map(function(it) {
-            var opts = [];
-            if (it.interdits && it.interdits.length > 0) opts.push('<span style="color:#ef4444;">🚫 ' + it.interdits.join(', ') + '</span>');
-            if (it.epice && it.epice !== 'Normal') opts.push('<span style="color:#d97706;">🌶️ ' + it.epice + '</span>');
-            if (it.sel && it.sel !== 'Normal') opts.push('<span style="color:#4f46e5;">🧂 ' + it.sel + '</span>');
-            return opts.length > 0 ? opts.join(' | ') : '<span style="color:#94a3b8;">-</span>';
-        }).join('<br>') : '<span style="color:#94a3b8;">-</span>';
-        html += '<tr>';
-        html += '<td><small style="font-weight:600;">#' + commandeId + '</small></td>';
-        html += '<td><strong>🍽️ Table ' + table + '</strong></td>';
-        html += '<td>' + produits + '</td>';
-        html += '<td><small>' + options + '</small></td>';
-        html += '<td><strong style="color:#e67e22;">' + cmd.total.toFixed(2) + ' MAD</strong></td>';
-        html += '<td><small>' + dateHeure + '</small></td>';
-        html += '<td style="white-space:nowrap;"><button class="btn-add" style="padding:4px 8px;font-size:0.7rem;margin-right:4px;" onclick="posChargerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-check"></i> Accepter</button><button class="btn-save" style="padding:4px 8px;font-size:0.7rem;" onclick="posPayerCommandeTable(\'' + cmd.id + '\')"><i class="fas fa-money-bill-wave"></i> Payé</button></td>';
-        html += '</tr>';
-    });
-    html += '</tbody></table></div>';
-    openModal('🛎️ Commandes tables en attente (' + posCommandesTables.length + ')', html);
-    setTimeout(function() {
-        var modal = document.getElementById('modalOverlay');
-        if (modal) modal.classList.add('modal-wide');
-    }, 50);
-}
-
-function posChargerCommandeTable(commandeId) {
-    var cmd = posCommandesTables.find(function(c) { return c.id === commandeId; });
-    if (!cmd) return;
-    posCart = [];
-    var enrichedItems = posEnrichirItemsAvecPrixAchat(cmd.items);
-    enrichedItems.forEach(function(item) {
-        posCart.push({
-            id: item.id, nom: item.nom,
-            prixUnitaire: item.prixUnitaire || item.prixVente || 0,
-            prixAchat: item.prixAchat || 0, prixPromo: item.prixPromo || 0,
-            prixVente: item.prixVente || item.prixUnitaire || 0,
-            quantite: item.quantite || 1,
-            categorie: item.categorie || '', imageBase64: item.imageBase64 || '',
-            sauces: [], interdits: item.interdits || [],
-            epice: item.epice || 'Normal', sel: item.sel || 'Normal'
-        });
-    });
-    posCurrentTable = 'Table ' + (cmd.table || '?');
-    posCurrentClient = null;
-    posPaymentMethod = 'espece';
-    posDiscountMAD = 0;
-    window.posCommandeId = commandeId;
-    closeModal();
-    posStep = 2;
-    renderPOS();
-}
-
-async function posPayerCommandeTable(commandeId) {
-    if (!confirm('Marquer cette commande comme payée ?')) return;
-    try {
-        await CacheDB.write('commandes', commandeId, { statut: 'payé', paidAt: firebase.firestore.FieldValue.serverTimestamp() }, 'update');
-        alert('✅ Commande table marquée comme payée !');
-        await posChargerCommandesTables();
-        closeModal();
-        renderPOS();
-        CacheDB.sync();
-    } catch(e) { alert('❌ Erreur: ' + e.message); }
 }
 
 function posFilterCategory(ca) { posSelectedCategory = ca; renderPOS(); }
@@ -557,6 +622,7 @@ async function posFinalizeSale() {
     if (posPaymentMethod === 'espece') { posAmountGiven = parseFloat(document.getElementById('posAmountGiven').value) || 0; if (posAmountGiven < t) { alert('Montant insuffisant.'); return; } }
     var vendeur = document.getElementById('posVendeur').value.trim() || (window.currentUserData ? window.currentUserData.userData.prenom + ' ' + window.currentUserData.userData.nom : '');
     try {
+        // Compteur atomique pour facture (à implémenter si besoin)
         var fcs = await db.collection('ventes').get(); var fn = 'FACT-' + new Date().getFullYear() + '-' + String(fcs.size + 1).padStart(5, '0');
         var remaining = 0, paid = true, statutPaiement = 'payé', change = 0;
         if (posPaymentMethod === 'credit') { paid = false; remaining = t; statutPaiement = 'crédit'; }
@@ -605,7 +671,7 @@ async function posFinalizeSale() {
             delete window.posVenteId;
         }
 
-        // ✅ Mise à jour du stock (ingrédients NON EXCLUS)
+        // Mise à jour du stock (ingrédients NON EXCLUS)
         for (var i = 0; i < posCart.length; i++) {
             var it = posCart[i];
             try {
@@ -616,7 +682,6 @@ async function posFinalizeSale() {
                         var interditsItem = it.interdits || [];
                         for (var j = 0; j < productData.ingredients.length; j++) {
                             var ing = productData.ingredients[j];
-                            // Si l'ingrédient est dans les interdits, on ne le déduit pas
                             if (interditsItem.indexOf(ing.nom) !== -1) continue;
                             var stockDoc = await db.collection('stock').doc(ing.idStock).get();
                             if (stockDoc.exists) {
@@ -630,7 +695,6 @@ async function posFinalizeSale() {
                             }
                         }
                     } else {
-                        // Pas de recette : décrémenter le stock du produit fini
                         var pr = await db.collection('products').doc(it.id).get();
                         if (pr.exists) {
                             var pd = pr.data();
@@ -657,7 +721,6 @@ async function posFinalizeSale() {
                         profit: (cd.profit || 0) + profitTotal,
                         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
-
                     var fideliteActive = true;
                     var pointsParVente = 1;
                     try {
@@ -677,7 +740,6 @@ async function posFinalizeSale() {
                         var storedPoints = localStorage.getItem('fidelite_points');
                         pointsParVente = storedPoints ? parseInt(storedPoints) || 1 : 1;
                     }
-
                     if (fideliteActive) {
                         updateData.pointsFidelite = (cd.pointsFidelite || 0) + pointsParVente;
                     }
@@ -695,4 +757,4 @@ async function posFinalizeSale() {
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS avec ingrédients catégorisés et exclusion OK');
+console.log('POS JS avec ingrédients catégorisés, filtre commandes tables et tri date desc OK');
