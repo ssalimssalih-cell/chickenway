@@ -1,12 +1,12 @@
-// ==================== POS.JS COMPLET (avec compteur commandes en ligne) ====================
+// ==================== POS.JS COMPLET (avec compteur commandes en ligne fiable) ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
 
-// Commandes tables
+// Commandes tables et en ligne
 var posCommandesTables = [];
 var posCommandesTablesCount = 0;
-var posCommandesEnLigneCount = 0;            // ← compteur commandes en ligne
+var posCommandesEnLigneCount = 0;
 var posCommandesFilterText = '';           
 var posCommandesSortField = 'createdAt';   
 var posCommandesSortOrder = 'desc';        
@@ -90,7 +90,6 @@ async function loadPosPage(c) {
         renderPOS();
     } catch(e) { console.error('Erreur mise à jour POS', e); }
 
-    // Charger les deux compteurs
     await posChargerCommandesTables();
     await posChargerCommandesEnLigneCount();
 
@@ -154,7 +153,7 @@ async function loadPosPage(c) {
     renderPOS();
 }
 
-// ========== CHARGEMENT DES COMMANDES TABLES (sans orderBy) ==========
+// ========== CHARGEMENT DES COMMANDES TABLES ==========
 async function posChargerCommandesTables() {
     try {
         var snap = await db.collection('commandes')
@@ -167,7 +166,6 @@ async function posChargerCommandesTables() {
             data.id = doc.id;
             posCommandesTables.push(data);
         });
-        // Tri manuel par date décroissante
         posCommandesTables.sort((a, b) => {
             let da = a.createdAt?.seconds || 0;
             let db = b.createdAt?.seconds || 0;
@@ -180,17 +178,32 @@ async function posChargerCommandesTables() {
     }
 }
 
-// ========== CHARGEMENT DES COMMANDES EN LIGNE EN ATTENTE ==========
+// ========== CHARGEMENT DES COMMANDES EN LIGNE (avec fallback si pas d'index) ==========
 async function posChargerCommandesEnLigneCount() {
     try {
+        // Tentative avec requête filtrée (nécessite un index composite)
         var snap = await db.collection('commandes')
             .where('statut', '==', 'en_attente')
             .where('source', '==', 'client')
             .get();
         posCommandesEnLigneCount = snap.size;
+        console.log('✅ Commandes en ligne comptées via index :', posCommandesEnLigneCount);
     } catch(e) {
-        console.error('Erreur chargement commandes en ligne', e);
-        posCommandesEnLigneCount = 0;
+        console.warn('Requête avec index impossible, fallback : chargement de toutes les commandes', e);
+        // Fallback : charger toutes les commandes et filtrer côté client
+        try {
+            var allSnap = await db.collection('commandes').get();
+            let count = 0;
+            allSnap.forEach(doc => {
+                const data = doc.data();
+                if (data.statut === 'en_attente' && data.source === 'client') count++;
+            });
+            posCommandesEnLigneCount = count;
+            console.log('✅ Commandes en ligne comptées via fallback :', posCommandesEnLigneCount);
+        } catch(err) {
+            console.error('Erreur fallback commandes en ligne', err);
+            posCommandesEnLigneCount = 0;
+        }
     }
 }
 
@@ -282,7 +295,7 @@ function posAfficherCommandesTables() {
             ${renderSortableHeader('Total', 'total')}
             ${renderSortableHeader('Date/Heure', 'createdAt')}
             <th>Actions</th>
-        </tr></thead>
+        </table></thead>
         <tbody>`;
 
     if (filteredData.length === 0) {
@@ -813,4 +826,4 @@ async function posFinalizeSale() {
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS complet – compteur commandes en ligne OK');
+console.log('POS JS complet – compteur commandes en ligne (fallback inclus)');
