@@ -1,4 +1,4 @@
-// ==================== POS.JS COMPLET (sans orderBy pour éviter l'index) ====================
+// ==================== POS.JS COMPLET (avec compteur commandes en ligne) ====================
 var posCart = [], posStep = 1, posCategoriesList = [], posProductsList = [], posSelectedCategory = 'all';
 var posCurrentClient = null, posCurrentTable = '', posPaymentMethod = 'espece', posAmountGiven = 0, posDiscountMAD = 0;
 var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
@@ -6,6 +6,7 @@ var posAllClients = [], posFilteredClients = [], posCurrentProductId = null;
 // Commandes tables
 var posCommandesTables = [];
 var posCommandesTablesCount = 0;
+var posCommandesEnLigneCount = 0;            // ← compteur commandes en ligne
 var posCommandesFilterText = '';           
 var posCommandesSortField = 'createdAt';   
 var posCommandesSortOrder = 'desc';        
@@ -89,7 +90,9 @@ async function loadPosPage(c) {
         renderPOS();
     } catch(e) { console.error('Erreur mise à jour POS', e); }
 
+    // Charger les deux compteurs
     await posChargerCommandesTables();
+    await posChargerCommandesEnLigneCount();
 
     var commandeData = localStorage.getItem('posCommandeData');
     var payerVenteData = localStorage.getItem('posPayerVente');
@@ -151,7 +154,7 @@ async function loadPosPage(c) {
     renderPOS();
 }
 
-// ========== CHARGEMENT DES COMMANDES TABLES SANS ORDERBY (pour éviter l'index) ==========
+// ========== CHARGEMENT DES COMMANDES TABLES (sans orderBy) ==========
 async function posChargerCommandesTables() {
     try {
         var snap = await db.collection('commandes')
@@ -164,7 +167,7 @@ async function posChargerCommandesTables() {
             data.id = doc.id;
             posCommandesTables.push(data);
         });
-        // Tri manuel par date décroissante (par défaut)
+        // Tri manuel par date décroissante
         posCommandesTables.sort((a, b) => {
             let da = a.createdAt?.seconds || 0;
             let db = b.createdAt?.seconds || 0;
@@ -174,6 +177,20 @@ async function posChargerCommandesTables() {
     } catch(e) {
         console.error('Erreur chargement commandes tables', e);
         posCommandesTablesCount = 0;
+    }
+}
+
+// ========== CHARGEMENT DES COMMANDES EN LIGNE EN ATTENTE ==========
+async function posChargerCommandesEnLigneCount() {
+    try {
+        var snap = await db.collection('commandes')
+            .where('statut', '==', 'en_attente')
+            .where('source', '==', 'client')
+            .get();
+        posCommandesEnLigneCount = snap.size;
+    } catch(e) {
+        console.error('Erreur chargement commandes en ligne', e);
+        posCommandesEnLigneCount = 0;
     }
 }
 
@@ -581,7 +598,7 @@ function renderPOS() {
     h += '</button>';
     h += '<button onclick="navigateTo(\'commandes\')" style="position:relative; background:#fff; border:2px solid #e2e8f0; border-radius:50px; padding:8px 16px; cursor:pointer; font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px; white-space:nowrap;">';
     h += '<i class="fas fa-globe"></i> En ligne';
-    h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">0</span>';
+    h += '<span style="background:#ef4444; color:#fff; border-radius:20px; padding:2px 8px; font-size:0.7rem; margin-left:4px;">' + posCommandesEnLigneCount + '</span>';
     h += '</button>';
     h += '</div>';
     h += '</div>';
@@ -796,4 +813,4 @@ async function posFinalizeSale() {
     } catch(e) { alert('Erreur: ' + e.message); }
 }
 
-console.log('POS JS complet – sans orderBy (pas d’index requis), tri cliquable');
+console.log('POS JS complet – compteur commandes en ligne OK');
